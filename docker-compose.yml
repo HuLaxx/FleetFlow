@@ -1,0 +1,238 @@
+services:
+  # ============================================
+  # FleetFlow Backend API (FastAPI)
+  # ============================================
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: fleetflow-backend
+    ports:
+      - "8000:8000"
+    environment:
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - TIMESCALE_HOST=timescale
+      - TIMESCALE_PORT=5432
+      - REDIS_HOST=redis
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+    depends_on:
+      - postgres
+      - redis
+      - kafka
+    networks:
+      - fleetflow-network
+    restart: unless-stopped
+    healthcheck:
+      test: [ "CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')" ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # ============================================
+  # FleetFlow WebSocket Server (Real-time Updates)
+  # ============================================
+  websocket:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.websocket
+    container_name: fleetflow-websocket
+    ports:
+      - "8002:8002"
+    environment:
+      - REDIS_HOST=redis
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+      - WEBSOCKET_ALLOWED_ORIGINS=http://localhost:3000,http://localhost:3001
+    depends_on:
+      - redis
+      - kafka
+    networks:
+      - fleetflow-network
+    restart: unless-stopped
+    healthcheck:
+      test: [ "CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8002/health')" ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # ============================================
+  # PostgreSQL + PostGIS (Main Database)
+  # ============================================
+  postgres:
+    image: postgis/postgis:16-3.4
+    container_name: fleetflow-postgres
+    environment:
+      POSTGRES_USER: fleetflow
+      POSTGRES_PASSWORD: fleetflow_dev
+      POSTGRES_DB: fleetflow
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./db/init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U fleetflow -d fleetflow" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - fleetflow-network
+
+  # ============================================
+  # TimescaleDB (Time-Series Data)
+  # ============================================
+  timescale:
+    image: timescale/timescaledb:latest-pg16
+    container_name: fleetflow-timescale
+    environment:
+      POSTGRES_USER: fleetflow
+      POSTGRES_PASSWORD: fleetflow_dev
+      POSTGRES_DB: timescale
+    ports:
+      - "5433:5432"
+    volumes:
+      - timescale_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U fleetflow -d timescale" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - fleetflow-network
+
+  # ============================================
+  # Redis (Caching + Geospatial Indexing)
+  # ============================================
+  redis:
+    image: redis:7.4-alpine
+    container_name: fleetflow-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - fleetflow-network
+
+  # ============================================
+  # MongoDB (Document Store - Driver Profiles)
+  # ============================================
+  mongodb:
+    image: mongo:7.0
+    container_name: fleetflow-mongo
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: fleetflow
+      MONGO_INITDB_ROOT_PASSWORD: fleetflow_dev
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - fleetflow-network
+
+  # ============================================
+  # Zookeeper (Kafka Coordination)
+  # ============================================
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.6.0
+    container_name: fleetflow-zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+    volumes:
+      - zookeeper_data:/var/lib/zookeeper/data
+    networks:
+      - fleetflow-network
+
+  # ============================================
+  # Kafka (Event Streaming)
+  # ============================================
+  kafka:
+    image: confluentinc/cp-kafka:7.6.0
+    container_name: fleetflow-kafka
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+      - "29092:29092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+    healthcheck:
+      test: kafka-topics --bootstrap-server localhost:9092 --list
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    networks:
+      - fleetflow-network
+
+  # ============================================
+  # Kafka UI (Monitoring Dashboard)
+  # ============================================
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: fleetflow-kafka-ui
+    depends_on:
+      - kafka
+    ports:
+      - "8080:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: fleetflow
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
+      KAFKA_CLUSTERS_0_ZOOKEEPER: zookeeper:2181
+    networks:
+      - fleetflow-network
+
+  # ============================================
+  # OSRM (Open Source Routing Machine)
+  # ============================================
+  osrm:
+    image: osrm/osrm-backend
+    container_name: fleetflow-osrm
+    ports:
+      - "5000:5000"
+    volumes:
+      - osrm_data:/data
+    command: osrm-routed --algorithm mld /data/us-northeast-latest.osrm
+    networks:
+      - fleetflow-network
+    profiles:
+      - routing
+
+# ============================================
+# Networks
+# ============================================
+networks:
+  fleetflow-network:
+    driver: bridge
+
+# ============================================
+# Volumes
+# ============================================
+volumes:
+  postgres_data:
+  timescale_data:
+  redis_data:
+  mongo_data:
+  zookeeper_data:
+  kafka_data:
+  osrm_data:

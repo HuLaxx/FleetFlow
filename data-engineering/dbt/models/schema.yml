@@ -1,0 +1,69 @@
+version: 2
+
+sources:
+  - name: raw
+    schema: public
+    tables:
+      - name: orders
+        description: Raw order data from the transactional database
+      - name: drivers
+        description: Raw driver data
+      - name: vehicles
+        description: Raw vehicle data
+      - name: routes
+        description: Raw route data
+      - name: route_stops
+        description: Raw route stop data
+      - name: depots
+        description: Raw depot/warehouse data
+      - name: customers
+        description: Raw customer data
+
+models:
+  - name: stg_orders
+    description: Cleaned and standardized order data
+    columns:
+      - name: order_id
+        tests:
+          - unique
+          - not_null
+      - name: order_number
+        tests:
+          - unique
+          - not_null
+      - name: status
+        tests:
+          - accepted_values:
+              values: ['pending', 'assigned', 'in_transit', 'arrived', 'delivered', 'failed', 'cancelled', 'rescheduled']
+      - name: priority
+        tests:
+          - accepted_values:
+              values: [1, 2, 3, 4, 5]
+              
+  - name: stg_drivers
+    description: Cleaned driver data with derived fields
+    columns:
+      - name: driver_id
+        tests:
+          - unique
+          - not_null
+      - name: employee_id
+        tests:
+          - unique
+          - not_null
+      - name: status
+        tests:
+          - accepted_values:
+              values: ['available', 'on_route', 'on_break', 'offline']
+              
+  - name: stg_routes
+    description: Cleaned route data with variance calculations
+    columns:
+      - name: route_id
+        tests:
+          - unique
+          - not_null
+      - name: status
+        tests:
+          - accepted_values:
+              values: ['planned', 'in_progress', 'completed', 'cancelled']

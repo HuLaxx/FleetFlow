@@ -1,0 +1,71 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fleetflow-frontend
+  namespace: fleetflow
+  labels:
+    app: fleetflow
+    component: frontend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: fleetflow
+      component: frontend
+  template:
+    metadata:
+      labels:
+        app: fleetflow
+        component: frontend
+    spec:
+      containers:
+        - name: frontend
+          image: fleetflow/frontend:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 3000
+              name: http
+          env:
+            - name: FASTAPI_URL
+              value: "http://fleetflow-api:8000/api/v1"
+            - name: NEXT_PUBLIC_WS_URL
+              value: "ws://fleetflow-websocket:8002/ws"
+            - name: NODE_ENV
+              value: "production"
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 3000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 3000
+            initialDelaySeconds: 5
+            periodSeconds: 5
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: fleetflow-frontend
+  namespace: fleetflow
+  labels:
+    app: fleetflow
+    component: frontend
+spec:
+  type: ClusterIP
+  ports:
+    - port: 3000
+      targetPort: 3000
+      name: http
+  selector:
+    app: fleetflow
+    component: frontend

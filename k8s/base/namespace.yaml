@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: fleetflow
+  labels:
+    app: fleetflow
+    environment: production

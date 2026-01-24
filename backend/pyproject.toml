@@ -1,0 +1,92 @@
+[project]
+name = "fleetflow-backend"
+version = "0.1.0"
+description = "FleetFlow - Real-Time Delivery Optimization Backend"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    # API Framework
+    "fastapi>=0.109.0",
+    "uvicorn[standard]>=0.27.0",
+    "pydantic[email]>=2.5.0",
+    "pydantic-settings>=2.1.0",
+    
+    # Database
+    "sqlalchemy>=2.0.25",
+    "asyncpg>=0.29.0",
+    "psycopg2-binary>=2.9.9",
+    "geoalchemy2>=0.14.3",
+    "alembic>=1.13.1",
+    
+    # Kafka
+    "confluent-kafka>=2.3.0",
+    "aiokafka>=0.10.0",
+    
+    # Redis
+    "redis>=5.0.1",
+    
+    # Geospatial
+    "shapely>=2.0.2",
+    "geopy>=2.4.1",
+    "h3>=3.7.6",
+    
+    # Optimization
+    "ortools>=9.8.3296",
+    
+    # ML/Data Science
+    "numpy>=1.26.3",
+    "pandas>=2.1.4",
+    
+    # Utilities
+    "httpx>=0.26.0",
+    "tenacity>=8.2.3",
+    "structlog>=24.1.0",
+    "python-dotenv>=1.0.0",
+    
+    # Monitoring
+    "prometheus-client>=0.19.0",
+    "opentelemetry-api>=1.22.0",
+    "opentelemetry-sdk>=1.22.0",
+    "sentry-sdk[fastapi]>=1.40.0",
+    
+    # Security
+    "python-jose[cryptography]>=3.3.0",
+    "passlib[bcrypt]>=1.7.4",
+    "python-multipart>=0.0.6",
+    "slowapi>=0.1.9",
+    
+    # GraphQL
+    "strawberry-graphql[fastapi]>=0.220.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.4",
+    "pytest-asyncio>=0.23.3",
+    "pytest-cov>=4.1.0",
+    "httpx>=0.26.0",  # For async test client
+    "faker>=22.0.0",  # For generating test data
+    "pytest-mock>=3.12.0",  # For mocking
+    "black>=24.1.0",
+    "ruff>=0.1.13",
+    "mypy>=1.8.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.black]
+line-length = 100
+target-version = ["py311"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
