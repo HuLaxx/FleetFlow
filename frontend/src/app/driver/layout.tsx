@@ -17,3 +17,15 @@ export const viewport: Viewport = {
     maximumScale: 1,
     userScalable: false, // Prevent zooming like a native app
 };
+
+export default function DriverLayout({
+    children,
+}: {
+    children: React.ReactNode;
+}) {
+    return (
+        <div className="flex flex-col min-h-screen bg-stone-950 text-stone-50">
+            {children}
+        </div>
+    );
+}
