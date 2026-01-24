@@ -176,16 +176,16 @@ export function OptimizeRoutesDialog({ isOpen, onClose }: OptimizeRoutesDialogPr
                         <button
                             onClick={onClose}
                             className="flex-1 px-4 py-2 bg-stone-800 hover:bg-stone-700 text-stone-300 rounded-lg transition-colors"
-                            disabled={optimizeMutation.isLoading}
+                            disabled={optimizeMutation.isPending}
                         >
                             {optimizeMutation.isSuccess ? 'Close' : 'Cancel'}
                         </button>
                         <button
                             onClick={handleOptimize}
-                            disabled={optimizeMutation.isLoading || !selectedDepot}
+                            disabled={optimizeMutation.isPending || !selectedDepot}
                             className="flex-1 px-4 py-2 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 font-medium"
                         >
-                            {optimizeMutation.isLoading ? (
+                            {optimizeMutation.isPending ? (
                                 <>
                                     <Loader2 className="w-4 h-4 animate-spin" />
                                     Optimizing...
