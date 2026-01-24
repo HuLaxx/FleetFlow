@@ -155,7 +155,7 @@ export function useVehicleTracking(wsUrl: string = 'ws://localhost:8002/ws') {
 
     const handleMessage = useCallback((message: WebSocketMessage) => {
         if (message.type === 'vehicle_update') {
-            const data = message.data as VehicleLocation;
+            const data = message.data as unknown as VehicleLocation;
             setVehicles(prev => {
                 const next = new Map(prev);
                 next.set(data.vehicle_id, data);
@@ -197,7 +197,7 @@ export function useOrderUpdates(wsUrl: string = 'ws://localhost:8002/ws') {
 
     const handleMessage = useCallback((message: WebSocketMessage) => {
         if (message.type === 'order_update') {
-            const data = message.data as OrderUpdate;
+            const data = message.data as unknown as OrderUpdate;
             setOrders(prev => {
                 const next = new Map(prev);
                 next.set(data.order_id, data);
@@ -235,7 +235,7 @@ export function useAlerts(wsUrl: string = 'ws://localhost:8002/ws') {
 
     const handleMessage = useCallback((message: WebSocketMessage) => {
         if (message.type === 'alert') {
-            const data = message.data as Alert;
+            const data = message.data as unknown as Alert;
             setAlerts(prev => [data, ...prev].slice(0, 50)); // Keep last 50
         }
     }, []);
