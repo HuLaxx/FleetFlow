@@ -133,7 +133,7 @@ export default function FleetMap() {
                 transitions: {
                     getPosition: {
                         duration: 1800,
-                        easing: (t) => t, // Simple linear interpolation matches the update rate well
+                        easing: (t: number) => t, // Simple linear interpolation matches the update rate well
                     },
                 },
             }),
@@ -235,11 +235,8 @@ export default function FleetMap() {
                     onViewStateChange={(e: any) => setViewState(e.viewState)}
                     controller={true}
                     layers={layers}
-                    style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}
-                    glOptions={{
-                        preserveDrawingBuffer: true,
-                        failIfMajorPerformanceCaveat: false,
-                    }}
+                    style={{ position: 'absolute', top: '0px', left: '0px', width: '100%', height: '100%' }}
+
                     getTooltip={({ object }: any) =>
                         object && object.driver
                             ? {
