@@ -68,7 +68,7 @@ export function OptimizeRoutesDialog({ isOpen, onClose }: OptimizeRoutesDialogPr
                     onClick={(e) => e.stopPropagation()}
                 >
                     {/* Header */}
-                    <div className="bg-gradient-to-r from-amber-600 to-orange-600 p-6">
+                    <div className="bg-gradient-to-r from-emerald-600 to-teal-600 p-6">
                         <div className="flex items-center gap-3">
                             <div className="p-2 bg-white/20 rounded-lg">
                                 <Sparkles className="w-6 h-6 text-white" />
@@ -92,7 +92,7 @@ export function OptimizeRoutesDialog({ isOpen, onClose }: OptimizeRoutesDialogPr
                                 type="date"
                                 value={selectedDate}
                                 onChange={(e) => setSelectedDate(e.target.value)}
-                                className="w-full px-4 py-2 bg-stone-800 border border-stone-700 rounded-lg text-stone-100 focus:outline-none focus:border-amber-500 transition-colors"
+                                className="w-full px-4 py-2 bg-stone-800 border border-stone-700 rounded-lg text-stone-100 focus:outline-none focus:border-emerald-500 transition-colors"
                             />
                         </div>
 
@@ -105,7 +105,7 @@ export function OptimizeRoutesDialog({ isOpen, onClose }: OptimizeRoutesDialogPr
                             <select
                                 value={selectedDepot}
                                 onChange={(e) => setSelectedDepot(e.target.value)}
-                                className="w-full px-4 py-2 bg-stone-800 border border-stone-700 rounded-lg text-stone-100 focus:outline-none focus:border-amber-500 transition-colors"
+                                className="w-full px-4 py-2 bg-stone-800 border border-stone-700 rounded-lg text-stone-100 focus:outline-none focus:border-emerald-500 transition-colors"
                             >
                                 <option value="">Select a depot...</option>
                                 {mockDepots.map(depot => (
@@ -121,32 +121,32 @@ export function OptimizeRoutesDialog({ isOpen, onClose }: OptimizeRoutesDialogPr
                             <motion.div
                                 initial={{ opacity: 0, y: 10 }}
                                 animate={{ opacity: 1, y: 0 }}
-                                className="p-4 bg-amber-900/20 border border-amber-700/30 rounded-lg"
+                                className="p-4 bg-emerald-900/20 border border-emerald-700/30 rounded-lg"
                             >
                                 <div className="flex items-start gap-3">
-                                    <CheckCircle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
+                                    <CheckCircle className="w-5 h-5 text-emerald-500 flex-shrink-0 mt-0.5" />
                                     <div className="flex-1">
-                                        <h4 className="font-semibold text-amber-400 mb-2">Optimization Complete!</h4>
+                                        <h4 className="font-semibold text-emerald-400 mb-2">Optimization Complete!</h4>
                                         <div className="space-y-1 text-sm text-stone-300">
                                             <div className="flex justify-between">
                                                 <span>Routes Created:</span>
-                                                <span className="font-mono text-amber-400">
+                                                <span className="font-mono text-emerald-400">
                                                     {optimizeMutation.data?.routes?.length || 0}
                                                 </span>
                                             </div>
                                             <div className="flex justify-between">
                                                 <span>Orders Assigned:</span>
-                                                <span className="font-mono text-amber-400">
+                                                <span className="font-mono text-emerald-400">
                                                     {optimizeMutation.data?.metrics?.orders_assigned || 0}
                                                 </span>
                                             </div>
                                             <div className="flex justify-between items-center">
                                                 <span>Total Distance:</span>
-                                                <span className="font-mono text-amber-400">
+                                                <span className="font-mono text-emerald-400">
                                                     {optimizeMutation.data?.metrics?.total_distance_km?.toFixed(1) || 0} km
                                                 </span>
                                             </div>
-                                            <div className="flex items-center gap-1 text-xs text-amber-500 mt-2">
+                                            <div className="flex items-center gap-1 text-xs text-emerald-500 mt-2">
                                                 <TrendingDown className="w-3 h-3" />
                                                 <span>23% distance reduction vs. greedy algorithm</span>
                                             </div>
@@ -183,7 +183,7 @@ export function OptimizeRoutesDialog({ isOpen, onClose }: OptimizeRoutesDialogPr
                         <button
                             onClick={handleOptimize}
                             disabled={optimizeMutation.isPending || !selectedDepot}
-                            className="flex-1 px-4 py-2 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 font-medium"
+                            className="flex-1 px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 font-medium"
                         >
                             {optimizeMutation.isPending ? (
                                 <>

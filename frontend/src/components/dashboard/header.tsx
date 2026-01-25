@@ -32,7 +32,7 @@ export function Header() {
                         <input
                             type="text"
                             placeholder="Search orders, drivers, routes..."
-                            className="w-80 h-10 pl-10 pr-4 bg-stone-800 border border-stone-700 rounded-lg text-sm text-stone-100 placeholder-stone-500 focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 transition-all hover:border-stone-600"
+                            className="w-80 h-10 pl-10 pr-4 bg-stone-800 border border-stone-700 rounded-lg text-sm text-stone-100 placeholder-stone-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition-all hover:border-stone-600"
                         />
                     </div>
                 </div>
@@ -40,12 +40,12 @@ export function Header() {
                 {/* Center - Status */}
                 <div className="flex items-center gap-6">
                     <div className="flex items-center gap-2">
-                        <div className="w-2 h-2 bg-amber-500 rounded-full animate-pulse shadow-[0_0_10px_2px_rgba(245,158,11,0.3)]" />
+                        <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse shadow-[0_0_10px_2px_rgba(16,185,129,0.3)]" />
                         <span className="text-sm text-stone-400">System Online</span>
                     </div>
                     <div className="h-4 w-px bg-stone-700" />
                     <div className="flex items-center gap-2 text-sm text-stone-400">
-                        <span className="font-mono text-amber-500">
+                        <span className="font-mono text-emerald-500">
                             {mounted && currentTime ? currentTime.toLocaleTimeString('en-US', {
                                 hour: '2-digit',
                                 minute: '2-digit',
@@ -70,13 +70,13 @@ export function Header() {
                         onClick={handleRefresh}
                         className="p-2 hover:bg-stone-800 rounded-lg transition-colors group"
                     >
-                        <RefreshCw className={`w-5 h-5 text-stone-400 group-hover:text-amber-500 transition-colors ${isRefreshing ? 'animate-spin' : ''}`} />
+                        <RefreshCw className={`w-5 h-5 text-stone-400 group-hover:text-emerald-500 transition-colors ${isRefreshing ? 'animate-spin' : ''}`} />
                     </button>
 
                     {/* Notifications */}
                     <button className="relative p-2 hover:bg-stone-800 rounded-lg transition-colors group">
-                        <Bell className="w-5 h-5 text-stone-400 group-hover:text-amber-500 transition-colors" />
-                        <span className="absolute top-1 right-1 w-2 h-2 bg-amber-500 rounded-full shadow-lg shadow-amber-500/50 border border-stone-900" />
+                        <Bell className="w-5 h-5 text-stone-400 group-hover:text-emerald-500 transition-colors" />
+                        <span className="absolute top-1 right-1 w-2 h-2 bg-emerald-500 rounded-full shadow-lg shadow-emerald-500/50 border border-stone-900" />
                     </button>
 
                     {/* Date Selector */}
@@ -88,7 +88,7 @@ export function Header() {
                     {/* Optimize Button */}
                     <button
                         onClick={() => setShowOptimizeDialog(true)}
-                        className="flex items-center gap-2 h-10 px-4 bg-gradient-to-r from-amber-600 to-amber-500 rounded-lg text-sm font-semibold text-stone-900 hover:scale-105 transition-all shadow-lg shadow-amber-900/30 border border-amber-500/20"
+                        className="flex items-center gap-2 h-10 px-4 bg-gradient-to-r from-emerald-600 to-emerald-500 rounded-lg text-sm font-semibold text-stone-900 hover:scale-105 transition-all shadow-lg shadow-emerald-900/30 border border-emerald-500/20"
                     >
                         <Sparkles className="w-4 h-4" />
                         Run Optimization

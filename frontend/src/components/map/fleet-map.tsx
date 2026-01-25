@@ -271,7 +271,7 @@ export default function FleetMap() {
                 <button
                     onClick={() => setShowRoutes(!showRoutes)}
                     className={`p-2 rounded-lg transition-colors ${showRoutes
-                        ? 'bg-amber-500 text-stone-900'
+                        ? 'bg-emerald-500 text-stone-900'
                         : 'bg-stone-800 text-stone-400 hover:bg-stone-700'
                         }`}
                     title="Toggle Routes"
@@ -287,7 +287,7 @@ export default function FleetMap() {
                     {[
                         { label: 'Active', color: 'bg-emerald-500' },
                         { label: 'Idle', color: 'bg-cyan-500' },
-                        { label: 'On Break', color: 'bg-amber-500' },
+                        { label: 'On Break', color: 'bg-emerald-500' },
                     ].map((item) => (
                         <div key={item.label} className="flex items-center gap-2">
                             <div className={`w-2 h-2 rounded-full ${item.color}`} />
@@ -300,7 +300,7 @@ export default function FleetMap() {
                     <div className="space-y-1.5">
                         {[
                             { label: 'Completed', color: 'bg-emerald-500' },
-                            { label: 'Pending', color: 'bg-amber-400' },
+                            { label: 'Pending', color: 'bg-emerald-400' },
                         ].map((item) => (
                             <div key={item.label} className="flex items-center gap-2">
                                 <div className={`w-2 h-2 rounded-full ${item.color}`} />
@@ -325,7 +325,7 @@ export default function FleetMap() {
                     </div>
                     <div className="h-8 w-px bg-stone-700" />
                     <div>
-                        <p className="text-xl font-bold text-amber-400">{mockRoutes.length}</p>
+                        <p className="text-xl font-bold text-emerald-400">{mockRoutes.length}</p>
                         <p className="text-[10px] text-stone-500 uppercase">Routes</p>
                     </div>
                 </div>

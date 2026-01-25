@@ -19,6 +19,7 @@ from src.api.routes import orders, drivers, routes, vehicles, optimization, auth
 from src.middleware.security import configure_security
 from src.monitoring import PrometheusMiddleware, configure_sentry
 from src.graphql import graphql_router
+from src.llm import router as rag_router
 
 logger = structlog.get_logger()
 settings = get_settings()
@@ -132,6 +133,7 @@ app.include_router(routes.router, prefix="/api/v1/routes", tags=["Routes"])
 app.include_router(vehicles.router, prefix="/api/v1/vehicles", tags=["Vehicles"])
 app.include_router(optimization.router, prefix="/api/v1/optimization", tags=["Optimization"])
 app.include_router(experiments.router, prefix="/api/v1", tags=["A/B Testing"])
+app.include_router(rag_router, tags=["RAG"])
 
 # GraphQL API
 app.include_router(graphql_router, prefix="/graphql", tags=["GraphQL"])

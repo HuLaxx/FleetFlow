@@ -7,6 +7,7 @@ import { Menu, X, Github, Truck, ExternalLink } from 'lucide-react';
 
 const navLinks = [
     { href: '/#features', label: 'Features' },
+    { href: '/portfolio', label: 'Portfolio' },
     { href: '/architecture', label: 'Architecture' },
     { href: '/tech-stack', label: 'Tech Stack' },
     { href: '/demo', label: 'Live Demo', highlight: true },
@@ -42,11 +43,11 @@ export function SiteHeader() {
                 <div className="px-6 flex items-center justify-between h-14">
                     {/* Logo Section */}
                     <Link href="/" className="flex items-center gap-3 group">
-                        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-stone-800 to-stone-900 flex items-center justify-center shadow-lg shadow-black/20 group-hover:shadow-amber-900/20 group-hover:scale-105 transition-all border border-white/5">
-                            <Truck className="w-5 h-5 text-amber-500" />
+                        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-stone-800 to-stone-900 flex items-center justify-center shadow-lg shadow-black/20 group-hover:shadow-emerald-900/20 group-hover:scale-105 transition-all border border-white/5">
+                            <Truck className="w-5 h-5 text-emerald-500" />
                         </div>
                         <div className="flex flex-col">
-                            <span className="text-lg font-bold bg-gradient-to-r from-amber-200 to-amber-500 bg-clip-text text-transparent">
+                            <span className="text-lg font-bold bg-gradient-to-r from-emerald-200 to-emerald-500 bg-clip-text text-transparent">
                                 FleetFlow
                             </span>
                         </div>
@@ -63,7 +64,7 @@ export function SiteHeader() {
                                     <Link
                                         key={link.href}
                                         href={link.href}
-                                        className="ml-2 flex items-center gap-2 px-5 py-2 text-sm font-medium bg-gradient-to-r from-amber-600 to-amber-500 text-stone-900 rounded-full hover:from-amber-500 hover:to-amber-400 transition-all shadow-lg shadow-amber-500/20 hover:shadow-amber-500/40"
+                                        className="ml-2 flex items-center gap-2 px-5 py-2 text-sm font-medium bg-gradient-to-r from-emerald-600 to-emerald-500 text-stone-900 rounded-full hover:from-emerald-500 hover:to-emerald-400 transition-all shadow-lg shadow-emerald-500/20 hover:shadow-emerald-500/40"
                                     >
                                         {link.label}
                                         <ExternalLink className="w-3 h-3 text-stone-900/70" />
@@ -77,8 +78,8 @@ export function SiteHeader() {
                                     key={link.href}
                                     href={link.href}
                                     className={`px-4 py-2 text-sm transition-all rounded-full hover:bg-stone-800/50 ${isActive
-                                        ? 'text-amber-500 font-medium'
-                                        : 'text-stone-400 hover:text-amber-200'
+                                        ? 'text-emerald-500 font-medium'
+                                        : 'text-stone-400 hover:text-emerald-200'
                                         }`}
                                 >
                                     {link.label}
@@ -119,7 +120,7 @@ export function SiteHeader() {
                                     href={link.href}
                                     onClick={() => setMobileMenuOpen(false)}
                                     className={`px-4 py-3 text-sm rounded-lg transition-colors ${pathname === link.href
-                                        ? 'text-amber-400 bg-amber-900/10'
+                                        ? 'text-emerald-400 bg-emerald-900/10'
                                         : 'text-stone-400 hover:text-stone-100 hover:bg-stone-800/50'
                                         }`}
                                 >

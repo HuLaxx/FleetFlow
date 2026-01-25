@@ -149,7 +149,7 @@ class WebSocketClient {
 }
 
 // Singleton instance for the app
-// Assuming backend WS runs on port 8002
+// Uses NEXT_PUBLIC_WS_URL when set.
 const WS_URL = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8002/ws';
 
 export const wsClient = new WebSocketClient({

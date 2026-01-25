@@ -33,10 +33,10 @@ const iconMap = {
 
 const colorMap = {
     warning: {
-        bg: 'bg-amber-500/10',
-        border: 'border-amber-500/30',
-        icon: 'text-amber-400',
-        title: 'text-amber-300',
+        bg: 'bg-emerald-500/10',
+        border: 'border-emerald-500/30',
+        icon: 'text-emerald-400',
+        title: 'text-emerald-300',
     },
     error: {
         bg: 'bg-red-500/10',
@@ -263,7 +263,7 @@ export default function AlertsSidebar() {
                     </div>
                     <div className="bg-zinc-800 rounded p-2">
                         <div className="flex items-center justify-center gap-1">
-                            <Clock className="w-3 h-3 text-amber-400" />
+                            <Clock className="w-3 h-3 text-emerald-400" />
                             <span className="text-sm font-medium text-zinc-100">2</span>
                         </div>
                         <p className="text-[10px] text-zinc-500">Late</p>

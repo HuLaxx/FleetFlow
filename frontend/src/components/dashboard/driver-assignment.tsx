@@ -84,13 +84,13 @@ const mockPendingOrders: PendingOrder[] = [
 const statusConfig = {
     available: { label: 'Available', color: 'bg-emerald-500', textColor: 'text-emerald-400' },
     on_route: { label: 'On Route', color: 'bg-blue-500', textColor: 'text-blue-400' },
-    on_break: { label: 'On Break', color: 'bg-amber-500', textColor: 'text-amber-400' },
+    on_break: { label: 'On Break', color: 'bg-emerald-500', textColor: 'text-emerald-400' },
     offline: { label: 'Offline', color: 'bg-zinc-500', textColor: 'text-zinc-400' },
 };
 
 const priorityColor = {
     normal: 'border-zinc-600',
-    high: 'border-amber-500',
+    high: 'border-emerald-500',
     urgent: 'border-red-500',
 };
 
@@ -134,7 +134,7 @@ function DriverCard({
 
             <div className="grid grid-cols-3 gap-2 text-center">
                 <div className="bg-zinc-800 rounded p-2">
-                    <div className="flex items-center justify-center gap-1 text-amber-400">
+                    <div className="flex items-center justify-center gap-1 text-emerald-400">
                         <Star className="w-3 h-3 fill-current" />
                         <span className="text-sm font-medium">{driver.rating}</span>
                     </div>
@@ -164,7 +164,7 @@ function OrderCard({ order }: { order: PendingOrder }) {
             <div className="flex items-center justify-between mb-2">
                 <p className="font-medium text-zinc-100 text-sm">{order.orderNumber}</p>
                 <span className={`text-xs px-1.5 py-0.5 rounded ${order.priority === 'urgent' ? 'bg-red-500/20 text-red-400' :
-                        order.priority === 'high' ? 'bg-amber-500/20 text-amber-400' :
+                        order.priority === 'high' ? 'bg-emerald-500/20 text-emerald-400' :
                             'bg-zinc-700 text-zinc-400'
                     }`}>
                     {order.priority.toUpperCase()}

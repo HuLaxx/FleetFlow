@@ -5,9 +5,9 @@ import { motion } from 'framer-motion';
 import { trpc } from '@/lib/trpc';
 
 const iconColorMap = {
-    orders: { color: 'from-amber-500 to-amber-400', icon: Package },
-    drivers: { color: 'from-orange-600 to-orange-500', icon: Truck },
-    routes: { color: 'from-yellow-600 to-yellow-500', icon: Route },
+    orders: { color: 'from-emerald-500 to-emerald-400', icon: Package },
+    drivers: { color: 'from-teal-600 to-teal-500', icon: Truck },
+    routes: { color: 'from-green-600 to-green-500', icon: Route },
     avgDelivery: { color: 'from-stone-600 to-stone-500', icon: Clock },
 };
 
@@ -61,16 +61,16 @@ export function StatsCards() {
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: index * 0.1 }}
-                    className="bg-stone-900 border border-stone-800 rounded-xl p-4 hover:border-amber-500/20 transition-all shadow-sm hover:shadow-md"
+                    className="bg-stone-900 border border-stone-800 rounded-xl p-4 hover:border-emerald-500/20 transition-all shadow-sm hover:shadow-md"
                 >
                     <div className="flex items-start justify-between">
                         <div className={`p-2 rounded-lg bg-gradient-to-br ${stat.color} shadow-lg shadow-black/20`}>
                             <stat.icon className="w-4 h-4 text-stone-900" />
                         </div>
                         <div className="flex items-center gap-1 text-xs">
-                            {stat.trend === 'up' && <TrendingUp className="w-3 h-3 text-amber-500" />}
-                            {stat.trend === 'down' && <TrendingDown className="w-3 h-3 text-amber-500" />}
-                            <span className={stat.trend === 'up' ? 'text-amber-500' : stat.trend === 'down' ? 'text-amber-500' : 'text-stone-500'}>
+                            {stat.trend === 'up' && <TrendingUp className="w-3 h-3 text-emerald-500" />}
+                            {stat.trend === 'down' && <TrendingDown className="w-3 h-3 text-emerald-500" />}
+                            <span className={stat.trend === 'up' ? 'text-emerald-500' : stat.trend === 'down' ? 'text-emerald-500' : 'text-stone-500'}>
                                 {stat.change}
                             </span>
                         </div>

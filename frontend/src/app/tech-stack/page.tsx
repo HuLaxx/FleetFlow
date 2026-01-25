@@ -51,8 +51,8 @@ const categories = [
     {
         name: 'Frontend',
         description: 'Modern React with real-time visualization',
-        color: 'from-amber-600 to-amber-500', // Gold
-        borderColor: 'border-amber-500/20',
+        color: 'from-emerald-600 to-emerald-500', // Gold
+        borderColor: 'border-emerald-500/20',
         tools: [
             { name: 'Next.js 16', description: 'React framework with App Router', url: 'https://nextjs.org' },
             { name: 'React 19', description: 'Latest React with hooks', url: 'https://react.dev' },
@@ -67,8 +67,8 @@ const categories = [
     {
         name: 'Backend',
         description: 'High-performance Python APIs',
-        color: 'from-orange-600 to-orange-500', // Orange-Bronze
-        borderColor: 'border-orange-500/20',
+        color: 'from-teal-600 to-teal-500', // Orange-Bronze
+        borderColor: 'border-teal-500/20',
         tools: [
             { name: 'FastAPI', description: 'Modern Python web framework', url: 'https://fastapi.tiangolo.com' },
             { name: 'Pydantic', description: 'Data validation using types', url: 'https://pydantic.dev' },
@@ -91,8 +91,8 @@ const categories = [
     {
         name: 'Machine Learning',
         description: 'Forecasting and optimization models',
-        color: 'from-yellow-600 to-yellow-500', // Deep Yellow
-        borderColor: 'border-yellow-500/20',
+        color: 'from-green-600 to-green-500', // Deep Yellow
+        borderColor: 'border-green-500/20',
         tools: [
             { name: 'Prophet', description: 'Time series forecasting', url: 'https://facebook.github.io/prophet' },
             { name: 'TensorFlow/Keras', description: 'Deep learning for LSTM', url: 'https://tensorflow.org' },
@@ -105,8 +105,8 @@ const categories = [
     {
         name: 'Databases',
         description: 'Multi-model data storage',
-        color: 'from-amber-700 to-amber-600', // Bronze
-        borderColor: 'border-amber-700/20',
+        color: 'from-emerald-700 to-emerald-600', // Bronze
+        borderColor: 'border-emerald-700/20',
         tools: [
             { name: 'PostgreSQL', description: 'Advanced relational database', url: 'https://postgresql.org' },
             { name: 'PostGIS', description: 'Spatial database extender', url: 'https://postgis.net' },
@@ -189,10 +189,10 @@ export default function TechStackPage() {
                                         {/* Content */}
                                         <div className="flex-1 min-w-0">
                                             <div className="flex items-center gap-2">
-                                                <h3 className="font-semibold text-stone-100 group-hover:text-amber-400 transition-colors truncate">
+                                                <h3 className="font-semibold text-stone-100 group-hover:text-emerald-400 transition-colors truncate">
                                                     {tool.name}
                                                 </h3>
-                                                <ExternalLink className="w-3 h-3 text-stone-600 group-hover:text-amber-400 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                                <ExternalLink className="w-3 h-3 text-stone-600 group-hover:text-emerald-400 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
                                             </div>
                                             <p className="text-sm text-stone-500 leading-relaxed mt-1">
                                                 {tool.description}
@@ -217,7 +217,7 @@ export default function TechStackPage() {
                             { value: '5', label: 'Databases' },
                         ].map((stat) => (
                             <div key={stat.label} className="text-center">
-                                <p className="text-4xl font-bold bg-gradient-to-r from-amber-500 to-orange-500 bg-clip-text text-transparent">
+                                <p className="text-4xl font-bold bg-gradient-to-r from-emerald-500 to-teal-500 bg-clip-text text-transparent">
                                     {stat.value}
                                 </p>
                                 <p className="text-stone-500">{stat.label}</p>
@@ -232,7 +232,7 @@ export default function TechStackPage() {
                 <div className="max-w-4xl mx-auto px-6 text-center">
                     <Link
                         href="/demo"
-                        className="inline-flex items-center gap-2 px-8 py-4 bg-gradient-to-r from-amber-600 to-amber-500 text-stone-900 rounded-xl font-semibold text-lg hover:scale-[1.02] transition-all shadow-xl shadow-amber-900/30"
+                        className="inline-flex items-center gap-2 px-8 py-4 bg-gradient-to-r from-emerald-600 to-emerald-500 text-stone-900 rounded-xl font-semibold text-lg hover:scale-[1.02] transition-all shadow-xl shadow-emerald-900/30"
                     >
                         <Play className="w-5 h-5 fill-current" />
                         Try the Demo

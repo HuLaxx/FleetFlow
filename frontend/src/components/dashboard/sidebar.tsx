@@ -44,7 +44,7 @@ export function Sidebar() {
             <div className="px-3 py-3 border-b border-stone-800">
                 <Link
                     href="/"
-                    className="flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium bg-stone-800 text-stone-300 hover:text-amber-400 hover:bg-stone-700 transition-all group border border-transparent hover:border-amber-500/20"
+                    className="flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium bg-stone-800 text-stone-300 hover:text-emerald-400 hover:bg-stone-700 transition-all group border border-transparent hover:border-emerald-500/20"
                 >
                     <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
                     Back to Portfolio
@@ -54,7 +54,7 @@ export function Sidebar() {
             {/* Demo Label */}
             <div className="px-6 py-3">
                 <div className="flex items-center gap-2 text-xs text-stone-500 uppercase tracking-wider">
-                    <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+                    <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                     Live Demo Mode
                 </div>
             </div>
@@ -70,11 +70,11 @@ export function Sidebar() {
                             className={cn(
                                 'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200',
                                 isActive
-                                    ? 'bg-gradient-to-r from-amber-900/40 to-amber-800/20 text-amber-500 border border-amber-500/30 shadow-lg shadow-amber-900/20'
+                                    ? 'bg-gradient-to-r from-emerald-900/40 to-emerald-800/20 text-emerald-500 border border-emerald-500/30 shadow-lg shadow-emerald-900/20'
                                     : 'text-stone-400 hover:text-stone-100 hover:bg-stone-800'
                             )}
                         >
-                            <item.icon className={cn('w-5 h-5', isActive && 'text-amber-500')} />
+                            <item.icon className={cn('w-5 h-5', isActive && 'text-emerald-500')} />
                             {item.name}
                         </Link>
                     );
@@ -88,7 +88,7 @@ export function Sidebar() {
                     <Link
                         key={item.name}
                         href={item.href}
-                        className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-stone-500 hover:text-amber-200 hover:bg-stone-800 transition-colors"
+                        className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-stone-500 hover:text-emerald-200 hover:bg-stone-800 transition-colors"
                     >
                         <item.icon className="w-4 h-4" />
                         {item.name}
@@ -100,7 +100,7 @@ export function Sidebar() {
             {/* User Profile */}
             <div className="px-3 py-4 border-t border-stone-800">
                 <div className="flex items-center gap-3 px-3 py-2">
-                    <div className="w-8 h-8 bg-gradient-to-br from-amber-600 to-amber-500 rounded-full flex items-center justify-center text-sm font-semibold text-stone-900 shadow-lg shadow-amber-900/20">
+                    <div className="w-8 h-8 bg-gradient-to-br from-emerald-600 to-emerald-500 rounded-full flex items-center justify-center text-sm font-semibold text-stone-900 shadow-lg shadow-emerald-900/20">
                         JD
                     </div>
                     <div className="flex-1 min-w-0">

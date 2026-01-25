@@ -21,6 +21,36 @@ FleetFlow is an institutional-grade delivery optimization platform that combines
 | 👷 **Driver Satisfaction** | +35% improvement |
 | ⚡ **Re-routing Latency** | <800ms |
 
+## Portfolio Focus (Rank #1)
+
+This project is built as a **portfolio-first system**. The live demo is intentionally constrained to
+**free-tier deployment services** (Supabase + Upstash + Railway) with fallbacks and reduced workloads.
+The **full-power experience is local-first**, so running locally showcases the deepest systems work
+(Kafka, Airflow, Flink, PostGIS, TimescaleDB, Redis, MongoDB, OSRM).
+
+## Workflow (End-to-End)
+
+1. **Event Ingestion** – domain events are produced and consumed via Kafka (`backend/src/events`, `backend/src/consumers`).
+2. **Persistence** – operational data lands in PostgreSQL/PostGIS and time-series in TimescaleDB (`db/init`).
+3. **Batch Pipelines** – Airflow DAGs orchestrate dbt models and scheduled optimization (`data-engineering/airflow`, `data-engineering/dbt`).
+4. **Optimization** – OR-Tools powers routing and assignment APIs (`backend/src/api/routes/optimization.py`).
+5. **Real-time Updates** – WebSocket server broadcasts state to the dashboard (`backend/src/websocket_server.py`).
+6. **Observability** – Prometheus + Grafana dashboards track API and business metrics (`monitoring/`).
+
+> Note: Advanced pipeline services (Airflow/Flink/ML tooling) are provided in-repo and are designed
+> for local execution or custom infra setup.
+
+## Role Evidence Matrix
+
+| Role | Evidence (code paths) |
+|------|------------------------|
+| Data Engineering | `data-engineering/airflow/dags`, `data-engineering/flink/stream_processor.py`, `data-engineering/dbt/models` |
+| Data Science | `notebooks/01_exploratory_data_analysis.ipynb`, `ml/forecasting.py` |
+| ML Engineering | `ml/training`, `ml/serving.py`, `ml/tracking.py` |
+| Backend / Software | `backend/src/api/routes`, `backend/src/auth`, `backend/src/graphql`, `backend/tests` |
+| Full-Stack | `frontend/src/app`, `frontend/src/components`, `frontend/e2e` |
+| Data Architecture / DevOps | `docker-compose.yml`, `k8s/base`, `monitoring/` |
+
 ## 🛠 Tech Stack
 
 ### Frontend

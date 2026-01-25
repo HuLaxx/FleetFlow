@@ -2,19 +2,23 @@
 Synthetic Data Generation for training ML models.
 """
 
-import pandas as pd
-import numpy as np
+import argparse
 from datetime import datetime, timedelta
-import random
+from typing import Optional
+
+import numpy as np
+import pandas as pd
 
 def generate_synthetic_orders(
-    start_date: str = '2023-01-01', 
-    end_date: str = '2023-12-31', 
-    zones: list = ['downtown', 'suburbs_north', 'suburbs_south', 'industrial']
+    start_date: str = '2023-01-01',
+    end_date: str = '2023-12-31',
+    zones: list = ['downtown', 'suburbs_north', 'suburbs_south', 'industrial'],
+    seed: Optional[int] = None,
 ):
     """
     Generates synthetic hourly order volume data.
     """
+    np_rng = np.random.default_rng(seed)
     date_range = pd.date_range(start=start_date, end=end_date, freq='H')
     data = []
     
@@ -57,7 +61,7 @@ def generate_synthetic_orders(
             day_of_year = date.dayofyear
             trend = 1 + (day_of_year / 365) * 0.2 # 20% growth over year
             
-            noise = np.random.normal(1, 0.2)
+            noise = np_rng.normal(1, 0.2)
             
             volume = max(0, int(base_volume * hour_factor * dow_factor * trend * noise))
             
@@ -74,7 +78,17 @@ def generate_synthetic_orders(
     return pd.DataFrame(data)
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Generate synthetic orders dataset")
+    parser.add_argument("--start-date", default="2023-01-01")
+    parser.add_argument("--end-date", default="2023-12-31")
+    parser.add_argument("--seed", type=int, default=42)
+    args = parser.parse_args()
+
     print("Generating synthetic data...")
-    df = generate_synthetic_orders()
+    df = generate_synthetic_orders(
+        start_date=args.start_date,
+        end_date=args.end_date,
+        seed=args.seed,
+    )
     df.to_csv("ml/data/synthetic_orders.csv", index=False)
     print(f"Generated {len(df)} rows. Saved to ml/data/synthetic_orders.csv")

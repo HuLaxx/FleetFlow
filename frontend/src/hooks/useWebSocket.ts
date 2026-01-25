@@ -27,6 +27,8 @@ export interface UseWebSocketReturn {
     connectionState: 'connecting' | 'connected' | 'disconnected' | 'error';
 }
 
+const DEFAULT_WS_URL = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8002/ws';
+
 export function useWebSocket(options: UseWebSocketOptions): UseWebSocketReturn {
     const {
         url,
@@ -149,7 +151,7 @@ export interface VehicleLocation {
     heading: number;
 }
 
-export function useVehicleTracking(wsUrl: string = 'ws://localhost:8002/ws') {
+export function useVehicleTracking(wsUrl: string = DEFAULT_WS_URL) {
     const [vehicles, setVehicles] = useState<Map<string, VehicleLocation>>(new Map());
     const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
 
@@ -192,7 +194,7 @@ export interface OrderUpdate {
     driver_name?: string;
 }
 
-export function useOrderUpdates(wsUrl: string = 'ws://localhost:8002/ws') {
+export function useOrderUpdates(wsUrl: string = DEFAULT_WS_URL) {
     const [orders, setOrders] = useState<Map<string, OrderUpdate>>(new Map());
 
     const handleMessage = useCallback((message: WebSocketMessage) => {
@@ -230,7 +232,7 @@ export interface Alert {
     timestamp: string;
 }
 
-export function useAlerts(wsUrl: string = 'ws://localhost:8002/ws') {
+export function useAlerts(wsUrl: string = DEFAULT_WS_URL) {
     const [alerts, setAlerts] = useState<Alert[]>([]);
 
     const handleMessage = useCallback((message: WebSocketMessage) => {

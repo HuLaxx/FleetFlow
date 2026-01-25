@@ -3,7 +3,13 @@ Training pipeline for Demand Forecasting model.
 Refined for rigorous, unbiased evaluation using TimeSeriesSplit.
 """
 
+import argparse
+import hashlib
+import json
 import os
+import random
+import time
+from pathlib import Path
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -19,6 +25,25 @@ from ml.forecasting.features import FeatureEngineer
 from ml.data.generate_synthetic import generate_synthetic_orders
 
 logger = structlog.get_logger()
+
+def set_determinism(seed: int) -> None:
+    """Set random seeds and deterministic flags for reproducible training."""
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+    try:
+        torch.use_deterministic_algorithms(True)
+    except Exception:
+        pass
+
+
+def hash_dataframe(df: pd.DataFrame) -> str:
+    """Hash a DataFrame for reproducibility tracking."""
+    data_bytes = df.to_csv(index=False).encode("utf-8")
+    return hashlib.sha256(data_bytes).hexdigest()
 
 def train_model_fold(
     X_train, y_train, X_val, y_val,
@@ -97,27 +122,37 @@ def train_model_fold(
 
 def train_pipeline(
     data_path: str = None, 
+    synthetic_start_date: str = "2023-01-01",
+    synthetic_end_date: str = "2023-12-31",
     epochs: int = 100, 
     batch_size: int = 32, 
     lr: float = 0.001,
     hidden_size: int = 64,
     num_layers: int = 2,
     dropout: float = 0.2,
-    weight_decay: float = 1e-4
+    weight_decay: float = 1e-4,
+    seed: int = 42,
 ):
     """
     Main training pipeline with TimeSeriesSplit CV.
     """
     logger.info("Starting rigorous training pipeline...")
+    set_determinism(seed)
+    start_ts = time.time()
     
     # 1. Load Data
     if data_path and os.path.exists(data_path):
         df = pd.read_csv(data_path)
     else:
         logger.info("Generating synthetic data...")
-        df = generate_synthetic_orders()
+        df = generate_synthetic_orders(
+            start_date=synthetic_start_date,
+            end_date=synthetic_end_date,
+            seed=seed,
+        )
     
     df = df[df['zone'] == 'downtown'].copy()
+    data_hash = hash_dataframe(df)
     
     # 2. Feature Engineering
     fe = FeatureEngineer()
@@ -138,10 +173,16 @@ def train_pipeline(
         'weight_decay': weight_decay
     }
     
-    mlflow.set_experiment("demand_forecasting_rigorous")
+    tracking_uri = os.getenv("MLFLOW_TRACKING_URI")
+    if tracking_uri:
+        mlflow.set_tracking_uri(tracking_uri)
+
+    experiment_name = os.getenv("MLFLOW_EXPERIMENT", "demand_forecasting_rigorous")
+    mlflow.set_experiment(experiment_name)
     
     with mlflow.start_run():
-        mlflow.log_params(params)
+        mlflow.log_params({**params, "seed": seed})
+        mlflow.set_tag("data_hash", data_hash)
         
         fold_scores = []
         
@@ -161,16 +202,72 @@ def train_pipeline(
             
             # Save the model from the last split (trained on most recent data)
             if i == 4:
-                torch.save(model.state_dict(), "ml/training/best_models_refined.pth")
-                logger.info("Saved refined model checkpoint")
+                artifact_dir = Path("ml/training/artifacts")
+                artifact_dir.mkdir(parents=True, exist_ok=True)
+                artifact_path = artifact_dir / f"best_model_seed{seed}.pth"
+                torch.save(model.state_dict(), artifact_path)
+                mlflow.log_artifact(str(artifact_path))
+                logger.info("Saved refined model checkpoint", path=str(artifact_path))
 
         avg_cv_score = np.mean(fold_scores)
         std_cv_score = np.std(fold_scores)
         
         mlflow.log_metric("avg_cv_val_loss", avg_cv_score)
         mlflow.log_metric("std_cv_val_loss", std_cv_score)
+        mlflow.log_metric("training_time_sec", time.time() - start_ts)
         
         logger.info(f"Cross-Validation Complete. Mean Val Loss: {avg_cv_score:.4f} (+/- {std_cv_score:.4f})")
 
+        metrics_summary = {
+            "run_id": mlflow.active_run().info.run_id,
+            "experiment": experiment_name,
+            "seed": seed,
+            "data_path": data_path or "synthetic",
+            "synthetic_start_date": synthetic_start_date,
+            "synthetic_end_date": synthetic_end_date,
+            "data_hash": data_hash,
+            "params": params,
+            "fold_scores": [float(score) for score in fold_scores],
+            "avg_cv_val_loss": float(avg_cv_score),
+            "std_cv_val_loss": float(std_cv_score),
+            "training_time_sec": float(time.time() - start_ts),
+        }
+
+        default_dir = Path(__file__).resolve().parent / "metrics"
+        metrics_dir = Path(os.getenv("ML_METRICS_DIR", str(default_dir)))
+        metrics_dir.mkdir(parents=True, exist_ok=True)
+        metrics_path = metrics_dir / f"metrics_seed{seed}_{data_hash[:8]}.json"
+        metrics_path.write_text(json.dumps(metrics_summary, indent=2), encoding="utf-8")
+        mlflow.log_artifact(str(metrics_path))
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Train demand forecasting model")
+    parser.add_argument("--data-path", default=None)
+    parser.add_argument("--start-date", default="2023-01-01")
+    parser.add_argument("--end-date", default="2023-12-31")
+    parser.add_argument("--epochs", type=int, default=100)
+    parser.add_argument("--batch-size", type=int, default=32)
+    parser.add_argument("--lr", type=float, default=0.001)
+    parser.add_argument("--hidden-size", type=int, default=64)
+    parser.add_argument("--num-layers", type=int, default=2)
+    parser.add_argument("--dropout", type=float, default=0.2)
+    parser.add_argument("--weight-decay", type=float, default=1e-4)
+    parser.add_argument("--seed", type=int, default=42)
+    return parser.parse_args()
+
+
 if __name__ == "__main__":
-    train_pipeline()
+    args = parse_args()
+    train_pipeline(
+        data_path=args.data_path,
+        synthetic_start_date=args.start_date,
+        synthetic_end_date=args.end_date,
+        epochs=args.epochs,
+        batch_size=args.batch_size,
+        lr=args.lr,
+        hidden_size=args.hidden_size,
+        num_layers=args.num_layers,
+        dropout=args.dropout,
+        weight_decay=args.weight_decay,
+        seed=args.seed,
+    )

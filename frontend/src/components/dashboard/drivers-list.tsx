@@ -8,8 +8,8 @@ import { useDriverUpdates } from '@/hooks/use-websocket';
 import { trpc } from '@/lib/trpc';
 
 const statusConfig = {
-    available: { label: 'Available', color: 'bg-orange-500', textColor: 'text-orange-400' },
-    on_route: { label: 'On Route', color: 'bg-amber-500', textColor: 'text-amber-400' },
+    available: { label: 'Available', color: 'bg-teal-500', textColor: 'text-teal-400' },
+    on_route: { label: 'On Route', color: 'bg-emerald-500', textColor: 'text-emerald-400' },
     on_break: { label: 'On Break', color: 'bg-stone-500', textColor: 'text-stone-400' },
     offline: { label: 'Offline', color: 'bg-stone-700', textColor: 'text-stone-500' },
 } as const;
@@ -89,12 +89,12 @@ export function DriversList() {
                                     animate={{ opacity: 1, x: 0 }}
                                     exit={{ opacity: 0, x: -20 }}
                                     transition={{ delay: index * 0.05 }}
-                                    className="p-3 bg-stone-800/40 hover:bg-stone-800 rounded-lg cursor-pointer transition-colors group border border-transparent hover:border-amber-500/20"
+                                    className="p-3 bg-stone-800/40 hover:bg-stone-800 rounded-lg cursor-pointer transition-colors group border border-transparent hover:border-emerald-500/20"
                                 >
                                     <div className="flex items-start gap-3">
                                         {/* Avatar */}
                                         <div className="relative">
-                                            <div className="w-10 h-10 bg-gradient-to-br from-amber-600 to-amber-500 rounded-full flex items-center justify-center text-sm font-semibold text-stone-900 shadow-md">
+                                            <div className="w-10 h-10 bg-gradient-to-br from-emerald-600 to-emerald-500 rounded-full flex items-center justify-center text-sm font-semibold text-stone-900 shadow-md">
                                                 {initials}
                                             </div>
                                             <div
@@ -108,11 +108,11 @@ export function DriversList() {
                                         {/* Info */}
                                         <div className="flex-1 min-w-0">
                                             <div className="flex items-center justify-between">
-                                                <p className="text-sm font-medium text-stone-100 truncate group-hover:text-amber-400 transition-colors">
+                                                <p className="text-sm font-medium text-stone-100 truncate group-hover:text-emerald-400 transition-colors">
                                                     {driver.name || `Driver #${driver.employee_id}`}
                                                 </p>
                                                 <div className="flex items-center gap-1">
-                                                    <Star className="w-3 h-3 text-amber-500 fill-amber-500" />
+                                                    <Star className="w-3 h-3 text-emerald-500 fill-emerald-500" />
                                                     <span className="text-xs text-stone-400">
                                                         {driver.rating || '4.5'}
                                                     </span>
@@ -140,7 +140,7 @@ export function DriversList() {
                                         </div>
 
                                         {/* Arrow */}
-                                        <ChevronRight className="w-4 h-4 text-stone-600 group-hover:text-amber-400 transition-colors" />
+                                        <ChevronRight className="w-4 h-4 text-stone-600 group-hover:text-emerald-400 transition-colors" />
                                     </div>
                                 </motion.div>
                             );

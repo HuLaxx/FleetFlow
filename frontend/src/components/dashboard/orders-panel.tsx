@@ -9,10 +9,10 @@ import { trpc } from '@/lib/trpc';
 
 const statusConfig = {
     pending: { label: 'Pending', color: 'bg-stone-500', borderColor: 'border-stone-500' },
-    assigned: { label: 'Assigned', color: 'bg-orange-600', borderColor: 'border-orange-600' },
-    in_transit: { label: 'In Transit', color: 'bg-amber-600', borderColor: 'border-amber-600' },
+    assigned: { label: 'Assigned', color: 'bg-teal-600', borderColor: 'border-teal-600' },
+    in_transit: { label: 'In Transit', color: 'bg-emerald-600', borderColor: 'border-emerald-600' },
     delayed: { label: 'Delayed', color: 'bg-red-800', borderColor: 'border-red-800' },
-    delivered: { label: 'Delivered', color: 'bg-yellow-600', borderColor: 'border-yellow-600' },
+    delivered: { label: 'Delivered', color: 'bg-green-600', borderColor: 'border-green-600' },
 } as const;
 
 export function OrdersPanel() {
@@ -69,9 +69,9 @@ export function OrdersPanel() {
                 <div className="grid grid-cols-4 gap-2">
                     {[
                         { label: 'Pending', count: stats.pending, color: 'text-stone-400' },
-                        { label: 'In Transit', count: stats.in_transit, color: 'text-amber-500' },
-                        { label: 'Delayed', count: stats.delayed, color: 'text-orange-600' },
-                        { label: 'Delivered', count: stats.delivered, color: 'text-yellow-600' },
+                        { label: 'In Transit', count: stats.in_transit, color: 'text-emerald-500' },
+                        { label: 'Delayed', count: stats.delayed, color: 'text-teal-600' },
+                        { label: 'Delivered', count: stats.delivered, color: 'text-green-600' },
                     ].map((stat) => (
                         <button
                             key={stat.label}
@@ -104,20 +104,20 @@ export function OrdersPanel() {
                                 exit={{ opacity: 0, y: -10 }}
                                 transition={{ delay: index * 0.03 }}
                                 className={cn(
-                                    'p-3 bg-stone-800/40 hover:bg-stone-800 rounded-lg cursor-pointer transition-colors group border-l-2 border-transparent hover:border-l-amber-500',
+                                    'p-3 bg-stone-800/40 hover:bg-stone-800 rounded-lg cursor-pointer transition-colors group border-l-2 border-transparent hover:border-l-emerald-500',
                                     statusConfig[order.status as keyof typeof statusConfig]?.borderColor
                                 )}
                             >
                                 <div className="flex items-start justify-between">
                                     <div className="flex-1 min-w-0">
                                         <div className="flex items-center gap-2">
-                                            <span className="text-sm font-mono font-medium text-stone-100 group-hover:text-amber-400 transition-colors">
+                                            <span className="text-sm font-mono font-medium text-stone-100 group-hover:text-emerald-400 transition-colors">
                                                 {order.order_number || `ORD-${order.id.slice(0, 8)}`}
                                             </span>
                                             {order.priority > 2 && (
                                                 <span className={cn(
                                                     'text-[10px] px-1.5 py-0.5 rounded uppercase font-semibold',
-                                                    order.priority >= 4 ? 'bg-orange-500/10 text-orange-500' : 'bg-amber-500/10 text-amber-500'
+                                                    order.priority >= 4 ? 'bg-teal-500/10 text-teal-500' : 'bg-emerald-500/10 text-emerald-500'
                                                 )}>
                                                     {order.priority >= 4 ? 'URGENT' : 'HIGH'}
                                                 </span>
@@ -130,8 +130,8 @@ export function OrdersPanel() {
                                     <span className={cn(
                                         'text-[10px] px-2 py-0.5 rounded-full uppercase font-medium',
                                         order.status === 'delayed' ? 'bg-red-900/20 text-red-500' :
-                                            order.status === 'in_transit' ? 'bg-amber-900/20 text-amber-500' :
-                                                order.status === 'assigned' ? 'bg-orange-900/20 text-orange-500' :
+                                            order.status === 'in_transit' ? 'bg-emerald-900/20 text-emerald-500' :
+                                                order.status === 'assigned' ? 'bg-teal-900/20 text-teal-500' :
                                                     'bg-stone-700 text-stone-400'
                                     )}>
                                         {statusConfig[order.status as keyof typeof statusConfig]?.label || order.status}
@@ -154,7 +154,7 @@ export function OrdersPanel() {
                                 </div>
 
                                 {order.status === 'delayed' && (
-                                    <div className="flex items-center gap-1 mt-2 text-xs text-orange-500">
+                                    <div className="flex items-center gap-1 mt-2 text-xs text-teal-500">
                                         <AlertTriangle className="w-3 h-3" />
                                         <span>Behind schedule</span>
                                     </div>

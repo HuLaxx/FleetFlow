@@ -86,7 +86,7 @@ export default function DriverDashboard() {
             <div className="bg-stone-900 border-b border-stone-800 p-4 sticky top-0 z-20">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-amber-500 rounded-full flex items-center justify-center text-stone-900 font-bold">
+                        <div className="w-10 h-10 bg-emerald-500 rounded-full flex items-center justify-center text-stone-900 font-bold">
                             MJ
                         </div>
                         <div>
@@ -95,7 +95,7 @@ export default function DriverDashboard() {
                                 <span className={cn(
                                     "w-2 h-2 rounded-full animate-pulse",
                                     status === 'on_route' ? "bg-emerald-500" :
-                                        status === 'on_break' ? "bg-amber-500" : "bg-stone-500"
+                                        status === 'on_break' ? "bg-emerald-500" : "bg-stone-500"
                                 )} />
                                 <span className="text-xs text-stone-400 capitalize">{status.replace('_', ' ')}</span>
                             </div>
@@ -129,7 +129,7 @@ export default function DriverDashboard() {
                 ) : (
                     <>
                         {/* Next Stop Card (Hero) */}
-                        <div className="bg-gradient-to-br from-amber-600 to-amber-700 rounded-2xl p-5 shadow-lg shadow-amber-900/20 text-stone-950 relative overflow-hidden">
+                        <div className="bg-gradient-to-br from-emerald-600 to-emerald-700 rounded-2xl p-5 shadow-lg shadow-emerald-900/20 text-stone-950 relative overflow-hidden">
                             <div className="absolute top-0 right-0 p-3 opacity-10">
                                 <Truck className="w-24 h-24" />
                             </div>
@@ -137,7 +137,7 @@ export default function DriverDashboard() {
                             <div className="relative z-10">
                                 <div className="flex justify-between items-start mb-4">
                                     <div>
-                                        <p className="text-amber-100 text-xs font-semibold uppercase tracking-wider mb-1">Next Destination</p>
+                                        <p className="text-emerald-100 text-xs font-semibold uppercase tracking-wider mb-1">Next Destination</p>
                                         <h3 className="text-xl font-bold leading-tight">{currentStop.customer}</h3>
                                     </div>
                                     <div className="bg-stone-950/20 backdrop-blur-sm px-3 py-1 rounded-full text-xs font-bold font-mono">
@@ -151,7 +151,7 @@ export default function DriverDashboard() {
                                 </div>
 
                                 <div className="flex gap-2">
-                                    <button className="flex-1 bg-stone-950 text-amber-500 py-3 rounded-xl font-bold flex items-center justify-center gap-2 shadow-sm active:scale-[0.98] transition-transform">
+                                    <button className="flex-1 bg-stone-950 text-emerald-500 py-3 rounded-xl font-bold flex items-center justify-center gap-2 shadow-sm active:scale-[0.98] transition-transform">
                                         <Navigation className="w-4 h-4" /> Start GPS
                                     </button>
                                     <button
@@ -179,14 +179,14 @@ export default function DriverDashboard() {
                                             stop.status === 'completed'
                                                 ? "bg-stone-900 border-emerald-500"
                                                 : index === activeStopIndex
-                                                    ? "bg-amber-500 border-amber-500 ring-4 ring-amber-500/20"
+                                                    ? "bg-emerald-500 border-emerald-500 ring-4 ring-emerald-500/20"
                                                     : "bg-stone-800 border-stone-600"
                                         )} />
 
                                         <div className={cn(
                                             "flex-1 p-3 rounded-lg border",
                                             index === activeStopIndex
-                                                ? "bg-stone-800 border-amber-500/30"
+                                                ? "bg-stone-800 border-emerald-500/30"
                                                 : "bg-stone-900/50 border-stone-800 opacity-60"
                                         )}>
                                             <div className="flex justify-between items-start">
@@ -206,7 +206,7 @@ export default function DriverDashboard() {
             {/* Mobile Bottom Nav */}
             <div className="fixed bottom-0 left-0 w-full bg-stone-900 border-t border-stone-800 pb-safe z-30">
                 <div className="flex justify-around items-center h-16">
-                    <button className="flex flex-col items-center gap-1 text-amber-500">
+                    <button className="flex flex-col items-center gap-1 text-emerald-500">
                         <Navigation className="w-5 h-5" />
                         <span className="text-[10px] font-medium">Route</span>
                     </button>
@@ -221,7 +221,7 @@ export default function DriverDashboard() {
                             onClick={toggleStatus}
                             className={cn(
                                 "w-14 h-14 rounded-full flex items-center justify-center shadow-lg transition-colors border-4 border-stone-950",
-                                status === 'on_route' ? "bg-amber-500 text-stone-900" : "bg-stone-700 text-stone-400"
+                                status === 'on_route' ? "bg-emerald-500 text-stone-900" : "bg-stone-700 text-stone-400"
                             )}
                         >
                             {status === 'on_route' ? <Truck className="w-6 h-6" /> : <Coffee className="w-6 h-6" />}

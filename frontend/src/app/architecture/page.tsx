@@ -46,9 +46,9 @@ const layers = [
     {
         name: 'Presentation Layer',
         icon: Monitor,
-        color: 'from-amber-600 to-amber-500', // Gold
-        bgColor: 'bg-amber-900/10',
-        borderColor: 'border-amber-500/20',
+        color: 'from-emerald-600 to-emerald-500', // Gold
+        bgColor: 'bg-emerald-900/10',
+        borderColor: 'border-emerald-500/20',
         components: [
             { name: 'Next.js', full: 'Next.js 16 App Router' },
             { name: 'Deck.gl', full: 'WebGL Map Visualization' },
@@ -59,9 +59,9 @@ const layers = [
     {
         name: 'API Layer',
         icon: Server,
-        color: 'from-orange-600 to-orange-500', // Orange-Bronze
-        bgColor: 'bg-orange-900/10',
-        borderColor: 'border-orange-500/20',
+        color: 'from-teal-600 to-teal-500', // Orange-Bronze
+        bgColor: 'bg-teal-900/10',
+        borderColor: 'border-teal-500/20',
         components: [
             { name: 'FastAPI', full: 'High-performance Python API' },
             { name: 'WebSocket', full: 'Real-time bidirectional' },
@@ -83,9 +83,9 @@ const layers = [
     {
         name: 'ML Layer',
         icon: Layers,
-        color: 'from-yellow-600 to-yellow-500', // Deep Yellow/Gold
-        bgColor: 'bg-yellow-900/10',
-        borderColor: 'border-yellow-500/20',
+        color: 'from-green-600 to-green-500', // Deep Yellow/Gold
+        bgColor: 'bg-green-900/10',
+        borderColor: 'border-green-500/20',
         components: [
             { name: 'Prophet', full: 'Demand forecasting' },
             { name: 'OR-Tools', full: 'Route optimization VRP' },
@@ -95,9 +95,9 @@ const layers = [
     {
         name: 'Data Layer',
         icon: Database,
-        color: 'from-amber-700 to-amber-600', // Bronze
-        bgColor: 'bg-amber-950/30',
-        borderColor: 'border-amber-700/20',
+        color: 'from-emerald-700 to-emerald-600', // Bronze
+        bgColor: 'bg-emerald-950/30',
+        borderColor: 'border-emerald-700/20',
         components: [
             { name: 'PostgreSQL', full: 'PostGIS + TimescaleDB' },
             { name: 'MongoDB', full: 'Document store' },
@@ -141,7 +141,7 @@ export default function ArchitecturePage() {
 
             {/* Visual Data Flow */}
             <section className="py-12 relative">
-                <div className="absolute inset-0 bg-[linear-gradient(rgba(245,158,11,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(245,158,11,0.02)_1px,transparent_1px)] bg-[size:40px_40px] [mask-image:radial-gradient(ellipse_at_center,black_40%,transparent_80%)]" />
+                <div className="absolute inset-0 bg-[linear-gradient(rgba(16,185,129,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(16,185,129,0.02)_1px,transparent_1px)] bg-[size:40px_40px] [mask-image:radial-gradient(ellipse_at_center,black_40%,transparent_80%)]" />
                 <div className="max-w-5xl mx-auto px-6 relative z-10">
                     <h2 className="text-2xl font-bold text-stone-100 mb-8 text-center">Data Flow</h2>
 
@@ -151,7 +151,7 @@ export default function ArchitecturePage() {
                             {/* Client Layer */}
                             <div className="flex justify-center gap-4 flex-wrap">
                                 {['Dashboard', 'Map', 'Orders', 'Alerts'].map((item) => (
-                                    <div key={item} className="px-6 py-3 bg-amber-900/20 border border-amber-500/20 rounded-xl text-amber-300 font-medium shadow-lg shadow-amber-900/10">
+                                    <div key={item} className="px-6 py-3 bg-emerald-900/20 border border-emerald-500/20 rounded-xl text-emerald-300 font-medium shadow-lg shadow-emerald-900/10">
                                         {item}
                                     </div>
                                 ))}
@@ -161,9 +161,9 @@ export default function ArchitecturePage() {
 
                             {/* API Layer */}
                             <div className="flex justify-center">
-                                <div className="px-8 py-4 bg-orange-900/20 border border-orange-500/20 rounded-xl text-center shadow-lg shadow-orange-900/10">
-                                    <p className="text-orange-300 font-semibold">API Gateway</p>
-                                    <p className="text-orange-400/70 text-sm">FastAPI + WebSocket</p>
+                                <div className="px-8 py-4 bg-teal-900/20 border border-teal-500/20 rounded-xl text-center shadow-lg shadow-teal-900/10">
+                                    <p className="text-teal-300 font-semibold">API Gateway</p>
+                                    <p className="text-teal-400/70 text-sm">FastAPI + WebSocket</p>
                                 </div>
                             </div>
 
@@ -178,9 +178,9 @@ export default function ArchitecturePage() {
                                     <p className="text-stone-300 font-medium">Apache Kafka</p>
                                     <p className="text-stone-500 text-xs">Event Streaming</p>
                                 </div>
-                                <div className="px-6 py-3 bg-yellow-900/20 border border-yellow-500/20 rounded-xl text-center shadow-lg shadow-yellow-900/10">
-                                    <p className="text-yellow-300 font-medium">ML Serving</p>
-                                    <p className="text-yellow-500/70 text-xs">Forecasting + VRP</p>
+                                <div className="px-6 py-3 bg-green-900/20 border border-green-500/20 rounded-xl text-center shadow-lg shadow-green-900/10">
+                                    <p className="text-green-300 font-medium">ML Serving</p>
+                                    <p className="text-green-500/70 text-xs">Forecasting + VRP</p>
                                 </div>
                             </div>
 
@@ -216,7 +216,7 @@ export default function ArchitecturePage() {
 
                                     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                                         {layer.components.map((comp) => (
-                                            <div key={comp.name} className="bg-stone-900/80 rounded-xl p-4 flex items-center gap-3 border border-transparent hover:border-amber-500/20 transition-all">
+                                            <div key={comp.name} className="bg-stone-900/80 rounded-xl p-4 flex items-center gap-3 border border-transparent hover:border-emerald-500/20 transition-all">
                                                 <div className="w-10 h-10 rounded-lg bg-stone-800 flex items-center justify-center flex-shrink-0">
                                                     <img
                                                         src={getLogoUrl(comp.name)}
@@ -252,7 +252,7 @@ export default function ArchitecturePage() {
                 <div className="max-w-4xl mx-auto px-6 text-center">
                     <Link
                         href="/tech-stack"
-                        className="inline-flex items-center gap-2 px-6 py-3 bg-stone-900 border border-stone-800 text-stone-300 rounded-xl font-medium hover:bg-stone-800 hover:text-amber-400 hover:border-amber-500/30 transition-all"
+                        className="inline-flex items-center gap-2 px-6 py-3 bg-stone-900 border border-stone-800 text-stone-300 rounded-xl font-medium hover:bg-stone-800 hover:text-emerald-400 hover:border-emerald-500/30 transition-all"
                     >
                         Explore Tech Stack
                         <ArrowRight className="w-4 h-4" />

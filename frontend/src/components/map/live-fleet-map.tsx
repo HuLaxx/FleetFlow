@@ -47,7 +47,7 @@ const mockStops = [
 ];
 
 function VehicleMarker({ vehicle }: { vehicle: VehicleLocation }) {
-    const statusColor = vehicle.speed_kmh > 10 ? 'bg-emerald-500' : 'bg-amber-500';
+    const statusColor = vehicle.speed_kmh > 10 ? 'bg-emerald-500' : 'bg-teal-400';
 
     return (
         <div className="relative group cursor-pointer">
@@ -210,7 +210,7 @@ export default function LiveFleetMap() {
                         <span className="text-xs text-zinc-300">Moving</span>
                     </div>
                     <div className="flex items-center gap-2">
-                        <div className="w-2 h-2 rounded-full bg-amber-500" />
+                        <div className="w-2 h-2 rounded-full bg-emerald-500" />
                         <span className="text-xs text-zinc-300">Stopped</span>
                     </div>
                 </div>

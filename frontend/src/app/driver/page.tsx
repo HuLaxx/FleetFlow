@@ -26,8 +26,8 @@ export default function DriverLoginPage() {
     return (
         <div className="min-h-screen bg-stone-950 flex flex-col items-center justify-center p-6 relative overflow-hidden">
             {/* Background Effects */}
-            <div className="absolute top-0 left-0 w-full h-96 bg-gradient-to-b from-amber-900/10 to-transparent pointer-events-none" />
-            <div className="absolute -top-20 -right-20 w-64 h-64 bg-amber-500/5 rounded-full blur-3xl" />
+            <div className="absolute top-0 left-0 w-full h-96 bg-gradient-to-b from-emerald-900/10 to-transparent pointer-events-none" />
+            <div className="absolute -top-20 -right-20 w-64 h-64 bg-emerald-500/5 rounded-full blur-3xl" />
 
             <motion.div
                 initial={{ opacity: 0, y: 20 }}
@@ -36,7 +36,7 @@ export default function DriverLoginPage() {
             >
                 {/* Logo Area */}
                 <div className="text-center mb-10">
-                    <div className="w-16 h-16 bg-gradient-to-br from-amber-500 to-amber-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-xl shadow-amber-900/20">
+                    <div className="w-16 h-16 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-xl shadow-emerald-900/20">
                         <Truck className="w-8 h-8 text-stone-950" />
                     </div>
                     <h1 className="text-2xl font-bold text-stone-100 mb-1">FleetFlow Driver</h1>
@@ -56,7 +56,7 @@ export default function DriverLoginPage() {
                                 placeholder="Enter your ID (e.g. DRV-1001)"
                                 value={driverId}
                                 onChange={(e) => setDriverId(e.target.value)}
-                                className="w-full bg-stone-900 border border-stone-800 text-stone-100 rounded-xl px-4 py-3.5 pl-11 focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 transition-all outline-none placeholder:text-stone-600"
+                                className="w-full bg-stone-900 border border-stone-800 text-stone-100 rounded-xl px-4 py-3.5 pl-11 focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition-all outline-none placeholder:text-stone-600"
                             />
                             <MapPin className="absolute left-3.5 top-3.5 w-5 h-5 text-stone-600" />
                         </div>
@@ -65,7 +65,7 @@ export default function DriverLoginPage() {
                     <button
                         type="submit"
                         disabled={isLoading}
-                        className="w-full bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-stone-950 font-bold py-3.5 rounded-xl transition-all shadow-lg shadow-amber-900/20 active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
+                        className="w-full bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-stone-950 font-bold py-3.5 rounded-xl transition-all shadow-lg shadow-emerald-900/20 active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
                     >
                         {isLoading ? (
                             <span className="w-5 h-5 border-2 border-stone-950/30 border-t-stone-950 rounded-full animate-spin" />

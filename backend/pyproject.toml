@@ -57,6 +57,7 @@ dependencies = [
     
     # GraphQL
     "strawberry-graphql[fastapi]>=0.220.0",
+    "scikit-learn>=1.4.0",
 ]
 
 [project.optional-dependencies]

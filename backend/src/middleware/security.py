@@ -49,10 +49,12 @@ def configure_security(app: FastAPI) -> None:
     environment = os.getenv("ENVIRONMENT", "development")
     
     # CORS configuration
-    if environment == "production":
+    origins_env = os.getenv("ALLOWED_ORIGINS", "").strip()
+    if origins_env:
+        origins = [o.strip() for o in origins_env.split(",") if o.strip()]
+    elif environment == "production":
         # Production: strict CORS
-        origins = os.getenv("ALLOWED_ORIGINS", "").split(",")
-        origins = [o.strip() for o in origins if o.strip()]
+        origins = []
     else:
         # Development: allow common dev origins
         origins = [

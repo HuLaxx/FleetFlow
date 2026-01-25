@@ -1,3 +1,15 @@
 .env
 .env.*
 !.env.example
+.env.ports
+.rag/
+backend/.rag/
+ml/training/artifacts/
+ml/training/*.pth
+ml/training/metrics/
+mlflow.db
+mlflow-artifacts/
+.venv/
+backend/.venv/
+**/__pycache__/
+*.pyc
