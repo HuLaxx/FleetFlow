@@ -18,9 +18,6 @@ export function SiteHeader() {
     const [scrolled, setScrolled] = useState(false);
     const pathname = usePathname();
 
-    // Critical: Hide header on demo page to prevent overlap with dashboard
-    if (pathname === '/demo') return null;
-
     // Scroll listener to toggle glassmorphism effect
     useEffect(() => {
         const handleScroll = () => {

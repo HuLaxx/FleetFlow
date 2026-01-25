@@ -87,7 +87,7 @@ export function SiteFooter() {
 
                 {/* Bottom Bar */}
                 <div className="max-w-7xl mx-auto pt-12 mt-12 border-t border-white/5 flex flex-col md:flex-row items-center justify-between gap-6 text-sm text-stone-500">
-                    <p>Copyright {currentYear} FleetFlow. Portfolio project.</p>
+                    <p>© {currentYear} FleetFlow. All rights reserved.</p>
                     <button
                         type="button"
                         onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}

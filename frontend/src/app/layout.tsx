@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter, Merienda } from "next/font/google";
 import "./globals.css";
 import { TRPCProvider } from "@/lib/trpc";
+import { LoadingScreen } from "@/components/effects/loading-screen";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -40,6 +41,7 @@ export default function RootLayout({
   return (
     <html lang="en" className={`dark ${script.variable}`} suppressHydrationWarning>
       <body className={`${inter.variable} font-sans antialiased bg-zinc-950 text-zinc-100`} suppressHydrationWarning>
+        <LoadingScreen />
         <TRPCProvider>
           {children}
         </TRPCProvider>

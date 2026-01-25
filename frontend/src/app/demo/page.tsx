@@ -27,9 +27,9 @@ export default function DemoPage() {
             <SiteHeader />
 
             {/* Demo Content */}
-            <main className="flex-1 pt-16 flex flex-col">
+            <main className="flex-1 pt-24 md:pt-28 flex flex-col">
                 {/* Dashboard Container - Full viewport height minus header */}
-                <div className="flex-1 flex min-h-[calc(100vh-64px)]">
+                <div className="flex-1 flex min-h-[calc(100vh-128px)]">
                     {/* Sidebar */}
                     <Sidebar />
 
@@ -40,7 +40,9 @@ export default function DemoPage() {
                         </div>
 
                         {/* Dashboard Header */}
-                        <Header />
+                        <div className="mt-4">
+                            <Header />
+                        </div>
 
                         {/* Dashboard Content */}
                         <div className="flex-1 overflow-hidden p-6">
@@ -65,6 +67,8 @@ export default function DemoPage() {
                     </div>
                 </div>
             </main>
+
+            <SiteFooter />
         </div>
     );
 }
