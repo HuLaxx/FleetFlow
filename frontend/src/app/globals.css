@@ -175,3 +175,47 @@
     box-shadow: 0 0 15px -3px rgba(16, 185, 129, 0.1);
   }
 }
+
+/* HuLaX Credit Styling */
+.hulax-credit-label {
+  font-family: var(--font-script);
+  font-style: italic;
+  font-weight: 400;
+  letter-spacing: 0.06em;
+}
+
+.hulax-credit {
+  font-family: var(--font-script);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  display: inline-block;
+  background-size: 200% 100%;
+  background-position: 0% 50%;
+  transition:
+    transform 220ms ease,
+    color 220ms ease,
+    background-position 600ms ease,
+    filter 220ms ease;
+}
+
+.hulax-credit-gradient {
+  color: rgba(209, 250, 229, 0.78);
+}
+
+.group:hover .hulax-credit-gradient {
+  color: transparent;
+  background-image: linear-gradient(
+    90deg,
+    #ecfdf5,
+    #a7f3d0,
+    #34d399,
+    #10b981,
+    #064e3b,
+    #ecfdf5
+  );
+  background-clip: text;
+  -webkit-background-clip: text;
+  background-position: 100% 50%;
+  transform: scale(1.08);
+  filter: drop-shadow(0 0 10px rgba(16, 185, 129, 0.35));
+}

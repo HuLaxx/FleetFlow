@@ -275,7 +275,7 @@ export default function PortfolioPage() {
                             View Live Demo
                         </Link>
                         <Link
-                            href="https://github.com"
+                            href="https://github.com/HuLaxx/FleetFlow"
                             target="_blank"
                             className="inline-flex items-center gap-2 px-8 py-4 bg-stone-900 border border-stone-800 text-stone-300 rounded-xl font-medium hover:bg-stone-800 hover:text-white transition-all"
                         >

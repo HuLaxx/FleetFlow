@@ -6,7 +6,7 @@ import { useState, useEffect } from 'react';
 import { Menu, X, Github, Truck, ExternalLink } from 'lucide-react';
 
 const navLinks = [
-    { href: '/#features', label: 'Features' },
+    { href: '/', label: 'Home' },
     { href: '/portfolio', label: 'Portfolio' },
     { href: '/architecture', label: 'Architecture' },
     { href: '/tech-stack', label: 'Tech Stack' },
@@ -42,16 +42,36 @@ export function SiteHeader() {
             >
                 <div className="px-6 flex items-center justify-between h-14">
                     {/* Logo Section */}
-                    <Link href="/" className="flex items-center gap-3 group">
-                        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-stone-800 to-stone-900 flex items-center justify-center shadow-lg shadow-black/20 group-hover:shadow-emerald-900/20 group-hover:scale-105 transition-all border border-white/5">
-                            <Truck className="w-5 h-5 text-emerald-500" />
+                    <div className="flex items-center gap-4">
+                        <Link href="/" className="flex items-center gap-3 group">
+                            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-stone-800 to-stone-900 flex items-center justify-center shadow-lg shadow-black/20 group-hover:shadow-emerald-900/20 group-hover:scale-105 transition-all border border-white/5">
+                                <Truck className="w-5 h-5 text-emerald-500" />
+                            </div>
+                            <div className="flex flex-col">
+                                <span className="text-lg font-bold bg-gradient-to-r from-emerald-200 to-emerald-500 bg-clip-text text-transparent">
+                                    FleetFlow
+                                </span>
+                            </div>
+                        </Link>
+
+                        {/* Credit (Desktop only) */}
+                        <div className="hidden lg:flex items-center gap-3">
+                            <span className="text-stone-700">|</span>
+                            <a
+                                href="https://hulax.vercel.app"
+                                target="_blank"
+                                rel="noreferrer"
+                                className="group flex flex-col items-center gap-0 text-center leading-tight"
+                            >
+                                <span className="hulax-credit-label text-[0.55rem] text-emerald-100/60 transition-all group-hover:text-emerald-100/80">
+                                    A Project By
+                                </span>
+                                <span className="hulax-credit hulax-credit-gradient text-[0.85rem] transition-all group-hover:font-semibold">
+                                    HuLaX
+                                </span>
+                            </a>
                         </div>
-                        <div className="flex flex-col">
-                            <span className="text-lg font-bold bg-gradient-to-r from-emerald-200 to-emerald-500 bg-clip-text text-transparent">
-                                FleetFlow
-                            </span>
-                        </div>
-                    </Link>
+                    </div>
 
                     {/* Desktop Navigation */}
                     <nav className="hidden md:flex items-center gap-1">
@@ -91,7 +111,7 @@ export function SiteHeader() {
                     {/* Desktop Actions (Socials) */}
                     <div className="hidden md:flex items-center gap-3">
                         <a
-                            href="https://github.com"
+                            href="https://github.com/HuLaxx/FleetFlow"
                             target="_blank"
                             rel="noopener noreferrer"
                             className="flex items-center gap-2 px-3 py-2 text-sm text-stone-400 hover:text-stone-100 transition-colors rounded-full hover:bg-stone-800/50"
@@ -128,7 +148,7 @@ export function SiteHeader() {
                                 </Link>
                             ))}
                             <a
-                                href="https://github.com"
+                                href="https://github.com/HuLaxx/FleetFlow"
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="flex items-center gap-2 px-4 py-3 text-sm text-stone-400 hover:text-stone-100"
