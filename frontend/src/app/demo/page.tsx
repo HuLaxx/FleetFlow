@@ -8,7 +8,7 @@ import { Header } from '@/components/dashboard/header';
 import { StatsCards } from '@/components/dashboard/stats-cards';
 import { DriversList } from '@/components/dashboard/drivers-list';
 import { OrdersPanel } from '@/components/dashboard/orders-panel';
-import { DeploymentNotice } from '@/components/site/deployment-notice';
+import { DemoNotice } from '@/components/site/demo-notice';
 
 // Dynamic import for map (no SSR - uses WebGL)
 const FleetMap = dynamic(() => import('@/components/map/fleet-map'), {
@@ -27,7 +27,11 @@ export default function DemoPage() {
             <SiteHeader />
 
             {/* Demo Content */}
-            <main className="flex-1 pt-24 md:pt-28 flex flex-col">
+            <main className="flex-1 pt-24 md:pt-28 pb-12 flex flex-col gap-6">
+                <div className="px-6">
+                    <DemoNotice />
+                </div>
+
                 {/* Dashboard Container - Full viewport height minus header */}
                 <div className="flex-1 flex min-h-[calc(100vh-128px)]">
                     {/* Sidebar */}
@@ -35,14 +39,8 @@ export default function DemoPage() {
 
                     {/* Main Content */}
                     <div className="flex-1 flex flex-col overflow-hidden">
-                        <div className="px-6 pt-6">
-                            <DeploymentNotice variant="compact" />
-                        </div>
-
                         {/* Dashboard Header */}
-                        <div className="mt-4">
-                            <Header />
-                        </div>
+                        <Header />
 
                         {/* Dashboard Content */}
                         <div className="flex-1 overflow-hidden p-6">

@@ -180,7 +180,7 @@ export default function LandingPage() {
       </section>
 
       {/* Features Grid */}
-      <section id="features" className="py-24 bg-stone-900/30 relative">
+      <section id="features" className="py-24 relative">
         <div className="max-w-7xl mx-auto px-6">
           <div className="text-center mb-16">
             <h2 className="text-3xl font-bold text-white mb-4">Production-Grade Architecture</h2>
@@ -343,38 +343,6 @@ export default function LandingPage() {
                 </div>
               </div>
             </div>
-          </div>
-        </div>
-      </section>
-
-      {/* CTA */}
-      <section className="py-24 relative overflow-hidden">
-        <div className="absolute inset-0 bg-stone-950" />
-        <div className="absolute inset-0 bg-[linear-gradient(rgba(16,185,129,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(16,185,129,0.03)_1px,transparent_1px)] bg-[size:64px_64px] [mask-image:radial-gradient(ellipse_at_center,black_50%,transparent_90%)]" />
-
-        <div className="max-w-4xl mx-auto px-6 relative z-10 text-center">
-          <h2 className="text-4xl font-bold text-white mb-6">
-            Ready to optimize your fleet?
-          </h2>
-          <p className="text-stone-400 mb-10 text-lg">
-            Explore the interactive demo to see the real-time decision engine in action,
-            or dive into the system architecture.
-          </p>
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <Link
-              href="/demo"
-              className="inline-flex items-center gap-2 px-8 py-4 bg-emerald-500 text-stone-950 rounded-xl font-bold text-lg hover:bg-emerald-400 transition-colors shadow-xl shadow-emerald-500/20"
-            >
-              <Truck className="w-5 h-5" />
-              Launch Demo
-            </Link>
-            <Link
-              href="https://github.com/HuLaxx/FleetFlow"
-              target="_blank"
-              className="inline-flex items-center gap-2 px-8 py-4 bg-stone-900 border border-stone-800 text-stone-300 rounded-xl font-medium hover:bg-stone-800 hover:text-white transition-all"
-            >
-              View Source
-            </Link>
           </div>
         </div>
       </section>

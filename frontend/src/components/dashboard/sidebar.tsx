@@ -51,14 +51,6 @@ export function Sidebar() {
                 </Link>
             </div>
 
-            {/* Demo Label */}
-            <div className="px-6 py-3">
-                <div className="flex items-center gap-2 text-xs text-stone-500 uppercase tracking-wider">
-                    <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                    Live Demo Mode
-                </div>
-            </div>
-
             {/* Navigation */}
             <nav className="flex-1 px-3 py-2 space-y-1">
                 {navigation.map((item, index) => {
