@@ -1,0 +1,73 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 490" role="img" aria-labelledby="ticketTitle ticketDesc">
+<title id="ticketTitle">FleetFlow dispatch decision worksheet</title>
+<desc id="ticketDesc">A conceptual routing worksheet: incoming orders and vehicles feed capacity and time constraints, an OR-Tools route solver proposes a plan, and location events may inform further decisions. It is not a measured delivery run or verified fully connected pipeline.</desc>
+<defs>
+ <pattern id="dots" width="18" height="18" patternUnits="userSpaceOnUse"><circle cx="2" cy="2" r=".8" fill="#b3b6ad" opacity=".35"/></pattern>
+ <marker id="arr" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M0 0L7 3.5L0 7Z" fill="#28756d"/></marker>
+ <clipPath id="page"><rect width="1200" height="490" rx="17"/></clipPath>
+</defs>
+<g clip-path="url(#page)">
+<rect width="1200" height="490" fill="#f4f0e5"/>
+<rect width="1200" height="490" fill="url(#dots)"/>
+<rect width="1200" height="12" fill="#142f35"/>
+<path d="M0 79H1200M0 435H1200" stroke="#aab5a8" stroke-width="1.5"/>
+<g font-family="Arial,Helvetica,sans-serif">
+ <text x="36" y="45" fill="#1a383c" font-size="29" font-weight="800" letter-spacing="-1">DISPATCH DECISION SHEET</text>
+ <text x="38" y="66" fill="#58756e" font-family="monospace" font-size="12" letter-spacing=".7">START WITH ORDERS. SOLVE FOR REAL-WORLD LIMITS. REVIEW BEFORE DISPATCH.</text>
+ <rect x="1026" y="27" width="133" height="42" rx="3" fill="none" stroke="#d09d64" stroke-width="1.8" transform="rotate(-5 1092 48)"/>
+ <text x="1092" y="52" text-anchor="middle" fill="#b17b43" font-size="14" font-family="monospace" font-weight="700" letter-spacing="1" transform="rotate(-5 1092 48)">PLAN / DRAFT</text>
+</g>
+<!-- The order docket -->
+<rect x="35" y="106" width="319" height="307" rx="12" fill="#fffef9" stroke="#b8c8ba" stroke-width="1.3"/>
+<rect x="35" y="106" width="319" height="43" rx="12" fill="#1d4041"/>
+<path d="M35 136H354" stroke="#1d4041" stroke-width="26"/>
+<text x="52" y="132" fill="#edf9ef" font-family="monospace" font-size="14" letter-spacing="1.3">INCOMING MANIFEST</text>
+<text x="51" y="172" fill="#68817b" font-family="monospace" font-size="11">SOURCE</text>
+<text x="217" y="172" fill="#68817b" font-family="monospace" font-size="11">CHECKPOINT</text>
+<g font-family="monospace" font-size="13" fill="#2c4a4c">
+<text x="52" y="209">ORDERS</text><text x="217" y="209">PENDING</text>
+<path d="M51 220H338" stroke="#d0dcd1"/>
+<text x="52" y="255">VEHICLES</text><text x="217" y="255">AVAILABLE?</text>
+<path d="M51 267H338" stroke="#d0dcd1"/>
+<text x="52" y="301">DEPOT</text><text x="217" y="301">SELECTED</text>
+<path d="M51 313H338" stroke="#d0dcd1"/>
+<text x="52" y="348">DELIVERY DAY</text><text x="217" y="348">REQUESTED</text>
+</g>
+<rect x="52" y="366" width="285" height="30" rx="5" fill="#d9eee5"/>
+<text x="65" y="385.5" fill="#2e6f60" font-family="monospace" font-size="11.5">API / ORDERS · VEHICLES · DEPOTS</text>
+<!-- constraint ticket -->
+<path d="M358 260H391" stroke="#28756d" stroke-width="2.8" marker-end="url(#arr)"/>
+<rect x="401" y="115" width="286" height="289" rx="12" fill="#e2ece5" stroke="#8fb5a7" stroke-width="1.6"/>
+<rect x="417" y="132" width="254" height="41" rx="7" fill="#c6ded1"/>
+<text x="544" y="160" fill="#285449" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="800" text-anchor="middle">CONSTRAINTS</text>
+<g font-family="monospace" font-size="12" fill="#355a54">
+<circle cx="435" cy="206" r="6" fill="#469a80"/><text x="450" y="211">VEHICLE CAPACITY</text>
+<circle cx="435" cy="244" r="6" fill="#469a80"/><text x="450" y="249">SERVICE WINDOWS</text>
+<circle cx="435" cy="282" r="6" fill="#469a80"/><text x="450" y="287">TRAVEL / WAIT TIME</text>
+<circle cx="435" cy="320" r="6" fill="#469a80"/><text x="450" y="325">DEPOT + STOPS</text>
+</g>
+<path d="M417 341H672" stroke="#a4beb3" stroke-width="1.2"/>
+<text x="430" y="362" fill="#1e6a5b" font-family="monospace" font-size="12" font-weight="700">OR-TOOLS / VRP</text>
+<text x="430" y="384" fill="#496e60" font-family="monospace" font-size="11">MODEL DEPENDENCIES REQUIRED</text>
+<!-- proposed route panel -->
+<path d="M691 260H720" stroke="#28756d" stroke-width="2.8" marker-end="url(#arr)"/>
+<rect x="731" y="106" width="433" height="307" rx="12" fill="#132d33" stroke="#6e918b" stroke-width="1.6"/>
+<g fill="none" stroke="#568076" stroke-opacity=".28" stroke-width="6">
+<path d="M763 150H1129M763 203H1129M763 256H1129M763 309H1129M763 362H1129"/>
+<path d="M799 142V384M867 142V384M935 142V384M1003 142V384M1071 142V384"/>
+</g>
+<text x="754" y="137" fill="#a8edd2" font-family="monospace" font-size="12" letter-spacing="1.3">ROUTE PROPOSAL / PREVIEW</text>
+<path d="M797 362V309H866V256H935V204H1072V151H1134" fill="none" stroke="#89f0c7" stroke-width="3.6" stroke-linejoin="round" stroke-linecap="round"/>
+<path d="M797 362H935V309H1002V362H1134V257" fill="none" stroke="#8cccf2" stroke-width="3.2" stroke-linejoin="round" stroke-dasharray="11 9" stroke-dashoffset="0">
+ <animate attributeName="stroke-dashoffset" values="0;-100" dur="8s" repeatCount="indefinite"/>
+</path>
+<circle cx="797" cy="362" r="12" fill="#194c47" stroke="#baf8d8" stroke-width="2"/><text x="797" y="366" fill="#e6fff2" font-family="monospace" font-size="11" text-anchor="middle">D</text>
+<g fill="#eafded" stroke="#3d7b64" stroke-width="1.6"><circle cx="866" cy="256" r="6"/><circle cx="1072" cy="151" r="6"/><circle cx="1134" cy="257" r="6"/></g>
+<rect x="748" y="373" width="397" height="26" rx="5" fill="#234b48"/>
+<text x="761" y="390" fill="#b8f6d5" font-family="monospace" font-size="11">OPTIMIZER RETURNS A PLAN · NOT AUTO-APPLIED</text>
+<!-- bottom ledger -->
+<g font-family="monospace" font-size="12" letter-spacing=".4">
+<text x="39" y="460" fill="#486b67">NEXT: REVIEW PLAN → DISPATCH WORKFLOW → OBSERVE GPS / EVENT UPDATES</text>
+<text x="1160" y="460" text-anchor="end" fill="#ab7b52">CONCEPTUAL SCHEMATIC / NOT MEASURED ROUTES</text>
+</g>
+</g></svg>
