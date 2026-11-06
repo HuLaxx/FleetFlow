@@ -37,7 +37,7 @@ The graphics illustrate architecture and product thinking. **They are not live t
 - [x] Commit both original SVG assets to the default \`main\` branch.
 - [x] Commit rewritten README and link to the actual GitHub/portfolio destinations.
 - [x] Validate SVG element nesting, accessible descriptions and unique element IDs.
-- [ ] Verify every local README link resolves after publishing this checklist (the checklist is the last new target).
+- [x] Verify all **34 distinct local README image/link targets** and every checklist-relative image/link target exist in the repository.
 - [ ] Verify live deployment/build status separately.
 
 **Definition of "visual/editorial pass complete":** the visuals, narrative and evidence links are committed. Do not equate this with completed runtime or CI verification.
