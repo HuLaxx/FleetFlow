@@ -1,43 +1,45 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { ArrowUpRight, Truck } from 'lucide-react';
 
-const INTRO_KEY = 'fleetflow_dispatch_intro_v2';
-const INTRO_DURATION_MS = 1450;
+const INTRO_DURATION_MS = 2200;
 
-/**
- * A lightweight brand introduction, shown only once per browser session.
- *
- * This is an introduction, not a fake network progress indicator. Actual
- * route-level loading is handled by app/loading.tsx. Returning visitors
- * aren't forced through a delay, and reduced-motion visitors skip it.
- */
+/** Branded intro on every fresh page visit. Route loading remains in app/loading.tsx. */
 export function LoadingScreen() {
-  const [visible, setVisible] = useState(false);
+  // Visible in server HTML too; avoids a flash of uncovered content before hydration.
+  const [visible, setVisible] = useState(true);
+  const timerRef = useRef<number | null>(null);
+
+  const dismiss = useCallback(() => {
+    if (timerRef.current !== null) window.clearTimeout(timerRef.current);
+    timerRef.current = null;
+    setVisible(false);
+  }, []);
+
+  const present = useCallback(() => {
+    if (timerRef.current !== null) window.clearTimeout(timerRef.current);
+    setVisible(true);
+    timerRef.current = window.setTimeout(dismiss, INTRO_DURATION_MS);
+  }, [dismiss]);
 
   useEffect(() => {
-    const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-    try {
-      if (sessionStorage.getItem(INTRO_KEY)) return;
-      sessionStorage.setItem(INTRO_KEY, '1');
-    } catch {
-      // Restricted storage is allowed; the introduction still closes.
-    }
-    if (reducedMotion) return;
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reducedMotion) dismiss();
+    else present();
 
-    setVisible(true);
-    const timer = window.setTimeout(() => setVisible(false), INTRO_DURATION_MS);
-    const skipWithKeyboard = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setVisible(false);
+    const onReplay = () => present();
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') dismiss();
     };
-    document.addEventListener('keydown', skipWithKeyboard);
-
+    window.addEventListener('fleetflow:replay-intro', onReplay);
+    document.addEventListener('keydown', onKeyDown);
     return () => {
-      window.clearTimeout(timer);
-      document.removeEventListener('keydown', skipWithKeyboard);
+      if (timerRef.current !== null) window.clearTimeout(timerRef.current);
+      window.removeEventListener('fleetflow:replay-intro', onReplay);
+      document.removeEventListener('keydown', onKeyDown);
     };
-  }, []);
+  }, [dismiss, present]);
 
   if (!visible) return null;
 
@@ -70,7 +72,7 @@ export function LoadingScreen() {
           </div>
           <button
             type="button"
-            onClick={() => setVisible(false)}
+            onClick={dismiss}
             className="group inline-flex items-center gap-2 border border-white/20 px-3 py-2 text-xs text-[#cadbd2] transition hover:border-[#b9e6cb] hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#b9e6cb]"
           >
             Skip intro <ArrowUpRight size={13} className="transition group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
