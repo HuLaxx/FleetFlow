@@ -1,17 +1,39 @@
-test('intro shows once per session, can be skipped and does not return on reload', async ({ page }) => {
+test('intro appears at first paint, can replay and appears after full refresh', async ({ page }) => {
   await page.goto('/');
   const intro = page.getByRole('dialog', { name: 'FleetFlow opening screen' });
   await expect(intro).toBeVisible();
-  await expect(page.getByRole('button', { name: /skip intro/i })).toBeVisible();
-
   await page.getByRole('button', { name: /skip intro/i }).click();
   await expect(intro).toHaveCount(0);
+
+  await page.getByRole('button', { name: /replay loading intro/i }).click();
+  await expect(intro).toBeVisible();
+  await page.getByRole('button', { name: /skip intro/i }).click();
+
   await page.reload();
-  await expect(page.getByRole('heading', { name: /a better way to move everything/i })).toBeVisible();
-  await expect(intro).toHaveCount(0);
+  await expect(intro).toBeVisible();
 });
 
-import { test, expect } from '@playwright/test';
+test('mobile nav starts opaque without scrolling and stays opaque when scrolling', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/');
+  await page.getByRole('button', { name: /skip intro/i }).click();
+  const nav = page.locator('header.fixed.top-4 > div.max-w-6xl');
+  await expect(nav).toBeVisible();
+
+  const hasOpaqueBackground = async () => nav.evaluate(element => {
+    const value = getComputedStyle(element).backgroundColor;
+    const match = value.match(/rgba?\\(([^)]+)\\)/);
+    if (!match) return false;
+    const channels = match[1].split(/[,\\s]+/).filter(Boolean);
+    return channels.length === 3 || (channels.length >= 4 && Number(channels[3]) >= 0.95);
+  });
+
+  expect(await hasOpaqueBackground()).toBe(true);
+  await page.getByRole('button', { name: /menu/i }).click();
+  await expect(page.getByRole('link', { name: 'Architecture' })).toBeVisible();
+  expect(await hasOpaqueBackground()).toBe(true);
+});
+
 
 test.describe('FleetFlow dispatch lab', () => {
   test('plans, approves, and completes a delivery without backend services', async ({ page }) => {
