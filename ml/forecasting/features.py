@@ -20,9 +20,11 @@ class FeatureEngineer:
         Creates time-series features from raw data.
         Expected columns: timestamp, order_count, zone (optional if pre-filtered)
         """
+        # Avoid mutating upstream training data and keep chronological order.
+        df = df.copy()
         # Ensure timestamp is datetime
         df['timestamp'] = pd.to_datetime(df['timestamp'])
-        df = df.sort_values('timestamp')
+        df = df.sort_values('timestamp').reset_index(drop=True)
         
         # 1. Time-based features (Cyclical encoding)
         df['hour_sin'] = np.sin(2 * np.pi * df['timestamp'].dt.hour / 24)
@@ -39,13 +41,41 @@ class FeatureEngineer:
         df['lag_168h'] = df[target_col].shift(168)
         
         # 3. Rolling Statistics
-        df['rolling_mean_24h'] = df[target_col].rolling(window=24).mean()
-        df['rolling_std_24h'] = df[target_col].rolling(window=24).std()
+        df['rolling_mean_24h'] = df[target_col].shift(1).rolling(window=24).mean()
+        df['rolling_std_24h'] = df[target_col].shift(1).rolling(window=24).std()
         
         # Drop NaNs created by lags
         df = df.dropna()
         
         return df
+
+    def prepare_raw_sequences(
+        self, df: pd.DataFrame, target_col: str = 'order_count', sequence_length: int = 24
+    ):
+        """Return chronological, UN-SCALED X/y sequences for leakage-safe CV.
+
+        Split sequences by time first, then fit feature/target scalers using only
+        each fold's training observations. Never fit scalers on held-out periods.
+        """
+        if sequence_length < 1:
+            raise ValueError("sequence_length must be positive")
+        numeric_df = df.select_dtypes(include=[np.number])
+        if target_col not in numeric_df:
+            raise ValueError(f"Missing numeric target column: {target_col}")
+        if len(numeric_df) <= sequence_length:
+            raise ValueError("Not enough observations to create sequences")
+        if not np.isfinite(numeric_df.to_numpy(dtype=float)).all():
+            raise ValueError("Training data contains non-finite numeric values")
+
+        self.feature_columns = numeric_df.columns.tolist()
+        data = numeric_df.to_numpy(dtype=np.float64)
+        target_index = self.feature_columns.index(target_col)
+        X = np.stack([
+            data[index:index + sequence_length]
+            for index in range(len(data) - sequence_length)
+        ])
+        y = data[sequence_length:, target_index].copy()
+        return X, y
 
     def prepare_data(self, df: pd.DataFrame, target_col: str = 'order_count', sequence_length: int = 24):
         """
@@ -82,9 +112,10 @@ class FeatureEngineer:
         return np.array(X), np.array(y)
 
     def inverse_transform(self, y_scaled):
-        """Reverts scaling for predictions."""
-        # Create a dummy array with same shape as scaler input to inverse transform
-        # This is a bit hacky if we only have 'y'. 
-        # Better to have a separate scaler for target if we want easy inversion.
-        # For now, let's assume we can handle it or use a separate target scaler in a refined version.
-        pass 
+        """Convert the target feature back from the legacy combined scaler."""
+        if not self.feature_columns or not hasattr(self.scaler, 'scale_'):
+            raise ValueError("Prepare scaled data before inverse transforming")
+        target_index = self.feature_columns.index('order_count')
+        scaled = np.asarray(y_scaled, dtype=np.float64)
+        # MinMaxScaler transforms as X_scaled = X * scale_ + min_.
+        return (scaled - self.scaler.min_[target_index]) / self.scaler.scale_[target_index]
