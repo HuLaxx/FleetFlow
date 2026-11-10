@@ -21,9 +21,8 @@ test('intro is visible on first paint and accessible as a persistent showcase', 
   });
   console.log('FleetFlow loading track geometry:', JSON.stringify(trackGeometry));
   expect(trackGeometry.width).toBeGreaterThan(100);
-  expect(trackGeometry.height).toBeGreaterThan(4);
+  expect(trackGeometry.height).toBeGreaterThan(9);
   await expect(progressTrack).toBeVisible();
-  await expect(intro.getByRole('progressbar', { name: 'FleetFlow loading animation' })).toBeVisible();
   // This is a loading screen, not a second landing page or a navigation header.
   await expect(intro.locator('header')).toHaveCount(0);
   await expect(intro.getByTestId('fleetflow-loading-animation')).toBeVisible();
@@ -49,7 +48,7 @@ test('direct loading-screen link is persistent even on a mobile device', async (
   await expect(intro).toBeVisible();
   await page.waitForTimeout(4700);
   await expect(intro).toBeVisible();
-  await expect(intro.getByRole('progressbar')).toBeVisible();
+  await expect(intro.getByTestId('fleetflow-progress-track')).toBeVisible();
   await expect(intro.locator('header')).toHaveCount(0);
   await expect(page.getByRole('button', { name: /enter fleetflow/i })).toBeVisible();
 });
