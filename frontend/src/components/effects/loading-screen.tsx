@@ -170,13 +170,38 @@ export function LoadingScreen() {
         {/* Indeterminate: this is a brand intro, never a fabricated percentage. */}
         <div
           data-testid="fleetflow-progress-track"
-          className="relative mt-5 overflow-hidden rounded-full bg-[#315747]/60"
-          style={{ width: '270px', maxWidth: '72vw', height: '6px' }}
+          className="mt-5"
           role="progressbar"
           aria-label="FleetFlow loading animation"
           aria-valuetext="Preparing workspace"
+          style={{
+            display: 'block',
+            position: 'relative',
+            width: '270px',
+            maxWidth: '72vw',
+            height: '8px',
+            backgroundColor: '#254e37',
+            border: '1px solid rgba(162, 238, 186, .35)',
+            borderRadius: '9999px',
+            overflow: 'hidden',
+            boxShadow: '0 0 22px rgba(138, 232, 166, .08)',
+          }}
         >
-          <div className="ff-loader-progress absolute left-0 top-0 h-full w-[38%] rounded-full bg-gradient-to-r from-[#4f9971] via-[#b4f5cc] to-[#d4ffe3] shadow-[0_0_20px_rgba(166,248,194,.65)]" />
+          <div
+            className="ff-loader-progress"
+            style={{
+              display: 'block',
+              position: 'absolute',
+              left: 0,
+              top: 0,
+              height: '100%',
+              width: '42%',
+              borderRadius: '9999px',
+              background: 'linear-gradient(90deg, #53a477, #b4f5cc, #e2ffe9)',
+              boxShadow: '0 0 14px rgba(178, 249, 200, .7)',
+            }}
+            aria-hidden="true"
+          />
         </div>
 
         <div className="mt-9 flex items-center gap-3 text-[10px] uppercase tracking-[.23em] text-[#608c73]">
