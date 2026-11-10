@@ -15,7 +15,7 @@ import structlog
 
 from src.config import get_settings
 from src.events import get_kafka_producer
-from src.api.routes import orders, drivers, routes, vehicles, optimization, auth, monitoring, experiments
+from src.api.routes import orders, drivers, routes, vehicles, optimization, auth, monitoring, experiments, depots
 from src.middleware.security import configure_security
 from src.monitoring import PrometheusMiddleware, configure_sentry
 from src.graphql import graphql_router
@@ -132,6 +132,7 @@ app.include_router(drivers.router, prefix="/api/v1/drivers", tags=["Drivers"])
 app.include_router(routes.router, prefix="/api/v1/routes", tags=["Routes"])
 app.include_router(vehicles.router, prefix="/api/v1/vehicles", tags=["Vehicles"])
 app.include_router(optimization.router, prefix="/api/v1/optimization", tags=["Optimization"])
+app.include_router(depots.router, prefix="/api/v1/depots", tags=["Depots"])
 app.include_router(experiments.router, prefix="/api/v1", tags=["A/B Testing"])
 app.include_router(rag_router, tags=["RAG"])
 
