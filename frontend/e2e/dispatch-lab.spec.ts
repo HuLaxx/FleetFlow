@@ -31,10 +31,14 @@ test('mobile nav starts opaque without scrolling and stays opaque when scrolling
     return channels.length === 3 || (channels.length >= 4 && Number(channels[3]) >= 0.95);
   });
 
-  expect(await hasOpaqueBackground()).toBe(true);
+  const computedColor = await nav.evaluate(element => getComputedStyle(element).backgroundColor);
+  console.log('FleetFlow mobile header background:', computedColor);
+  expect(await hasOpaqueBackground(), 'Header computed background: ' + computedColor).toBe(true);
   await page.locator('header.fixed.top-4 button[class*="md:hidden"]').click();
   await expect(page.getByRole('link', { name: 'Architecture' })).toBeVisible();
-  expect(await hasOpaqueBackground()).toBe(true);
+  const computedColor = await nav.evaluate(element => getComputedStyle(element).backgroundColor);
+  console.log('FleetFlow mobile header background:', computedColor);
+  expect(await hasOpaqueBackground(), 'Header computed background: ' + computedColor).toBe(true);
 });
 
 
