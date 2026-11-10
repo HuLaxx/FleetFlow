@@ -1,15 +1,6 @@
 import type { Metadata } from 'next';
-import { Inter, Merienda } from 'next/font/google';
 import './globals.css';
 import { TRPCProvider } from '@/lib/trpc';
-
-const inter = Inter({ variable: '--font-inter', subsets: ['latin'], display: 'swap' });
-const script = Merienda({
-  subsets: ['latin'],
-  weight: ['400', '600', '900'],
-  variable: '--font-script',
-  display: 'swap',
-});
 
 export const metadata: Metadata = {
   title: 'FleetFlow | Dispatch planning and fleet operations',
@@ -30,8 +21,8 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className={`dark ${script.variable}`} suppressHydrationWarning>
-      <body className={`${inter.variable} font-sans antialiased bg-[#0c1418] text-zinc-100`} suppressHydrationWarning>
+    <html lang="en" className="dark" suppressHydrationWarning>
+      <body className="font-sans antialiased bg-[#0c1418] text-zinc-100" suppressHydrationWarning>
         <TRPCProvider>{children}</TRPCProvider>
       </body>
     </html>
