@@ -4,6 +4,12 @@ test('intro is visible on first paint and accessible as a persistent showcase', 
   await page.goto('/', { waitUntil: 'domcontentloaded' });
   const intro = page.getByRole('dialog', { name: 'FleetFlow opening screen' });
   await expect(intro).toBeVisible();
+  await expect(intro.getByRole('heading', { name: 'FleetFlow' })).toBeVisible();
+  await expect(intro.getByText('Loading your workspace')).toBeVisible();
+  await expect(intro.getByRole('progressbar', { name: 'FleetFlow loading animation' })).toBeVisible();
+  // The screen must be a loader, not a second site header or landing page.
+  await expect(intro.locator('header')).toHaveCount(0);
+  await expect(intro.getByTestId('fleetflow-loading-animation')).toBeVisible();
 
   await page.getByRole('button', { name: /skip intro/i }).click();
   await expect(intro).toHaveCount(0);
@@ -16,9 +22,9 @@ test('intro is visible on first paint and accessible as a persistent showcase', 
   // Unlike the auto intro, the direct preview cannot time out.
   await page.waitForTimeout(4700);
   await expect(intro).toBeVisible();
-  await expect(page.getByRole('button', { name: /continue to fleetflow/i })).toBeVisible();
+  await expect(page.getByRole('button', { name: /enter fleetflow/i })).toBeVisible();
 
-  await page.getByRole('button', { name: /continue to fleetflow/i }).click();
+  await page.getByRole('button', { name: /enter fleetflow/i }).click();
   await expect(page).toHaveURL(url => url.pathname === '/');
   await expect(intro).toHaveCount(0);
 
@@ -34,7 +40,9 @@ test('direct loading-screen link is persistent even on a mobile device', async (
   await expect(intro).toBeVisible();
   await page.waitForTimeout(4700);
   await expect(intro).toBeVisible();
-  await expect(page.getByRole('button', { name: /continue to fleetflow/i })).toBeVisible();
+  await expect(intro.getByRole('progressbar')).toBeVisible();
+  await expect(intro.locator('header')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /enter fleetflow/i })).toBeVisible();
 });
 
 test('mobile nav starts opaque without scrolling and stays opaque when scrolling', async ({ page }) => {
