@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { SiteHeader } from '@/components/site/site-header';
 import { SiteFooter } from '@/components/site/site-footer';
+import { ReplayIntroButton } from '@/components/effects/replay-intro-button';
 import {
   AREA_PRESETS, DEMO_DRIVERS, DEPOT, SCENARIO_STOPS, createScenarioStop,
   planDispatch, type DispatchPlan, type DispatchStop, type Priority,
@@ -246,6 +247,7 @@ export default function DemoPage() {
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-3 lg:justify-end">
+            <ReplayIntroButton className="mr-2" />
             <Link href="/demo/live" className="inline-flex items-center gap-2 border border-[#3b5555] px-4 py-3 text-xs font-semibold text-[#d6e9de] transition hover:bg-white/5">
               Connected workspace <ArrowUpRightIcon />
             </Link>
