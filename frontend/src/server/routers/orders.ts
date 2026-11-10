@@ -40,19 +40,19 @@ export const ordersRouter = createTRPCRouter({
             z.object({
                 customer_name: z.string(),
                 customer_phone: z.string().optional(),
-                delivery_address: z.string(),
-                delivery_latitude: z.number(),
-                delivery_longitude: z.number(),
+                street: z.string().min(1),
+                city: z.string().min(1),
+                state: z.string().min(1),
+                postal_code: z.string().min(1),
+                latitude: z.number().min(-90).max(90),
+                longitude: z.number().min(-180).max(180),
                 delivery_date: z.string(),
                 time_window_start: z.string(),
                 time_window_end: z.string(),
-                items: z.array(z.object({
-                    name: z.string(),
-                    quantity: z.number(),
-                    weight_kg: z.number(),
-                })),
+                items: z.array(z.record(z.string(), z.unknown())),
+                total_weight_kg: z.number().positive(),
                 priority: z.number().min(1).max(5).default(2),
-                notes: z.string().optional(),
+                special_instructions: z.string().optional(),
             })
         )
         .mutation(async ({ input }) => {
