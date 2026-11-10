@@ -24,7 +24,7 @@ test.describe('FleetFlow dispatch lab', () => {
 
     await page.getByPlaceholder('Business name').fill('Scenario QA Test');
     await page.getByRole('button', { name: 'Add to manifest' }).click();
-    await expect(page.getByText('Scenario QA Test')).toBeVisible();
+    await expect(page.getByText('Scenario QA Test').first()).toBeVisible();
     await expect(page.getByRole('button', { name: 'Generate plan' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Approve dispatch' })).toBeDisabled();
   });
