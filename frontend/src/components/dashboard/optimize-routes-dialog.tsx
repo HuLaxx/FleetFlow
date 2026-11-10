@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Sparkles, MapPin, Calendar, Loader2, CheckCircle, XCircle, TrendingDown } from 'lucide-react';
+import { Sparkles, MapPin, Calendar, Loader2, CheckCircle, XCircle } from 'lucide-react';
 import { trpc } from '@/lib/trpc';
 
 interface OptimizeRoutesDialogProps {
@@ -11,11 +11,14 @@ interface OptimizeRoutesDialogProps {
 }
 
 export function OptimizeRoutesDialog({ isOpen, onClose }: OptimizeRoutesDialogProps) {
-    const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+    const [selectedDate, setSelectedDate] = useState(() => {
+        const now = new Date();
+        return new Date(now.getTime() - now.getTimezoneOffset() * 60_000).toISOString().slice(0, 10);
+    });
     const [selectedDepot, setSelectedDepot] = useState<string>('');
 
-    // Fetch depots for selection (we'd need to add a depots router, but for now use a default)
-    // In a real app: const { data: depots } = trpc.depots.getAll.useQuery();
+    // Discover real depot IDs from the backend. No fabricated UUIDs.
+    const { data: depots = [], isLoading: depotsLoading, isError: depotsError } = trpc.depots.getAll.useQuery(undefined, { enabled: isOpen, retry: false });
 
     const optimizeMutation = trpc.optimization.optimizeRoutes.useMutation({
         onSuccess: (data) => {
@@ -41,13 +44,6 @@ export function OptimizeRoutesDialog({ isOpen, onClose }: OptimizeRoutesDialogPr
             console.error('Optimization error:', error);
         }
     };
-
-    // Mock depots (in production, fetch from API)
-    const mockDepots = [
-        { id: '00000000-0000-0000-0000-000000000001', name: 'Manhattan Depot' },
-        { id: '00000000-0000-0000-0000-000000000002', name: 'Brooklyn Depot' },
-        { id: '00000000-0000-0000-0000-000000000003', name: 'Queens Depot' },
-    ];
 
     if (!isOpen) return null;
 
@@ -75,7 +71,7 @@ export function OptimizeRoutesDialog({ isOpen, onClose }: OptimizeRoutesDialogPr
                             </div>
                             <div>
                                 <h2 className="text-xl font-bold text-white">Optimize Routes</h2>
-                                <p className="text-sm text-white/80">AI-powered route generation</p>
+                                <p className="text-sm text-white/80">Review a backend-generated route proposal</p>
                             </div>
                         </div>
                     </div>
@@ -104,16 +100,19 @@ export function OptimizeRoutesDialog({ isOpen, onClose }: OptimizeRoutesDialogPr
                             </label>
                             <select
                                 value={selectedDepot}
+                                disabled={depotsLoading || depotsError || depots.length === 0}
                                 onChange={(e) => setSelectedDepot(e.target.value)}
                                 className="w-full px-4 py-2 bg-stone-800 border border-stone-700 rounded-lg text-stone-100 focus:outline-none focus:border-emerald-500 transition-colors"
                             >
-                                <option value="">Select a depot...</option>
-                                {mockDepots.map(depot => (
+                                <option value="">{depotsLoading ? 'Loading depots...' : 'Select an active depot...'}</option>
+                                {depots.map(depot => (
                                     <option key={depot.id} value={depot.id}>
                                         {depot.name}
                                     </option>
                                 ))}
                             </select>
+                            {depotsError && <p className="mt-2 text-xs text-amber-300">The API is not reachable. Start the connected backend, or use the independent Dispatch Lab.</p>}
+                            {!depotsLoading && !depotsError && !depots.length && <p className="mt-2 text-xs text-amber-300">No active depots were returned by the backend.</p>}
                         </div>
 
                         {/* Results Display */}
@@ -126,18 +125,18 @@ export function OptimizeRoutesDialog({ isOpen, onClose }: OptimizeRoutesDialogPr
                                 <div className="flex items-start gap-3">
                                     <CheckCircle className="w-5 h-5 text-emerald-500 flex-shrink-0 mt-0.5" />
                                     <div className="flex-1">
-                                        <h4 className="font-semibold text-emerald-400 mb-2">Optimization Complete!</h4>
+                                        <h4 className="font-semibold text-emerald-400 mb-2">Route Proposal Ready</h4>
                                         <div className="space-y-1 text-sm text-stone-300">
                                             <div className="flex justify-between">
-                                                <span>Routes Created:</span>
+                                                <span>Routes Proposed:</span>
                                                 <span className="font-mono text-emerald-400">
                                                     {optimizeMutation.data?.routes?.length || 0}
                                                 </span>
                                             </div>
                                             <div className="flex justify-between">
-                                                <span>Orders Assigned:</span>
+                                                <span>Stops Scheduled:</span>
                                                 <span className="font-mono text-emerald-400">
-                                                    {optimizeMutation.data?.metrics?.orders_assigned || 0}
+                                                    {optimizeMutation.data?.metrics?.total_orders_scheduled || 0}
                                                 </span>
                                             </div>
                                             <div className="flex justify-between items-center">
@@ -146,10 +145,7 @@ export function OptimizeRoutesDialog({ isOpen, onClose }: OptimizeRoutesDialogPr
                                                     {optimizeMutation.data?.metrics?.total_distance_km?.toFixed(1) || 0} km
                                                 </span>
                                             </div>
-                                            <div className="flex items-center gap-1 text-xs text-emerald-500 mt-2">
-                                                <TrendingDown className="w-3 h-3" />
-                                                <span>23% distance reduction vs. greedy algorithm</span>
-                                            </div>
+                                            <p className="text-xs text-emerald-200/75 mt-3">This endpoint returns route proposals. It does not commit an approved dispatch.</p>
                                         </div>
                                     </div>
                                 </div>
@@ -182,7 +178,7 @@ export function OptimizeRoutesDialog({ isOpen, onClose }: OptimizeRoutesDialogPr
                         </button>
                         <button
                             onClick={handleOptimize}
-                            disabled={optimizeMutation.isPending || !selectedDepot}
+                            disabled={optimizeMutation.isPending || depotsLoading || depotsError || !selectedDepot}
                             className="flex-1 px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 font-medium"
                         >
                             {optimizeMutation.isPending ? (
