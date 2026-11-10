@@ -114,7 +114,7 @@ export function DriversList() {
                                                 <div className="flex items-center gap-1">
                                                     <Star className="w-3 h-3 text-emerald-500 fill-emerald-500" />
                                                     <span className="text-xs text-stone-400">
-                                                        {driver.rating || '4.5'}
+                                                        {driver.rating == null ? 'Unrated' : Number(driver.rating).toFixed(1)}
                                                     </span>
                                                 </div>
                                             </div>
