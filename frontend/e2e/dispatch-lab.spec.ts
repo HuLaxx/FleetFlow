@@ -1,3 +1,16 @@
+test('intro shows once per session, can be skipped and does not return on reload', async ({ page }) => {
+  await page.goto('/');
+  const intro = page.getByRole('dialog', { name: 'FleetFlow opening screen' });
+  await expect(intro).toBeVisible();
+  await expect(page.getByRole('button', { name: /skip intro/i })).toBeVisible();
+
+  await page.getByRole('button', { name: /skip intro/i }).click();
+  await expect(intro).toHaveCount(0);
+  await page.reload();
+  await expect(page.getByRole('heading', { name: /a better way to move everything/i })).toBeVisible();
+  await expect(intro).toHaveCount(0);
+});
+
 import { test, expect } from '@playwright/test';
 
 test.describe('FleetFlow dispatch lab', () => {
