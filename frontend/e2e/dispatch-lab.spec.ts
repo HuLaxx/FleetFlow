@@ -1,18 +1,40 @@
 import { test, expect } from '@playwright/test';
 
-test('intro appears at first paint, can replay and appears after full refresh', async ({ page }) => {
+test('intro is visible on first paint and accessible as a persistent showcase', async ({ page }) => {
   await page.goto('/', { waitUntil: 'domcontentloaded' });
   const intro = page.getByRole('dialog', { name: 'FleetFlow opening screen' });
   await expect(intro).toBeVisible();
+
   await page.getByRole('button', { name: /skip intro/i }).click();
   await expect(intro).toHaveCount(0);
 
-  await page.getByRole('button', { name: /replay loading intro/i }).click();
+  // Navigating through the public site must open the exact same intro.
+  await page.getByRole('link', { name: /view loading screen/i }).click();
+  await expect(page).toHaveURL(/\\/intro$/);
   await expect(intro).toBeVisible();
-  await page.getByRole('button', { name: /skip intro/i }).click();
 
+  // Unlike the auto intro, the direct preview cannot time out.
+  await page.waitForTimeout(4700);
+  await expect(intro).toBeVisible();
+  await expect(page.getByRole('button', { name: /continue to fleetflow/i })).toBeVisible();
+
+  await page.getByRole('button', { name: /continue to fleetflow/i }).click();
+  await expect(page).toHaveURL(/\\/$/);
+  await expect(intro).toHaveCount(0);
+
+  // A full refresh restores the branded first-load animation.
   await page.reload({ waitUntil: 'domcontentloaded' });
   await expect(intro).toBeVisible();
+});
+
+test('direct loading-screen link is persistent even on a mobile device', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/intro', { waitUntil: 'domcontentloaded' });
+  const intro = page.getByRole('dialog', { name: 'FleetFlow opening screen' });
+  await expect(intro).toBeVisible();
+  await page.waitForTimeout(4700);
+  await expect(intro).toBeVisible();
+  await expect(page.getByRole('button', { name: /continue to fleetflow/i })).toBeVisible();
 });
 
 test('mobile nav starts opaque without scrolling and stays opaque when scrolling', async ({ page }) => {
