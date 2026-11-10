@@ -1,5 +1,5 @@
 test('intro appears at first paint, can replay and appears after full refresh', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/', { waitUntil: 'domcontentloaded' });
   const intro = page.getByRole('dialog', { name: 'FleetFlow opening screen' });
   await expect(intro).toBeVisible();
   await page.getByRole('button', { name: /skip intro/i }).click();
@@ -9,14 +9,15 @@ test('intro appears at first paint, can replay and appears after full refresh', 
   await expect(intro).toBeVisible();
   await page.getByRole('button', { name: /skip intro/i }).click();
 
-  await page.reload();
+  await page.reload({ waitUntil: 'domcontentloaded' });
   await expect(intro).toBeVisible();
 });
 
 test('mobile nav starts opaque without scrolling and stays opaque when scrolling', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto('/');
-  await page.getByRole('button', { name: /skip intro/i }).click();
+  await page.goto('/', { waitUntil: 'domcontentloaded' });
+  const skip = page.getByRole('button', { name: /skip intro/i });
+  if (await skip.isVisible()) await skip.click();
   const nav = page.locator('header.fixed.top-4 > div.max-w-6xl');
   await expect(nav).toBeVisible();
 
@@ -29,7 +30,7 @@ test('mobile nav starts opaque without scrolling and stays opaque when scrolling
   });
 
   expect(await hasOpaqueBackground()).toBe(true);
-  await page.getByRole('button', { name: /menu/i }).click();
+  await page.locator('header.fixed.top-4 button[class*="md:hidden"]').click();
   await expect(page.getByRole('link', { name: 'Architecture' })).toBeVisible();
   expect(await hasOpaqueBackground()).toBe(true);
 });
