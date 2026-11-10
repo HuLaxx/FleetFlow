@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import {
-  ArrowRight, ArrowUpRight, CheckCircle2, Compass, Database, Layers3,
-  MapPinned, MoveUpRight, Route, ShieldCheck, Truck,
+  ArrowRight, ArrowUpRight, CheckCircle2, Database, Layers3,
+  MapPinned, MoveUpRight, Route, ShieldCheck,
 } from 'lucide-react';
 import { SiteHeader } from '@/components/site/site-header';
 import { SiteFooter } from '@/components/site/site-footer';
