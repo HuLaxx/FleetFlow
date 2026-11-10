@@ -4,6 +4,7 @@ import { ordersRouter } from './routers/orders';
 import { routesRouter } from './routers/routes';
 import { vehiclesRouter } from './routers/vehicles';
 import { optimizationRouter } from './routers/optimization';
+import { depotsRouter } from './routers/depots';
 
 /**
  * Main tRPC router - combines all sub-routers
@@ -15,6 +16,7 @@ export const appRouter = createTRPCRouter({
     routes: routesRouter,
     vehicles: vehiclesRouter,
     optimization: optimizationRouter,
+    depots: depotsRouter,
 });
 
 export type AppRouter = typeof appRouter;
