@@ -13,6 +13,16 @@ test('intro is visible on first paint and accessible as a persistent showcase', 
   await expect(intro).toBeVisible();
   await expect(intro.getByRole('heading', { name: 'FleetFlow' })).toBeVisible();
   await expect(intro.getByText('Loading your workspace')).toBeVisible();
+  const progressTrack = intro.getByTestId('fleetflow-progress-track');
+  const trackGeometry = await progressTrack.evaluate(element => {
+    const rect = element.getBoundingClientRect();
+    const styles = getComputedStyle(element);
+    return { width: rect.width, height: rect.height, display: styles.display, visibility: styles.visibility, opacity: styles.opacity };
+  });
+  console.log('FleetFlow loading track geometry:', JSON.stringify(trackGeometry));
+  expect(trackGeometry.width).toBeGreaterThan(100);
+  expect(trackGeometry.height).toBeGreaterThan(4);
+  await expect(progressTrack).toBeVisible();
   await expect(intro.getByRole('progressbar', { name: 'FleetFlow loading animation' })).toBeVisible();
   // This is a loading screen, not a second landing page or a navigation header.
   await expect(intro.locator('header')).toHaveCount(0);
