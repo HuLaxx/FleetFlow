@@ -34,6 +34,11 @@ export class FastAPIClient {
         return response.json();
     }
 
+    // Active depots for validated route optimization requests
+    async listDepots(): Promise<{ depots: { id: string; name: string; address: string; latitude: number; longitude: number }[] }> {
+        return this.request('/depots');
+    }
+
     // Drivers
     async listDrivers(params?: { status?: string; depot_id?: string }) {
         const queryParams = new URLSearchParams();
