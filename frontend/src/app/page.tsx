@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import { SiteHeader } from '@/components/site/site-header';
 import { SiteFooter } from '@/components/site/site-footer';
+import { ReplayIntroButton } from '@/components/effects/replay-intro-button';
 
 const shift = [
   { code: '01', title: 'Import the manifest', text: 'Bring orders, depots, delivery zones and vehicle capacity into one dispatch view.', detail: 'Understand the work' },
@@ -91,6 +92,7 @@ export default function HomePage() {
                 </Link>
               </div>
               <p className="mt-5 flex items-center gap-2 text-xs text-[#79978b]"><ShieldCheck size={14}/> Interactive lab is simulated. The connected workspace requires a configured backend.</p>
+              <ReplayIntroButton className="mt-4" />
               <div className="mt-14 flex flex-wrap items-center gap-6 border-t border-white/10 pt-6">
                 <div><span className="font-mono text-xl text-[#d9ede2]">01</span><p className="text-[11px] uppercase tracking-widest text-[#79948b]">Plan</p></div>
                 <span className="h-px w-10 bg-white/15"/>
