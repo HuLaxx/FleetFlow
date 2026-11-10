@@ -1,54 +1,101 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
 import { ArrowUpRight, Truck } from 'lucide-react';
 
-const INTRO_DURATION_MS = 2200;
+// This is a branded opening animation, NOT a fake backend progress indicator.
+// It remains skippable; an explicit showcase URL keeps it visible indefinitely.
+const INTRO_DURATION_MS = 4000;
 
-/** Branded intro on every fresh page visit. Route loading remains in app/loading.tsx. */
+/**
+ * On full page loads show FleetFlow's introduction long enough to be seen.
+ * Pause the countdown in background tabs (a common reason users miss it when
+ * opening a preview from another app). /intro is a persistent preview.
+ */
 export function LoadingScreen() {
-  // Visible in server HTML too; avoids a flash of uncovered content before hydration.
+  const pathname = usePathname();
+  const router = useRouter();
+  const showcase = pathname === '/intro';
   const [visible, setVisible] = useState(true);
   const timerRef = useRef<number | null>(null);
+  const skipAfterShowcaseRef = useRef(false);
 
-  const dismiss = useCallback(() => {
-    if (timerRef.current !== null) window.clearTimeout(timerRef.current);
-    timerRef.current = null;
-    setVisible(false);
+  const clearCountdown = useCallback(() => {
+    if (timerRef.current !== null) {
+      window.clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
   }, []);
 
-  const present = useCallback(() => {
-    if (timerRef.current !== null) window.clearTimeout(timerRef.current);
-    setVisible(true);
-    timerRef.current = window.setTimeout(dismiss, INTRO_DURATION_MS);
-  }, [dismiss]);
+  const dismiss = useCallback(() => {
+    clearCountdown();
+    setVisible(false);
+  }, [clearCountdown]);
+
+  const continueToSite = useCallback(() => {
+    dismiss();
+    skipAfterShowcaseRef.current = true;
+    router.replace('/');
+  }, [dismiss, router]);
+
+  // The root layout persists between Next.js client-side navigations.
+  // Reopen only for the explicit preview route, not on every navigation.
+  useEffect(() => {
+    if (showcase) {
+      clearCountdown();
+      setVisible(true);
+    } else if (skipAfterShowcaseRef.current) {
+      skipAfterShowcaseRef.current = false;
+      setVisible(false);
+    }
+  }, [showcase, clearCountdown]);
 
   useEffect(() => {
-    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (reducedMotion) dismiss();
-    else present();
+    if (!visible || showcase) {
+      clearCountdown();
+      return;
+    }
 
-    const onReplay = () => present();
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') dismiss();
+    // Do not let the intro expire while the tab is in the background.
+    const scheduleWhileVisible = () => {
+      clearCountdown();
+      if (document.visibilityState === 'visible') {
+        timerRef.current = window.setTimeout(dismiss, INTRO_DURATION_MS);
+      }
     };
-    window.addEventListener('fleetflow:replay-intro', onReplay);
+    scheduleWhileVisible();
+    document.addEventListener('visibilitychange', scheduleWhileVisible);
+    window.addEventListener('focus', scheduleWhileVisible);
+    return () => {
+      clearCountdown();
+      document.removeEventListener('visibilitychange', scheduleWhileVisible);
+      window.removeEventListener('focus', scheduleWhileVisible);
+    };
+  }, [visible, showcase, dismiss, clearCountdown]);
+
+  useEffect(() => {
+    const replay = () => setVisible(true);
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !showcase) dismiss();
+    };
+    window.addEventListener('fleetflow:replay-intro', replay);
     document.addEventListener('keydown', onKeyDown);
     return () => {
-      if (timerRef.current !== null) window.clearTimeout(timerRef.current);
-      window.removeEventListener('fleetflow:replay-intro', onReplay);
+      window.removeEventListener('fleetflow:replay-intro', replay);
       document.removeEventListener('keydown', onKeyDown);
     };
-  }, [dismiss, present]);
+  }, [dismiss, showcase]);
 
   if (!visible) return null;
 
   return (
     <div
-      className="fixed inset-0 z-[100] flex min-h-svh flex-col overflow-hidden bg-[#0a1417] text-[#edf5ef]"
+      className="fixed inset-0 z-[100] flex min-h-svh flex-col overflow-y-auto bg-[#0a1417] text-[#edf5ef]"
       role="dialog"
       aria-modal="true"
       aria-label="FleetFlow opening screen"
+      data-testid="fleetflow-intro"
     >
       <div
         className="pointer-events-none absolute inset-0 opacity-50"
@@ -59,7 +106,7 @@ export function LoadingScreen() {
         }}
         aria-hidden="true"
       />
-      <div className="relative mx-auto flex w-full max-w-[1440px] flex-1 flex-col px-6 py-8 md:px-12 md:py-12">
+      <div className="relative mx-auto flex min-h-svh w-full max-w-[1440px] flex-1 flex-col px-6 py-8 md:px-12 md:py-12">
         <div className="flex items-center justify-between gap-4 border-b border-white/10 pb-5">
           <div className="flex items-center gap-3">
             <span className="flex h-9 w-9 items-center justify-center border border-[#82b99b] bg-[#173028] text-[#a9ebc2]">
@@ -72,10 +119,10 @@ export function LoadingScreen() {
           </div>
           <button
             type="button"
-            onClick={dismiss}
+            onClick={showcase ? continueToSite : dismiss}
             className="group inline-flex items-center gap-2 border border-white/20 px-3 py-2 text-xs text-[#cadbd2] transition hover:border-[#b9e6cb] hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#b9e6cb]"
           >
-            Skip intro <ArrowUpRight size={13} className="transition group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+            {showcase ? 'Continue to FleetFlow' : 'Skip intro'} <ArrowUpRight size={13} className="transition group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
           </button>
         </div>
 
@@ -136,7 +183,7 @@ export function LoadingScreen() {
 
         <div className="border-t border-white/10 pt-5">
           <div className="mb-3 flex items-center justify-between gap-3 text-[11px] text-[#a6c5b5]">
-            <span className="uppercase tracking-[.18em]">Opening operations desk</span>
+            <span className="uppercase tracking-[.18em]">{showcase ? 'Loading screen / Full preview' : 'Opening operations desk'}</span>
             <span className="font-mono text-[#8ca69c]">FF / 001</span>
           </div>
           <div className="h-[2px] overflow-hidden bg-white/10" aria-hidden="true">
