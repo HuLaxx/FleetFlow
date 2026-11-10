@@ -1,3 +1,5 @@
+import { test, expect } from '@playwright/test';
+
 test('intro appears at first paint, can replay and appears after full refresh', async ({ page }) => {
   await page.goto('/', { waitUntil: 'domcontentloaded' });
   const intro = page.getByRole('dialog', { name: 'FleetFlow opening screen' });
