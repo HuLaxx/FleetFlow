@@ -171,16 +171,18 @@ export function LoadingScreen() {
         <div
           data-testid="fleetflow-progress-track"
           className="mt-5"
-          role="progressbar"
-          aria-label="FleetFlow loading animation"
-          aria-valuetext="Preparing workspace"
+          aria-hidden="true"
           style={{
             display: 'block',
             position: 'relative',
             width: '270px',
             maxWidth: '72vw',
-            height: '8px',
-            backgroundColor: '#254e37',
+            height: '12px',
+            minHeight: '12px',
+            maxHeight: '12px',
+            flexShrink: 0,
+            boxSizing: 'content-box',
+            backgroundColor: '#326848',
             border: '1px solid rgba(162, 238, 186, .35)',
             borderRadius: '9999px',
             overflow: 'hidden',
