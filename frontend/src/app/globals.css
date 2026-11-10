@@ -234,22 +234,3 @@
   opacity: 0.02;
   background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
-
-
-/*
- * Mobile navigation readability: the shared header intentionally starts
- * transparent on desktop, but small screens need a solid surface immediately.
- * Keep the HuLaX header component and its branded credit untouched.
- */
-@media (max-width: 767px) {
-  header.fixed.top-4 > div.max-w-6xl {
-    background-color: #0b171b !important;
-    border-color: #31534a !important;
-    box-shadow: 0 12px 38px rgba(0, 0, 0, 0.46) !important;
-    -webkit-backdrop-filter: blur(14px);
-    backdrop-filter: blur(14px);
-  }
-  header.fixed.top-4 {
-    isolation: isolate;
-  }
-}
