@@ -39,10 +39,15 @@ test('mobile nav starts opaque without scrolling and stays opaque when scrolling
   const before = await nav.evaluate(element => getComputedStyle(element).backgroundColor);
   expect(await hasOpaqueBackground(), 'Initial mobile header background: ' + before).toBe(true);
 
+  await page.evaluate(() => window.scrollTo(0, 280));
+  await page.waitForFunction(() => window.scrollY > 20);
+  const scrolled = await nav.evaluate(element => getComputedStyle(element).backgroundColor);
+  expect(await hasOpaqueBackground(), 'Scrolled mobile header background: ' + scrolled).toBe(true);
+
   await page.locator('header.fixed.top-4 button[class*="md:hidden"]').click();
-  await expect(page.getByRole('link', { name: 'Architecture' })).toBeVisible();
-  const after = await nav.evaluate(element => getComputedStyle(element).backgroundColor);
-  expect(await hasOpaqueBackground(), 'Open mobile menu background: ' + after).toBe(true);
+  await expect(page.locator('header.fixed.top-4 div[class*="md:hidden"] a[href="/architecture"]')).toBeVisible();
+  const opened = await nav.evaluate(element => getComputedStyle(element).backgroundColor);
+  expect(await hasOpaqueBackground(), 'Open mobile menu background: ' + opened).toBe(true);
 });
 
 
