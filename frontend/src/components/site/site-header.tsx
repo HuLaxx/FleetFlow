@@ -33,8 +33,8 @@ export function SiteHeader() {
         >
             <div
                 className={`w-full max-w-6xl transition-all duration-300 rounded-2xl border ${scrolled
-                    ? 'bg-stone-950/90 backdrop-blur-xl border-stone-800 shadow-xl shadow-black/20 py-1'
-                    : 'bg-transparent border-transparent py-2'
+                    ? 'bg-[#0b171b] md:bg-stone-950/90 backdrop-blur-xl border-[#31534a] md:border-stone-800 shadow-xl shadow-black/20 py-1'
+                    : 'bg-[#0b171b] md:bg-transparent border-[#31534a] md:border-transparent py-2'
                     }`}
             >
                 <div className="px-6 flex items-center justify-between h-14">
