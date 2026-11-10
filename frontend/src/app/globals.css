@@ -1,3 +1,4 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Merienda:wght@400;600;900&display=swap");
 @import "tailwindcss";
 
 /* @plugin "tailwindcss-animate"; */
@@ -10,6 +11,10 @@
 }
 
 :root {
+  --font-inter: 'Inter', Arial, sans-serif;
+  --font-geist-sans: 'Inter', Arial, sans-serif;
+  --font-geist-mono: ui-monospace, SFMono-Regular, Consolas, monospace;
+  --font-script: 'Merienda', cursive;
   --background: oklch(0.98 0.02 170);
   /* Mint White */
   --foreground: oklch(0.16 0.03 180);
