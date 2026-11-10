@@ -21,7 +21,6 @@ export class FastAPIClient {
             ...options,
             headers: {
                 'Content-Type': 'application/json',
-                ...(process.env.FASTAPI_API_KEY ? { 'X-API-Key': process.env.FASTAPI_API_KEY } : {}),
                 ...options?.headers,
             },
         });
