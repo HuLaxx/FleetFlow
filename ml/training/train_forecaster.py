@@ -242,12 +242,39 @@ def train_pipeline(
                 artifact_path = artifact_dir / f"best_model_seed{seed}.pth"
                 torch.save(model.state_dict(), artifact_path)
                 mlflow.log_artifact(str(artifact_path))
-                logger.info("Saved refined model checkpoint", path=str(artifact_path))
+                # Persist feature order/scaler parameters with the weights.
+                # A checkpoint cannot be interpreted correctly without them.
+                preprocessor_path = artifact_dir / f"preprocessing_seed{seed}.json"
+                preprocessor_path.write_text(json.dumps({
+                    "input_features": fe.feature_columns,
+                    "target": "order_count",
+                    "sequence_length": 24,
+                    "feature_scaler": serializable_scaler(feature_scaler),
+                    "target_scaler": serializable_scaler(target_scaler),
+                    "model": {
+                        "input_size": input_size,
+                        "hidden_size": hidden_size,
+                        "num_layers": num_layers,
+                        "output_size": 1,
+                        "dropout": dropout,
+                    },
+                    "source": "synthetic" if not data_path else "provided dataset",
+                    "data_hash": data_hash,
+                }, indent=2), encoding="utf-8")
+                mlflow.log_artifact(str(preprocessor_path))
+                logger.info("Saved fold-best model and preprocessing",
+                            path=str(artifact_path))
 
         avg_cv_score = np.mean(fold_scores)
         std_cv_score = np.std(fold_scores)
         
         mlflow.log_metric("avg_cv_val_loss", avg_cv_score)
+        mlflow.log_metric("avg_cv_mae_orders", float(np.mean([
+            result["model_mae_orders"] for result in fold_evaluations
+        ])))
+        mlflow.log_metric("avg_naive_mae_orders", float(np.mean([
+            result["naive_mae_orders"] for result in fold_evaluations
+        ])))
         mlflow.log_metric("std_cv_val_loss", std_cv_score)
         mlflow.log_metric("training_time_sec", time.time() - start_ts)
         
@@ -263,6 +290,15 @@ def train_pipeline(
             "data_hash": data_hash,
             "params": params,
             "fold_scores": [float(score) for score in fold_scores],
+            "fold_evaluations": fold_evaluations,
+            "avg_cv_mae_orders": float(np.mean([
+                result["model_mae_orders"] for result in fold_evaluations
+            ])),
+            "avg_naive_mae_orders": float(np.mean([
+                result["naive_mae_orders"] for result in fold_evaluations
+            ])),
+            "scaling_protocol": "fit fold scalers on training samples only",
+            "validation_protocol": "chronological TimeSeriesSplit; last-value baseline",
             "avg_cv_val_loss": float(avg_cv_score),
             "std_cv_val_loss": float(std_cv_score),
             "training_time_sec": float(time.time() - start_ts),
