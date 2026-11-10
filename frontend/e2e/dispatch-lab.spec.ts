@@ -25,20 +25,24 @@ test('mobile nav starts opaque without scrolling and stays opaque when scrolling
 
   const hasOpaqueBackground = async () => nav.evaluate(element => {
     const value = getComputedStyle(element).backgroundColor;
-    const match = value.match(/rgba?\\(([^)]+)\\)/);
-    if (!match) return false;
-    const channels = match[1].split(/[,\\s]+/).filter(Boolean);
-    return channels.length === 3 || (channels.length >= 4 && Number(channels[3]) >= 0.95);
+    if (value === 'transparent' || value === '') return false;
+    // Opaque hex colours resolve as rgb(...). Semitransparent rgba values
+    // must have an alpha of at least 95%.
+    if (value.startsWith('rgb(')) return true;
+    if (value.startsWith('rgba(')) {
+      const alpha = Number(value.slice(5, -1).split(',').at(-1)?.trim());
+      return Number.isFinite(alpha) && alpha >= 0.95;
+    }
+    return !value.includes('transparent');
   });
 
-  const computedColor = await nav.evaluate(element => getComputedStyle(element).backgroundColor);
-  console.log('FleetFlow mobile header background:', computedColor);
-  expect(await hasOpaqueBackground(), 'Header computed background: ' + computedColor).toBe(true);
+  const before = await nav.evaluate(element => getComputedStyle(element).backgroundColor);
+  expect(await hasOpaqueBackground(), 'Initial mobile header background: ' + before).toBe(true);
+
   await page.locator('header.fixed.top-4 button[class*="md:hidden"]').click();
   await expect(page.getByRole('link', { name: 'Architecture' })).toBeVisible();
-  const computedColor = await nav.evaluate(element => getComputedStyle(element).backgroundColor);
-  console.log('FleetFlow mobile header background:', computedColor);
-  expect(await hasOpaqueBackground(), 'Header computed background: ' + computedColor).toBe(true);
+  const after = await nav.evaluate(element => getComputedStyle(element).backgroundColor);
+  expect(await hasOpaqueBackground(), 'Open mobile menu background: ' + after).toBe(true);
 });
 
 
