@@ -10,7 +10,7 @@ test('intro is visible on first paint and accessible as a persistent showcase', 
 
   // Navigating through the public site must open the exact same intro.
   await page.getByRole('link', { name: /view loading screen/i }).click();
-  await expect(page).toHaveURL(/\\/intro$/);
+  await expect(page).toHaveURL(url => url.pathname === '/intro');
   await expect(intro).toBeVisible();
 
   // Unlike the auto intro, the direct preview cannot time out.
@@ -19,7 +19,7 @@ test('intro is visible on first paint and accessible as a persistent showcase', 
   await expect(page.getByRole('button', { name: /continue to fleetflow/i })).toBeVisible();
 
   await page.getByRole('button', { name: /continue to fleetflow/i }).click();
-  await expect(page).toHaveURL(/\\/$/);
+  await expect(page).toHaveURL(url => url.pathname === '/');
   await expect(intro).toHaveCount(0);
 
   // A full refresh restores the branded first-load animation.
