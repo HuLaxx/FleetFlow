@@ -170,7 +170,8 @@ export function LoadingScreen() {
         {/* Indeterminate: this is a brand intro, never a fabricated percentage. */}
         <div
           data-testid="fleetflow-progress-track"
-          className="relative mt-5 h-1 w-[min(72vw,270px)] overflow-hidden rounded-full bg-[#315747]/50"
+          className="relative mt-5 overflow-hidden rounded-full bg-[#315747]/60"
+          style={{ width: '270px', maxWidth: '72vw', height: '6px' }}
           role="progressbar"
           aria-label="FleetFlow loading animation"
           aria-valuetext="Preparing workspace"
