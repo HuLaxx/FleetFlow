@@ -3,6 +3,8 @@
  * Proxy layer to call the Python backend from tRPC
  */
 
+import { toDisplayDriver, toDisplayOrder } from './fleet-adapters';
+
 const FASTAPI_BASE_URL = process.env.FASTAPI_URL || 'http://localhost:8000/api/v1';
 
 export class FastAPIClient {
@@ -19,6 +21,7 @@ export class FastAPIClient {
             ...options,
             headers: {
                 'Content-Type': 'application/json',
+                ...(process.env.FASTAPI_API_KEY ? { 'X-API-Key': process.env.FASTAPI_API_KEY } : {}),
                 ...options?.headers,
             },
         });
@@ -38,7 +41,8 @@ export class FastAPIClient {
         if (params?.depot_id) queryParams.append('depot_id', params.depot_id);
 
         const query = queryParams.toString();
-        return this.request<any>(`/drivers${query ? `?${query}` : ''}`);
+        const response = await this.request<{ drivers?: Parameters<typeof toDisplayDriver>[0][]; total?: number }>(`/drivers${query ? `?${query}` : ''}`);
+        return { ...response, drivers: (response.drivers || []).map(toDisplayDriver) };
     }
 
     async getDriver(id: string) {
@@ -65,7 +69,8 @@ export class FastAPIClient {
         if (params?.limit) queryParams.append('limit', params.limit.toString());
 
         const query = queryParams.toString();
-        return this.request<any>(`/orders${query ? `?${query}` : ''}`);
+        const response = await this.request<{ orders?: Parameters<typeof toDisplayOrder>[0][]; total?: number }>(`/orders${query ? `?${query}` : ''}`);
+        return { ...response, orders: (response.orders || []).map(toDisplayOrder) };
     }
 
     async getOrder(id: string) {
@@ -82,7 +87,7 @@ export class FastAPIClient {
     async cancelOrder(id: string, reason?: string) {
         return this.request<any>(`/orders/${id}/cancel`, {
             method: 'POST',
-            body: JSON.stringify({ reason }),
+            body: JSON.stringify({ reason: reason?.trim() || 'Cancelled by dispatcher' }),
         });
     }
 
@@ -143,10 +148,10 @@ export class FastAPIClient {
     // Stats
     async getStats() {
         return Promise.all([
-            this.request<any>('/orders/stats'),
-            this.request<any>('/drivers/stats'),
-            this.request<any>('/routes/stats'),
-            this.request<any>('/vehicles/stats'),
+            this.request<any>('/orders/stats/summary'),
+            this.request<any>('/drivers/stats/summary'),
+            this.request<any>('/routes/stats/summary'),
+            this.request<any>('/vehicles/stats/summary'),
         ]).then(([orders, drivers, routes, vehicles]) => ({
             orders,
             drivers,
