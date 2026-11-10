@@ -4,13 +4,6 @@ test('intro is visible on first paint and accessible as a persistent showcase', 
   await page.goto('/', { waitUntil: 'domcontentloaded' });
   const intro = page.getByRole('dialog', { name: 'FleetFlow opening screen' });
   await expect(intro).toBeVisible();
-  await expect(intro.getByRole('heading', { name: 'FleetFlow' })).toBeVisible();
-  await expect(intro.getByText('Loading your workspace')).toBeVisible();
-  await expect(intro.getByRole('progressbar', { name: 'FleetFlow loading animation' })).toBeVisible();
-  // The screen must be a loader, not a second site header or landing page.
-  await expect(intro.locator('header')).toHaveCount(0);
-  await expect(intro.getByTestId('fleetflow-loading-animation')).toBeVisible();
-
   await page.getByRole('button', { name: /skip intro/i }).click();
   await expect(intro).toHaveCount(0);
 
@@ -18,6 +11,12 @@ test('intro is visible on first paint and accessible as a persistent showcase', 
   await page.getByRole('link', { name: /view loading screen/i }).click();
   await expect(page).toHaveURL(url => url.pathname === '/intro');
   await expect(intro).toBeVisible();
+  await expect(intro.getByRole('heading', { name: 'FleetFlow' })).toBeVisible();
+  await expect(intro.getByText('Loading your workspace')).toBeVisible();
+  await expect(intro.getByRole('progressbar', { name: 'FleetFlow loading animation' })).toBeVisible();
+  // This is a loading screen, not a second landing page or a navigation header.
+  await expect(intro.locator('header')).toHaveCount(0);
+  await expect(intro.getByTestId('fleetflow-loading-animation')).toBeVisible();
 
   // Unlike the auto intro, the direct preview cannot time out.
   await page.waitForTimeout(4700);
