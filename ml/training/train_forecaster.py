@@ -197,16 +197,43 @@ def train_pipeline(
         for i, (train_index, val_index) in enumerate(tscv.split(X)):
             logger.info(f"Starting Fold {i+1}/5...")
             
-            X_train, X_val = X[train_index], X[val_index]
-            y_train, y_val = y[train_index], y[val_index]
-            
+            X_train_raw, X_val_raw = X[train_index], X[val_index]
+            y_train_raw, y_val_raw = y[train_index], y[val_index]
+            X_train, y_train, X_val, y_val, feature_scaler, target_scaler = scale_fold(
+                X_train_raw, y_train_raw, X_val_raw, y_val_raw
+            )
+
             val_loss, model = train_model_fold(
                 X_train, y_train, X_val, y_val,
                 input_size, params, i+1
             )
             
             fold_scores.append(val_loss)
-            logger.info(f"Fold {i+1} Best Val Loss: {val_loss:.4f}")
+            model.eval()
+            with torch.no_grad():
+                scaled_predictions = model(
+                    torch.as_tensor(X_val, dtype=torch.float32)
+                ).squeeze(-1).cpu().numpy()
+            predictions_orders = target_scaler.inverse_transform(
+                scaled_predictions.reshape(-1, 1)
+            ).reshape(-1)
+            target_index = fe.feature_columns.index("order_count")
+            naive_orders = X_val_raw[:, -1, target_index]
+            quality = forecast_metrics(y_val_raw, predictions_orders, naive_orders)
+            fold_evaluations.append(quality)
+            fold_mlflow_metrics = {
+                f"fold_{i+1}_model_mae_orders": quality["model_mae_orders"],
+                f"fold_{i+1}_naive_mae_orders": quality["naive_mae_orders"],
+                f"fold_{i+1}_model_rmse_orders": quality["model_rmse_orders"],
+            }
+            if quality["skill_vs_naive"] is not None:
+                fold_mlflow_metrics[f"fold_{i+1}_skill_vs_naive"] = quality["skill_vs_naive"]
+            mlflow.log_metrics(fold_mlflow_metrics)
+            logger.info(
+                "Fold evaluated against naive baseline",
+                fold=i + 1,
+                **quality
+            )
             
             # Save the model from the last split (trained on most recent data)
             if i == 4:
