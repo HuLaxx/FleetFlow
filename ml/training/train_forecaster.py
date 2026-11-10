@@ -4,6 +4,7 @@ Refined for rigorous, unbiased evaluation using TimeSeriesSplit.
 """
 
 import argparse
+import copy
 import hashlib
 import json
 import os
@@ -22,6 +23,7 @@ import mlflow
 
 from ml.forecasting.model import DemandForecaster
 from ml.forecasting.features import FeatureEngineer
+from ml.forecasting.validation import scale_fold, forecast_metrics, serializable_scaler
 from ml.data.generate_synthetic import generate_synthetic_orders
 
 logger = structlog.get_logger()
@@ -74,6 +76,7 @@ def train_model_fold(
     optimizer = optim.Adam(model.parameters(), lr=params['lr'], weight_decay=params['weight_decay'])
     
     best_val_loss = float('inf')
+    best_state = copy.deepcopy(model.state_dict())
     patience_counter = 0
     patience_limit = 10 # Strict early stopping
     
@@ -83,7 +86,7 @@ def train_model_fold(
         for X_batch, y_batch in train_loader:
             optimizer.zero_grad()
             output = model(X_batch)
-            loss = criterion(output.squeeze(), y_batch)
+            loss = criterion(output.squeeze(-1), y_batch)
             loss.backward()
             optimizer.step()
             train_loss += loss.item()
@@ -94,7 +97,7 @@ def train_model_fold(
         with torch.no_grad():
             for X_batch, y_batch in val_loader:
                 output = model(X_batch)
-                loss = criterion(output.squeeze(), y_batch)
+                loss = criterion(output.squeeze(-1), y_batch)
                 val_loss += loss.item()
         
         avg_train_loss = train_loss / len(train_loader)
@@ -109,6 +112,7 @@ def train_model_fold(
         # Early Stopping check
         if avg_val_loss < best_val_loss:
             best_val_loss = avg_val_loss
+            best_state = copy.deepcopy(model.state_dict())
             patience_counter = 0
             # Save refined model (overwrite best)
             # In cross-validation, usually we retrain on full data or ensemble.
@@ -118,6 +122,8 @@ def train_model_fold(
             if patience_counter >= patience_limit:
                 break
                 
+    # Restore the best epoch rather than returning the final epoch.
+    model.load_state_dict(best_state)
     return best_val_loss, model
 
 def train_pipeline(
@@ -157,7 +163,8 @@ def train_pipeline(
     # 2. Feature Engineering
     fe = FeatureEngineer()
     df_features = fe.create_features(df)
-    X, y = fe.prepare_data(df_features, sequence_length=24)
+    # Split raw chronological sequences before fitting ANY preprocessing.
+    X, y = fe.prepare_raw_sequences(df_features, sequence_length=24)
     
     # 3. Time Series Cross-Validation
     tscv = TimeSeriesSplit(n_splits=5)
@@ -185,6 +192,7 @@ def train_pipeline(
         mlflow.set_tag("data_hash", data_hash)
         
         fold_scores = []
+        fold_evaluations = []
         
         for i, (train_index, val_index) in enumerate(tscv.split(X)):
             logger.info(f"Starting Fold {i+1}/5...")
