@@ -99,14 +99,29 @@ export function LoadingScreen() {
     >
       {/* The original FleetFlow triple-glow backdrop, now with enough contrast
           to actually register behind V2's center route animation. */}
-      <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
-        <div className="absolute left-1/2 top-1/2 h-[600px] w-[600px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-gradient-to-r from-emerald-400/35 via-emerald-500/30 to-emerald-200/25 blur-[150px] animate-pulse motion-reduce:animate-none" />
+      <div
+        data-testid="fleetflow-emerald-backdrop"
+        className="pointer-events-none absolute inset-0 overflow-hidden"
+        aria-hidden="true"
+        style={{
+          // Stronger *static* radial illumination paints immediately on mobile,
+          // regardless of Tailwind gradient compilation or animation timing.
+          // Three original glow positions and movement remain over this layer.
+          backgroundImage: [
+            'radial-gradient(ellipse 60% 67% at 50% 52%, rgba(32, 177, 107, .39) 0%, rgba(15, 99, 67, .22) 46%, transparent 82%)',
+            'radial-gradient(ellipse 43% 52% at 18% 22%, rgba(68, 205, 139, .28) 0%, transparent 83%)',
+            'radial-gradient(ellipse 40% 49% at 83% 80%, rgba(20, 159, 121, .28) 0%, transparent 84%)',
+          ].join(', '),
+          backgroundColor: '#08130f',
+        }}
+      >
+        <div className="ff-loader-glow absolute left-1/2 top-1/2 h-[600px] w-[600px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-gradient-to-r from-emerald-400/45 via-emerald-500/35 to-emerald-200/35 blur-[120px] animate-pulse motion-reduce:animate-none" />
         <div
-          className="absolute left-1/4 top-1/4 h-[300px] w-[300px] rounded-full bg-gradient-to-r from-emerald-300/25 to-emerald-500/25 blur-[100px] animate-pulse motion-reduce:animate-none"
+          className="ff-loader-glow absolute left-1/4 top-1/4 h-[300px] w-[300px] rounded-full bg-gradient-to-r from-emerald-300/35 to-emerald-500/30 blur-[85px] animate-pulse motion-reduce:animate-none"
           style={{ animationDelay: '0.3s' }}
         />
         <div
-          className="absolute bottom-1/4 right-1/4 h-[250px] w-[250px] rounded-full bg-gradient-to-r from-emerald-200/25 to-emerald-400/25 blur-[100px] animate-pulse motion-reduce:animate-none"
+          className="ff-loader-glow absolute bottom-1/4 right-1/4 h-[250px] w-[250px] rounded-full bg-gradient-to-r from-emerald-200/35 to-emerald-400/35 blur-[85px] animate-pulse motion-reduce:animate-none"
           style={{ animationDelay: '0.6s' }}
         />
       </div>
