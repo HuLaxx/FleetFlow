@@ -33,13 +33,20 @@ test('normal intro auto-dismisses in 1.3 seconds and has no skip button', async 
   // This is a loading screen, not a second landing page or a navigation header.
   await expect(intro.locator('header')).toHaveCount(0);
   await expect(intro.getByTestId('fleetflow-loading-animation')).toBeVisible();
-  // Preserve the three original emerald-glow layers while keeping V2 content.
-  const restoredBackground = intro.locator('div.pointer-events-none.absolute.inset-0.overflow-hidden > div');
-  await expect(restoredBackground).toHaveCount(3);
-  expect(await restoredBackground.nth(0).getAttribute('class')).toContain('blur-[150px]');
-  expect(await restoredBackground.nth(0).getAttribute('class')).toContain('from-emerald-400/35');
-  expect(await restoredBackground.nth(1).getAttribute('class')).toContain('blur-[100px]');
-  expect(await restoredBackground.nth(2).getAttribute('class')).toContain('blur-[100px]');
+  // The backdrop must actually paint in Chromium, not merely have CSS classes.
+  const backdrop = intro.getByTestId('fleetflow-emerald-backdrop');
+  await expect(backdrop).toBeVisible();
+  const background = await backdrop.evaluate(element => {
+    const styles = getComputedStyle(element);
+    const rect = element.getBoundingClientRect();
+    return { image: styles.backgroundImage, color: styles.backgroundColor, width: rect.width, height: rect.height };
+  });
+  expect(background.image).toContain('radial-gradient');
+  expect((background.image.match(/radial-gradient/g) ?? []).length).toBe(3);
+  expect(background.width).toBeGreaterThan(300);
+  expect(background.height).toBeGreaterThan(500);
+  expect(background.color).not.toBe('rgba(0, 0, 0, 0)');
+  await expect(backdrop.locator('.ff-loader-glow')).toHaveCount(3);
 
   // Unlike the auto intro, the direct preview cannot time out.
   await page.waitForTimeout(4700);
