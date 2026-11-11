@@ -51,7 +51,7 @@ test('normal intro auto-dismisses in 1.3 seconds and has no skip button', async 
     };
   });
   expect(background.image).toContain('rgba(145, 206, 169, 0.07)');
-  expect(background.size).toBe('76px 76px');
+  expect(background.size.split(',').map(layer => layer.trim())).toEqual(['76px 76px', '76px 76px']);
   expect(background.opacity).toBe('0.5');
   expect(background.parentColor).toBe('rgb(10, 20, 23)');
   expect(background.width).toBeGreaterThan(300);
