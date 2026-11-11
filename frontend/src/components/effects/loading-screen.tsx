@@ -91,69 +91,25 @@ export function LoadingScreen() {
 
   return (
     <div
-      className={`ff-loader ${showcase ? "ff-loader-preview" : "ff-loader-auto"} fixed inset-0 z-[100] flex min-h-svh flex-col overflow-y-auto bg-[#0c1418] text-[#eefbf3]`}
+      className={`ff-loader ${showcase ? "ff-loader-preview" : "ff-loader-auto"} fixed inset-0 z-[100] flex min-h-svh flex-col overflow-y-auto bg-[#0a1417] text-[#eefbf3]`}
       role="dialog"
       aria-modal="true"
       aria-label="FleetFlow opening screen"
       data-testid="fleetflow-intro"
     >
-      {/* Same design language as V2 homepage's route illustration:
-          charcoal canvas, map grid, street strokes, and three dispatch paths.
-          This replaces the older brand's blurred emerald-glow background. */}
+      {/* The EXACT background used in our first FleetFlow V2 redesign:
+          deep pine (#0a1417) and the fine 76px mint grid.
+          The centered second-version loader remains on top. */}
       <div
-        data-testid="fleetflow-v2-backdrop"
-        className="pointer-events-none absolute inset-0 overflow-hidden bg-[#0c1418]"
+        data-testid="fleetflow-first-redesign-backdrop"
+        className="pointer-events-none absolute inset-0 opacity-50"
+        style={{
+          backgroundImage:
+            'linear-gradient(rgba(145,206,169,.07) 1px, transparent 1px), linear-gradient(90deg, rgba(145,206,169,.07) 1px, transparent 1px)',
+          backgroundSize: '76px 76px',
+        }}
         aria-hidden="true"
-      >
-        <svg
-          viewBox="0 0 1200 900"
-          preserveAspectRatio="xMidYMid slice"
-          className="absolute inset-0 h-full w-full"
-        >
-          <defs>
-            <pattern id="ff-v2-loading-grid" width="48" height="48" patternUnits="userSpaceOnUse">
-              <path d="M 48 0 L 0 0 0 48" fill="none" stroke="#50605d" strokeWidth="1" opacity=".39" />
-            </pattern>
-            <radialGradient id="ff-v2-loading-vignette" cx="50%" cy="50%" r="65%">
-              <stop offset="0" stopColor="#0c1418" stopOpacity=".76" />
-              <stop offset=".42" stopColor="#0c1418" stopOpacity=".48" />
-              <stop offset="1" stopColor="#0c1418" stopOpacity=".08" />
-            </radialGradient>
-          </defs>
-          <rect width="1200" height="900" fill="#0c1418" />
-          <rect width="1200" height="900" fill="url(#ff-v2-loading-grid)" />
-          <g fill="#143a43" opacity=".58">
-            <path d="M0 0 H95 Q26 250 106 510 T90 900 H0Z" />
-            <path d="M1138 0 H1200 V900 H1153 Q1080 450 1138 0Z" />
-          </g>
-          <g fill="none" stroke="#3c5e59" opacity=".54">
-            <path d="M155 0 L110 900 M290 0 L275 900 M430 0 L420 900 M770 0 L755 900 M910 0 L900 900 M1065 0 L1050 900" strokeWidth="5" />
-            <path d="M90 155 L1120 128 M90 315 L1120 300 M90 585 L1120 565 M90 745 L1120 730" strokeWidth="4" />
-          </g>
-          <g className="ff-v2-loading-routes" fill="none" strokeLinecap="round" strokeLinejoin="round" strokeWidth="3.5">
-            <path d="M600 455 L420 265 L248 338 L165 628" stroke="#95e6bc" pathLength="100" />
-            <path d="M600 455 L775 265 L974 326 L1042 610" stroke="#ffc28b" pathLength="100" />
-            <path d="M600 455 L790 665 L1030 740" stroke="#93baff" pathLength="100" />
-          </g>
-          <g fill="#112024" strokeWidth="3">
-            <circle cx="248" cy="338" r="8" stroke="#95e6bc" />
-            <circle cx="165" cy="628" r="8" stroke="#95e6bc" />
-            <circle cx="974" cy="326" r="8" stroke="#ffc28b" />
-            <circle cx="1042" cy="610" r="8" stroke="#ffc28b" />
-            <circle cx="790" cy="665" r="8" stroke="#93baff" />
-            <circle cx="1030" cy="740" r="8" stroke="#93baff" />
-          </g>
-          <circle cx="600" cy="455" r="16" fill="#95e6bc" opacity=".18" />
-          <rect x="595" y="450" width="10" height="10" rx="2" fill="#b3f0d2" />
-          <rect width="1200" height="900" fill="url(#ff-v2-loading-vignette)" />
-          <g fill="#70948d" fontFamily="monospace" fontSize="12" letterSpacing="2" opacity=".6">
-            <text x="165" y="122">DISPATCH / SECTOR 01</text>
-            <text x="850" y="830">FLEETFLOW / ROUTE NETWORK</text>
-          </g>
-        </svg>
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(12,20,24,.40)_5%,transparent_75%)]" />
-      </div>
-
+      />
       <div className="relative flex min-h-svh w-full flex-1 flex-col items-center justify-center px-5 py-12 text-center">
         <div className="mb-8 flex items-center gap-2.5 text-[10px] font-semibold uppercase tracking-[.35em] text-[#85bc9e] sm:text-xs">
           <span className="ff-loader-live h-2 w-2 rounded-full bg-[#abf3cb]" aria-hidden="true" />
@@ -281,13 +237,6 @@ export function LoadingScreen() {
           99% { opacity: 0.01; visibility: visible; }
           100% { opacity: 0; visibility: hidden; pointer-events: none; }
         }
-        .ff-v2-loading-routes path {
-          stroke-dasharray: 12 7;
-          animation: ff-v2-route-flow 5s linear infinite;
-        }
-        @keyframes ff-v2-route-flow {
-          to { stroke-dashoffset: -76; }
-        }
         .ff-loader-path {
           stroke-dasharray: 100;
           stroke-dashoffset: 100;
@@ -339,7 +288,6 @@ export function LoadingScreen() {
         @keyframes ff-live { 0%, 100% { opacity: .35; } 50% { opacity: 1; } }
         @media (prefers-reduced-motion: reduce) {
           .ff-loader-auto { animation-timing-function: steps(1, end); }
-          .ff-loader .ff-v2-loading-routes path,
           .ff-loader .ff-loader-path,
           .ff-loader .ff-loader-spinner,
           .ff-loader .ff-loader-progress,
