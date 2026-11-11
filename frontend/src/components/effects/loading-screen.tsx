@@ -97,21 +97,21 @@ export function LoadingScreen() {
       aria-label="FleetFlow opening screen"
       data-testid="fleetflow-intro"
     >
-      {/* Entire screen is the loader, with no top navigation or faux header. */}
+      {/* Restored from the original FleetFlow loader on main: the same three
+          softly pulsing emerald glow sources and their original geometry.
+          Only the base tone is deep pine to match the new loader composition. */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
-        <div className="ff-loader-glow absolute left-1/2 top-1/2 h-[min(110vw,760px)] w-[min(110vw,760px)] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#285b46]/20 blur-[100px]" />
+        <div className="absolute left-1/2 top-1/2 h-[600px] w-[600px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-gradient-to-r from-emerald-400/10 via-emerald-500/10 to-emerald-200/10 blur-[150px] animate-pulse motion-reduce:animate-none" />
         <div
-          className="absolute inset-0 opacity-[.13]"
-          style={{
-            backgroundImage:
-              'linear-gradient(rgba(158,240,192,.10) 1px, transparent 1px), linear-gradient(90deg, rgba(158,240,192,.10) 1px, transparent 1px)',
-            backgroundSize: '52px 52px',
-            maskImage: 'radial-gradient(ellipse at center, black 7%, transparent 72%)',
-            WebkitMaskImage: 'radial-gradient(ellipse at center, black 7%, transparent 72%)',
-          }}
+          className="absolute left-1/4 top-1/4 h-[300px] w-[300px] rounded-full bg-gradient-to-r from-emerald-300/10 to-emerald-500/10 blur-[100px] animate-pulse motion-reduce:animate-none"
+          style={{ animationDelay: '0.3s' }}
         />
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_20%,#071511_85%)]" />
+        <div
+          className="absolute bottom-1/4 right-1/4 h-[250px] w-[250px] rounded-full bg-gradient-to-r from-emerald-200/10 to-emerald-400/10 blur-[100px] animate-pulse motion-reduce:animate-none"
+          style={{ animationDelay: '0.6s' }}
+        />
       </div>
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-emerald-300/50 to-transparent" aria-hidden="true" />
 
       <div className="relative flex min-h-svh w-full flex-1 flex-col items-center justify-center px-5 py-12 text-center">
         <div className="mb-8 flex items-center gap-2.5 text-[10px] font-semibold uppercase tracking-[.35em] text-[#85bc9e] sm:text-xs">
