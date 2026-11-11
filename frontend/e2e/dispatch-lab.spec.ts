@@ -33,21 +33,31 @@ test('normal intro auto-dismisses in 1.3 seconds and has no skip button', async 
   // This is a loading screen, not a second landing page or a navigation header.
   await expect(intro.locator('header')).toHaveCount(0);
   await expect(intro.getByTestId('fleetflow-loading-animation')).toBeVisible();
-  // V2 loading screen must show the same cartographic design language as the
-  // homepage route illustration, not the replaced emerald-glow background.
-  const backdrop = intro.getByTestId('fleetflow-v2-backdrop');
+  // Confirm exact background from the very first FleetFlow V2 loader:
+  // deep pine base with the small mint 76px square grid, no route-map artwork.
+  const backdrop = intro.getByTestId('fleetflow-first-redesign-backdrop');
   await expect(backdrop).toBeVisible();
-  await expect(backdrop.locator('#ff-v2-loading-grid')).toHaveCount(1);
-  await expect(backdrop.locator('.ff-v2-loading-routes path')).toHaveCount(3);
-  await expect(backdrop.locator('.ff-loader-glow')).toHaveCount(0);
-  const layout = await backdrop.evaluate(element => {
-    const rect = element.getBoundingClientRect();
+  const background = await backdrop.evaluate(element => {
     const style = getComputedStyle(element);
-    return { color: style.backgroundColor, width: rect.width, height: rect.height };
+    const rect = element.getBoundingClientRect();
+    const parent = element.parentElement && getComputedStyle(element.parentElement);
+    return {
+      image: style.backgroundImage,
+      size: style.backgroundSize,
+      opacity: style.opacity,
+      parentColor: parent?.backgroundColor,
+      width: rect.width,
+      height: rect.height,
+    };
   });
-  expect(layout.color).toBe('rgb(12, 20, 24)');
-  expect(layout.width).toBeGreaterThan(300);
-  expect(layout.height).toBeGreaterThan(500);
+  expect(background.image).toContain('rgba(145, 206, 169, 0.07)');
+  expect(background.size).toBe('76px 76px');
+  expect(background.opacity).toBe('0.5');
+  expect(background.parentColor).toBe('rgb(10, 20, 23)');
+  expect(background.width).toBeGreaterThan(300);
+  expect(background.height).toBeGreaterThan(500);
+  await expect(intro.getByTestId('fleetflow-v2-backdrop')).toHaveCount(0);
+  await expect(intro.getByTestId('fleetflow-loading-animation')).toBeVisible();
 
   // Unlike the auto intro, the direct preview cannot time out.
   await page.waitForTimeout(4700);
