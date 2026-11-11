@@ -26,6 +26,12 @@ test('intro is visible on first paint and accessible as a persistent showcase', 
   // This is a loading screen, not a second landing page or a navigation header.
   await expect(intro.locator('header')).toHaveCount(0);
   await expect(intro.getByTestId('fleetflow-loading-animation')).toBeVisible();
+  // Preserve the three original emerald-glow layers while keeping V2 content.
+  const restoredBackground = intro.locator('div.pointer-events-none.absolute.inset-0.overflow-hidden > div');
+  await expect(restoredBackground).toHaveCount(3);
+  await expect(restoredBackground.nth(0)).toHaveClass(/blur-\\[150px\\]/);
+  await expect(restoredBackground.nth(1)).toHaveClass(/blur-\\[100px\\]/);
+  await expect(restoredBackground.nth(2)).toHaveClass(/blur-\\[100px\\]/);
 
   // Unlike the auto intro, the direct preview cannot time out.
   await page.waitForTimeout(4700);
