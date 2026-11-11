@@ -4,14 +4,14 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { ArrowUpRight, Truck } from 'lucide-react';
 
-// This is a branded opening animation, NOT a fake backend progress indicator.
-// It remains skippable; an explicit showcase URL keeps it visible indefinitely.
-const INTRO_DURATION_MS = 4000;
+// Brand animation only. Never represent network/model progress with fabricated values.
+// The normal first paint is a brief, nonblocking 1.3-second transition.
+const INTRO_DURATION_MS = 1300;
 
 /**
- * On full page loads show FleetFlow's introduction long enough to be seen.
- * Pause the countdown in background tabs (a common reason users miss it when
- * opening a preview from another app). /intro is a persistent preview.
+ * Normal page loads auto-dismiss in 1.3 seconds, with a CSS first-paint
+ * fallback when hydration is delayed. /intro remains a persistent preview
+ * for reviewing the artwork, not the normal site-loading experience.
  */
 export function LoadingScreen() {
   const pathname = usePathname();
@@ -91,23 +91,22 @@ export function LoadingScreen() {
 
   return (
     <div
-      className="ff-loader fixed inset-0 z-[100] flex min-h-svh flex-col overflow-y-auto bg-[#071511] text-[#eefbf3]"
+      className={`ff-loader ${showcase ? "ff-loader-preview" : "ff-loader-auto"} fixed inset-0 z-[100] flex min-h-svh flex-col overflow-y-auto bg-[#08130f] text-[#eefbf3]`}
       role="dialog"
       aria-modal="true"
       aria-label="FleetFlow opening screen"
       data-testid="fleetflow-intro"
     >
-      {/* Restored from the original FleetFlow loader on main: the same three
-          softly pulsing emerald glow sources and their original geometry.
-          Only the base tone is deep pine to match the new loader composition. */}
+      {/* The original FleetFlow triple-glow backdrop, now with enough contrast
+          to actually register behind V2's center route animation. */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
-        <div className="absolute left-1/2 top-1/2 h-[600px] w-[600px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-gradient-to-r from-emerald-400/10 via-emerald-500/10 to-emerald-200/10 blur-[150px] animate-pulse motion-reduce:animate-none" />
+        <div className="absolute left-1/2 top-1/2 h-[600px] w-[600px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-gradient-to-r from-emerald-400/35 via-emerald-500/30 to-emerald-200/25 blur-[150px] animate-pulse motion-reduce:animate-none" />
         <div
-          className="absolute left-1/4 top-1/4 h-[300px] w-[300px] rounded-full bg-gradient-to-r from-emerald-300/10 to-emerald-500/10 blur-[100px] animate-pulse motion-reduce:animate-none"
+          className="absolute left-1/4 top-1/4 h-[300px] w-[300px] rounded-full bg-gradient-to-r from-emerald-300/25 to-emerald-500/25 blur-[100px] animate-pulse motion-reduce:animate-none"
           style={{ animationDelay: '0.3s' }}
         />
         <div
-          className="absolute bottom-1/4 right-1/4 h-[250px] w-[250px] rounded-full bg-gradient-to-r from-emerald-200/10 to-emerald-400/10 blur-[100px] animate-pulse motion-reduce:animate-none"
+          className="absolute bottom-1/4 right-1/4 h-[250px] w-[250px] rounded-full bg-gradient-to-r from-emerald-200/25 to-emerald-400/25 blur-[100px] animate-pulse motion-reduce:animate-none"
           style={{ animationDelay: '0.6s' }}
         />
       </div>
@@ -212,24 +211,34 @@ export function LoadingScreen() {
           <span>Deliver</span>
         </div>
 
-        <div className="mt-10 min-h-10 sm:mt-12">
-          <button
-            type="button"
-            onClick={showcase ? continueToSite : dismiss}
-            className="inline-flex items-center justify-center gap-2 rounded-full border border-[#416b54] bg-[#133024]/70 px-6 py-3 text-xs font-semibold text-[#c4ebd4] transition-colors hover:border-[#a7efc5] hover:bg-[#1f4833] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#b4f5cc]"
-          >
-            {showcase ? 'Enter FleetFlow' : 'Skip intro'}
-            <ArrowUpRight size={15} />
-          </button>
-        </div>
+        {/* Only the manual showcase needs a button. Real visits auto-close. */}
         {showcase && (
-          <p className="mt-4 text-[11px] text-[#6d957e]">
-            Preview mode — the loading animation stays on screen.
-          </p>
+          <div className="mt-10 flex flex-col items-center gap-4 sm:mt-12">
+            <button
+              type="button"
+              onClick={continueToSite}
+              className="inline-flex items-center justify-center gap-2 rounded-full border border-[#416b54] bg-[#133024]/70 px-6 py-3 text-xs font-semibold text-[#c4ebd4] transition-colors hover:border-[#a7efc5] hover:bg-[#1f4833] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#b4f5cc]"
+            >
+              Enter FleetFlow
+              <ArrowUpRight size={15} />
+            </button>
+            <p className="text-[11px] text-[#88b49d]">
+              Design preview — stays open until you enter the site.
+            </p>
+          </div>
         )}
       </div>
 
       <style jsx global>{`
+        /* CSS-first paint dismiss keeps the real site responsive even if JS is slow. */
+        .ff-loader-auto {
+          animation: ff-loader-out 1.3s ease-in-out both;
+        }
+        @keyframes ff-loader-out {
+          0%, 76% { opacity: 1; visibility: visible; }
+          99% { opacity: 0.01; visibility: visible; }
+          100% { opacity: 0; visibility: hidden; pointer-events: none; }
+        }
         .ff-loader-path {
           stroke-dasharray: 100;
           stroke-dashoffset: 100;
@@ -280,6 +289,7 @@ export function LoadingScreen() {
         }
         @keyframes ff-live { 0%, 100% { opacity: .35; } 50% { opacity: 1; } }
         @media (prefers-reduced-motion: reduce) {
+          .ff-loader-auto { animation-timing-function: steps(1, end); }
           .ff-loader .ff-loader-path,
           .ff-loader .ff-loader-spinner,
           .ff-loader .ff-loader-progress,
