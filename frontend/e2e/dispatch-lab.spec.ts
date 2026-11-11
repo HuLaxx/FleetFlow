@@ -1,11 +1,18 @@
 import { test, expect } from '@playwright/test';
 
-test('intro is visible on first paint and accessible as a persistent showcase', async ({ page }) => {
+test('normal intro auto-dismisses in 1.3 seconds and has no skip button', async ({ page }) => {
   await page.goto('/', { waitUntil: 'domcontentloaded' });
   const intro = page.getByRole('dialog', { name: 'FleetFlow opening screen' });
-  await expect(intro).toBeVisible();
-  await page.getByRole('button', { name: /skip intro/i }).click();
-  await expect(intro).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /skip intro/i })).toHaveCount(0);
+
+  // The visible overlay has a 1.3s CSS fallback even if hydration is delayed.
+  const autoIntro = page.locator('.ff-loader-auto');
+  if (await autoIntro.count()) {
+    const duration = await autoIntro.evaluate(el => getComputedStyle(el).animationDuration);
+    expect(duration).toBe('1.3s');
+  }
+  await expect(intro).toHaveCount(0, { timeout: 4500 });
+  await expect(page.getByRole('heading', { name: /a better way to move everything/i })).toBeVisible();
 
   // Navigating through the public site must open the exact same intro.
   await page.getByRole('link', { name: /view loading screen/i }).click();
@@ -30,6 +37,7 @@ test('intro is visible on first paint and accessible as a persistent showcase', 
   const restoredBackground = intro.locator('div.pointer-events-none.absolute.inset-0.overflow-hidden > div');
   await expect(restoredBackground).toHaveCount(3);
   expect(await restoredBackground.nth(0).getAttribute('class')).toContain('blur-[150px]');
+  expect(await restoredBackground.nth(0).getAttribute('class')).toContain('from-emerald-400/35');
   expect(await restoredBackground.nth(1).getAttribute('class')).toContain('blur-[100px]');
   expect(await restoredBackground.nth(2).getAttribute('class')).toContain('blur-[100px]');
 
@@ -42,9 +50,9 @@ test('intro is visible on first paint and accessible as a persistent showcase', 
   await expect(page).toHaveURL(url => url.pathname === '/');
   await expect(intro).toHaveCount(0);
 
-  // A full refresh restores the branded first-load animation.
+  // A full refresh still automatically releases the workspace.
   await page.reload({ waitUntil: 'domcontentloaded' });
-  await expect(intro).toBeVisible();
+  await expect(intro).toHaveCount(0, { timeout: 4500 });
 });
 
 test('direct loading-screen link is persistent even on a mobile device', async ({ page }) => {
@@ -62,8 +70,7 @@ test('direct loading-screen link is persistent even on a mobile device', async (
 test('mobile nav starts opaque without scrolling and stays opaque when scrolling', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/', { waitUntil: 'domcontentloaded' });
-  const skip = page.getByRole('button', { name: /skip intro/i });
-  if (await skip.isVisible()) await skip.click();
+  await expect(page.getByRole('dialog', { name: 'FleetFlow opening screen' })).toHaveCount(0, { timeout: 4500 });
   const nav = page.locator('header.fixed.top-4 > div.max-w-6xl');
   await expect(nav).toBeVisible();
 
