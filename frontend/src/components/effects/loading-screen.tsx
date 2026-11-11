@@ -91,41 +91,68 @@ export function LoadingScreen() {
 
   return (
     <div
-      className={`ff-loader ${showcase ? "ff-loader-preview" : "ff-loader-auto"} fixed inset-0 z-[100] flex min-h-svh flex-col overflow-y-auto bg-[#08130f] text-[#eefbf3]`}
+      className={`ff-loader ${showcase ? "ff-loader-preview" : "ff-loader-auto"} fixed inset-0 z-[100] flex min-h-svh flex-col overflow-y-auto bg-[#0c1418] text-[#eefbf3]`}
       role="dialog"
       aria-modal="true"
       aria-label="FleetFlow opening screen"
       data-testid="fleetflow-intro"
     >
-      {/* The original FleetFlow triple-glow backdrop, now with enough contrast
-          to actually register behind V2's center route animation. */}
+      {/* Same design language as V2 homepage's route illustration:
+          charcoal canvas, map grid, street strokes, and three dispatch paths.
+          This replaces the older brand's blurred emerald-glow background. */}
       <div
-        data-testid="fleetflow-emerald-backdrop"
-        className="pointer-events-none absolute inset-0 overflow-hidden"
+        data-testid="fleetflow-v2-backdrop"
+        className="pointer-events-none absolute inset-0 overflow-hidden bg-[#0c1418]"
         aria-hidden="true"
-        style={{
-          // Stronger *static* radial illumination paints immediately on mobile,
-          // regardless of Tailwind gradient compilation or animation timing.
-          // Three original glow positions and movement remain over this layer.
-          backgroundImage: [
-            'radial-gradient(ellipse 60% 67% at 50% 52%, rgba(32, 177, 107, .39) 0%, rgba(15, 99, 67, .22) 46%, transparent 82%)',
-            'radial-gradient(ellipse 43% 52% at 18% 22%, rgba(68, 205, 139, .28) 0%, transparent 83%)',
-            'radial-gradient(ellipse 40% 49% at 83% 80%, rgba(20, 159, 121, .28) 0%, transparent 84%)',
-          ].join(', '),
-          backgroundColor: '#08130f',
-        }}
       >
-        <div className="ff-loader-glow absolute left-1/2 top-1/2 h-[600px] w-[600px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-gradient-to-r from-emerald-400/45 via-emerald-500/35 to-emerald-200/35 blur-[120px] animate-pulse motion-reduce:animate-none" />
-        <div
-          className="ff-loader-glow absolute left-1/4 top-1/4 h-[300px] w-[300px] rounded-full bg-gradient-to-r from-emerald-300/35 to-emerald-500/30 blur-[85px] animate-pulse motion-reduce:animate-none"
-          style={{ animationDelay: '0.3s' }}
-        />
-        <div
-          className="ff-loader-glow absolute bottom-1/4 right-1/4 h-[250px] w-[250px] rounded-full bg-gradient-to-r from-emerald-200/35 to-emerald-400/35 blur-[85px] animate-pulse motion-reduce:animate-none"
-          style={{ animationDelay: '0.6s' }}
-        />
+        <svg
+          viewBox="0 0 1200 900"
+          preserveAspectRatio="xMidYMid slice"
+          className="absolute inset-0 h-full w-full"
+        >
+          <defs>
+            <pattern id="ff-v2-loading-grid" width="48" height="48" patternUnits="userSpaceOnUse">
+              <path d="M 48 0 L 0 0 0 48" fill="none" stroke="#50605d" strokeWidth="1" opacity=".39" />
+            </pattern>
+            <radialGradient id="ff-v2-loading-vignette" cx="50%" cy="50%" r="65%">
+              <stop offset="0" stopColor="#0c1418" stopOpacity=".76" />
+              <stop offset=".42" stopColor="#0c1418" stopOpacity=".48" />
+              <stop offset="1" stopColor="#0c1418" stopOpacity=".08" />
+            </radialGradient>
+          </defs>
+          <rect width="1200" height="900" fill="#0c1418" />
+          <rect width="1200" height="900" fill="url(#ff-v2-loading-grid)" />
+          <g fill="#143a43" opacity=".58">
+            <path d="M0 0 H95 Q26 250 106 510 T90 900 H0Z" />
+            <path d="M1138 0 H1200 V900 H1153 Q1080 450 1138 0Z" />
+          </g>
+          <g fill="none" stroke="#3c5e59" opacity=".54">
+            <path d="M155 0 L110 900 M290 0 L275 900 M430 0 L420 900 M770 0 L755 900 M910 0 L900 900 M1065 0 L1050 900" strokeWidth="5" />
+            <path d="M90 155 L1120 128 M90 315 L1120 300 M90 585 L1120 565 M90 745 L1120 730" strokeWidth="4" />
+          </g>
+          <g className="ff-v2-loading-routes" fill="none" strokeLinecap="round" strokeLinejoin="round" strokeWidth="3.5">
+            <path d="M600 455 L420 265 L248 338 L165 628" stroke="#95e6bc" pathLength="100" />
+            <path d="M600 455 L775 265 L974 326 L1042 610" stroke="#ffc28b" pathLength="100" />
+            <path d="M600 455 L790 665 L1030 740" stroke="#93baff" pathLength="100" />
+          </g>
+          <g fill="#112024" strokeWidth="3">
+            <circle cx="248" cy="338" r="8" stroke="#95e6bc" />
+            <circle cx="165" cy="628" r="8" stroke="#95e6bc" />
+            <circle cx="974" cy="326" r="8" stroke="#ffc28b" />
+            <circle cx="1042" cy="610" r="8" stroke="#ffc28b" />
+            <circle cx="790" cy="665" r="8" stroke="#93baff" />
+            <circle cx="1030" cy="740" r="8" stroke="#93baff" />
+          </g>
+          <circle cx="600" cy="455" r="16" fill="#95e6bc" opacity=".18" />
+          <rect x="595" y="450" width="10" height="10" rx="2" fill="#b3f0d2" />
+          <rect width="1200" height="900" fill="url(#ff-v2-loading-vignette)" />
+          <g fill="#70948d" fontFamily="monospace" fontSize="12" letterSpacing="2" opacity=".6">
+            <text x="165" y="122">DISPATCH / SECTOR 01</text>
+            <text x="850" y="830">FLEETFLOW / ROUTE NETWORK</text>
+          </g>
+        </svg>
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(12,20,24,.40)_5%,transparent_75%)]" />
       </div>
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-emerald-300/50 to-transparent" aria-hidden="true" />
 
       <div className="relative flex min-h-svh w-full flex-1 flex-col items-center justify-center px-5 py-12 text-center">
         <div className="mb-8 flex items-center gap-2.5 text-[10px] font-semibold uppercase tracking-[.35em] text-[#85bc9e] sm:text-xs">
@@ -196,7 +223,7 @@ export function LoadingScreen() {
             maxHeight: '12px',
             flexShrink: 0,
             boxSizing: 'content-box',
-            backgroundColor: '#326848',
+            backgroundColor: '#31534a',
             border: '1px solid rgba(162, 238, 186, .35)',
             borderRadius: '9999px',
             overflow: 'hidden',
@@ -254,6 +281,13 @@ export function LoadingScreen() {
           99% { opacity: 0.01; visibility: visible; }
           100% { opacity: 0; visibility: hidden; pointer-events: none; }
         }
+        .ff-v2-loading-routes path {
+          stroke-dasharray: 12 7;
+          animation: ff-v2-route-flow 5s linear infinite;
+        }
+        @keyframes ff-v2-route-flow {
+          to { stroke-dashoffset: -76; }
+        }
         .ff-loader-path {
           stroke-dasharray: 100;
           stroke-dashoffset: 100;
@@ -305,6 +339,7 @@ export function LoadingScreen() {
         @keyframes ff-live { 0%, 100% { opacity: .35; } 50% { opacity: 1; } }
         @media (prefers-reduced-motion: reduce) {
           .ff-loader-auto { animation-timing-function: steps(1, end); }
+          .ff-loader .ff-v2-loading-routes path,
           .ff-loader .ff-loader-path,
           .ff-loader .ff-loader-spinner,
           .ff-loader .ff-loader-progress,
