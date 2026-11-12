@@ -66,8 +66,8 @@ def test_replay_materialises_partitioned_clean_and_curated_parquet(tmp_path):
     assert len(manifest["artifacts"]) == 5
     assert (run_dir / "raw/events.jsonl").read_bytes() == source.read_bytes()
 
-    day_12 = pq.read_table(run_dir / "clean/event_date=2026-11-12/telemetry.parquet").to_pylist()
-    day_13 = pq.read_table(run_dir / "clean/event_date=2026-11-13/telemetry.parquet").to_pylist()
+    day_12 = pq.ParquetFile(run_dir / "clean/event_date=2026-11-12/telemetry.parquet").read().to_pylist()
+    day_13 = pq.ParquetFile(run_dir / "clean/event_date=2026-11-13/telemetry.parquet").read().to_pylist()
     assert len(day_12) == 3
     assert len(day_13) == 1
     assert sum(item["is_late"] for item in day_12) == 1
