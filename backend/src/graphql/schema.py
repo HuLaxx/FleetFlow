@@ -22,5 +22,5 @@ schema = strawberry.Schema(
 graphql_router = GraphQLRouter(
     schema,
     path="/graphql",
-    graphiql=True,  # Enable GraphiQL playground
+    graphql_ide="graphiql",  # Supported Strawberry GraphQL IDE option
 )
