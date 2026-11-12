@@ -43,6 +43,12 @@ The inspected recent CI on branch `redesign/fleetflow-v2` checked frontend quali
 - The six skips came from incorrect path-based imports and optional PyTorch. A subsequent change repairs the route optimizer import path and its metres-versus-kilometres assertion. That newer CI run must be checked before declaring the optimiser tests verified.
 - The project still needs an outbox/inbox idempotency design and a broker-backed replay/DLQ integration test before it can be called reliable under restarts.
 
+## ML CPU validation (2026-11-12)
+
+- [Workflow run 43249222763](https://github.com/HuLaxx/FleetFlow/actions/runs/43249222763), job **ML CPU smoke (no GPU)**: **3/3 passed** in 2.89 seconds (OR-Tools distance units, PyTorch finite forward pass, one gradient-training step).
+- These are implementation smoke tests, **not** forecasting-accuracy, generalisation or routing-efficiency benchmarks. Those require datasets, held-out baselines and reproducible evaluation.
+- Separate backend lint remains failed in the same workflow. Do not badge the overall pipeline green.
+
 ## Verification log
 - 2026-11-12: repository structure, README, current workflow statuses and readiness script inspected via GitHub.
 - 2026-11-12: **Full local readiness was not executed in this environment** (repository dependencies/services unavailable). No cloud resources created.
