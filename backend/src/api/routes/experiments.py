@@ -139,7 +139,7 @@ async def start_experiment(
     service = get_ab_testing_service()
 
     try:
-        experiment = service.start_experiment(experiment_id)
+        service.start_experiment(experiment_id)
         return {"status": "started", "experiment_id": str(experiment_id)}
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
