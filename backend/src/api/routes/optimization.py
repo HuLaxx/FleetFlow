@@ -81,9 +81,8 @@ async def optimize_routes(
 
     try:
         solution_routes = optimizer.optimize(orders, vehicles, depot, route_date)
-    except Exception as e:
-        # Log error
-        raise HTTPException(status_code=500, detail=f"Optimization failed: {e!s}")
+    except (ValueError, RuntimeError, TypeError) as e:
+        raise HTTPException(status_code=500, detail="Route optimisation failed") from e
 
     if not solution_routes:
         return {"message": "No solution found that satisfies all constraints", "routes": []}
