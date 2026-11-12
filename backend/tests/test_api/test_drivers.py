@@ -70,10 +70,11 @@ async def test_filter_drivers_by_status(client: AsyncClient, sample_depot, sampl
 
 
 @pytest.mark.asyncio
-async def test_update_driver_location(client: AsyncClient, sample_depot, sample_driver):
+async def test_update_driver_location(client: AsyncClient, sample_depot, sample_driver, sample_vehicle):
     """Test updating driver GPS location."""
     depot = await sample_depot()
     driver = await sample_driver(depot_id=depot.id)
+    await sample_vehicle(driver_id=driver.id, depot_id=depot.id)
     
     location_data = {
         "latitude": 40.7580,
@@ -88,15 +89,17 @@ async def test_update_driver_location(client: AsyncClient, sample_depot, sample_
     )
     assert response.status_code == 200
     data = response.json()
-    assert data["status"] == "success"
+    assert data["driver_id"] == str(driver.id)
+    assert data["location"]["latitude"] == 40.7580
 
 
 @pytest.mark.integration
 @pytest.mark.asyncio
-async def test_driver_workflow(client: AsyncClient, sample_depot, sample_driver):
+async def test_driver_workflow(client: AsyncClient, sample_depot, sample_driver, sample_vehicle):
     """Integration test: Create driver, update status, get driver."""
     depot = await sample_depot()
     driver = await sample_driver(depot_id=depot.id)
+    await sample_vehicle(driver_id=driver.id, depot_id=depot.id)
     
     # Get driver
     response = await client.get(f"/api/v1/drivers/{driver.id}")
