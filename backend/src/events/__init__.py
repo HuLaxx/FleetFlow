@@ -27,29 +27,25 @@ from src.events.producer import (
 )
 
 __all__ = [
-    # Enums
-    "EventType",
-    "OrderStatus",
-    "OrderPriority",
-    "DriverStatus",
-    # Models
-    "Location",
     "Address",
-    "TimeWindow",
-    "OrderItem",
-    # Events
-    "OrderCreatedEvent",
-    "OrderCancelledEvent",
-    "OrderAssignedEvent",
-    "OrderDeliveredEvent",
-    "GPSLocationEvent",
+    "DriverStatus",
     "DriverStatusEvent",
+    "EventType",
+    "get_kafka_producer",
+    "GPSLocationEvent",
+    "KafkaProducerService",
+    "Location",
+    "OrderAssignedEvent",
+    "OrderCancelledEvent",
+    "OrderCreatedEvent",
+    "OrderDeliveredEvent",
+    "OrderItem",
+    "OrderPriority",
+    "OrderStatus",
     "RouteCreatedEvent",
     "RouteStartedEvent",
     "RouteStop",
     "StopCompletedEvent",
+    "TimeWindow",
     "TrafficUpdateEvent",
-    # Producer
-    "KafkaProducerService",
-    "get_kafka_producer",
 ]
