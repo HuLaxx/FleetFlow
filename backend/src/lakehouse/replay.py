@@ -31,6 +31,10 @@ def sha256_file(path: Path) -> str:
 
 
 def _normalise_event(payload: dict[str, Any]) -> dict[str, Any]:
+    required = ("event_id", "timestamp", "schema_version", "event_type")
+    missing = [name for name in required if name not in payload]
+    if missing:
+        raise ValueError("required event metadata missing: " + ", ".join(missing))
     event = GPSLocationEvent.model_validate(payload)
     if event.event_type != EventType.DRIVER_LOCATION_UPDATED:
         raise ValueError("event_type must be driver.location_updated")
@@ -251,8 +255,16 @@ def replay(
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
         if manifest.get("source_sha256") != source_digest or manifest.get("run_key") != run_key:
             raise RuntimeError("Existing run manifest does not match source digest")
-        if any(not (run_dir / path).is_file() for path in manifest.get("artifacts", [])):
-            raise RuntimeError("Existing run has missing output artifacts")
+        artifacts = manifest.get("artifacts", [])
+        checksums = manifest.get("artifact_sha256", {})
+        if not artifacts or set(artifacts) != set(checksums):
+            raise RuntimeError("Existing run manifest is missing artifact checksums")
+        for relative in artifacts:
+            artifact = run_dir / relative
+            if not artifact.is_file():
+                raise RuntimeError("Existing run has missing output artifacts")
+            if sha256_file(artifact) != checksums[relative]:
+                raise RuntimeError("Existing run artifact failed integrity verification")
         return run_dir, manifest
 
     output_root.mkdir(parents=True, exist_ok=True)
@@ -283,6 +295,10 @@ def replay(
             "allowed_lateness_seconds": int(allowed_lateness.total_seconds()),
             "counts": counts,
             "artifacts": sorted(artifacts),
+            "artifact_sha256": {
+                relative: sha256_file(staging / relative)
+                for relative in sorted(artifacts)
+            },
         }
         (staging / "manifest.json").write_text(
             json.dumps(manifest, sort_keys=True, indent=2) + "\n",
