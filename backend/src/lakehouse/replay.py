@@ -91,7 +91,7 @@ def prepare_events(
             try:
                 payload = json.loads(line)
                 if not isinstance(payload, dict):
-                    raise ValueError("JSON event must be an object")
+                    raise TypeError("JSON event must be an object")
                 record = _normalise_event(payload)
             except (ValueError, TypeError, ValidationError) as error:
                 rejected.append(
@@ -169,7 +169,6 @@ def _build_parquet(
             ("source_line", pa.int64()),
         ]
     )
-    clean_root = staging / "clean"
     partitions: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for row in rows:
         partitions[row["event_date"]].append(row)
