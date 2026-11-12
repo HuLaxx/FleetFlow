@@ -12,7 +12,7 @@ import asyncio
 import json
 import os
 from dataclasses import asdict, dataclass
-from datetime import datetime, timezone
+from datetime import datetime, UTC
 from typing import Any
 
 import structlog
@@ -42,7 +42,7 @@ class WebSocketMessage:
 
     def __post_init__(self):
         if not self.timestamp:
-            self.timestamp = datetime.now(timezone.utc).isoformat()
+            self.timestamp = datetime.now(UTC).isoformat()
 
     def to_json(self) -> str:
         return json.dumps(asdict(self))
@@ -80,7 +80,7 @@ class ConnectionManager:
         self.active_connections.add(websocket)
         self.connection_info[websocket] = {
             "client_id": client_id or str(id(websocket)),
-            "connected_at": datetime.now(timezone.utc).isoformat(),
+            "connected_at": datetime.now(UTC).isoformat(),
             "subscriptions": [],
         }
 
