@@ -6,6 +6,7 @@ on:
     paths:
       - 'backend/**'
       - 'ml/**'
+      - 'frontend/**'
       - 'docs/EVIDENCE_REGISTER.md'
       - '.github/workflows/backend-tests.yml'
   pull_request:
@@ -16,6 +17,45 @@ on:
       - 'docs/EVIDENCE_REGISTER.md'
 
 jobs:
+  frontend-quality:
+    name: Frontend lint, types and production build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+      - name: Install exact frontend dependencies
+        working-directory: frontend
+        run: pnpm install --frozen-lockfile
+      - name: Lint
+        working-directory: frontend
+        run: pnpm run lint
+      - name: Type check
+        working-directory: frontend
+        run: pnpm exec tsc --noEmit
+      - name: Build
+        working-directory: frontend
+        run: pnpm run build
+
+  security:
+    name: High / Critical Dependency Security Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Scan source and dependency manifests
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: fs
+          scan-ref: .
+          severity: CRITICAL,HIGH
+          exit-code: '1'
+
   test:
     runs-on: ubuntu-latest
     
