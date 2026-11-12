@@ -1,12 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
     MapPin, Navigation, Package, CheckCircle,
     Coffee, Truck, Menu, Bell, Search
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { useWebSocket } from '@/hooks/use-websocket';
 
@@ -25,49 +24,22 @@ export default function DriverDashboard() {
     const [status, setStatus] = useState<'on_route' | 'on_break' | 'available'>('available');
     const [currentRoute, setCurrentRoute] = useState(mockRoute);
     const [activeStopIndex, setActiveStopIndex] = useState(0);
-    const [isSimulatingDriving, setIsSimulatingDriving] = useState(false);
 
     // Connect to WS for GPS updates
-    const { wsClient, isConnected } = useWebSocket('vehicles');
+    const { isConnected } = useWebSocket('vehicles');
 
-    // Simulate GPS loop when "On Route"
-    useEffect(() => {
-        let interval: NodeJS.Timeout;
-
-        if (status === 'on_route' && isConnected) {
-            setIsSimulatingDriving(true);
-            interval = setInterval(() => {
-                // Determine mock lat/lon based on active stop (very simple lerp)
-                // In reality, this would read navigator.geolocation
-                const mockPayload = {
-                    action: 'update_location',
-                    data: {
-                        latitude: 40.7484 + (Math.random() * 0.001),
-                        longitude: -73.9857 + (Math.random() * 0.001),
-                        speed_kmh: 35 + (Math.random() * 5),
-                        heading: 180,
-                        is_moving: true
-                    }
-                };
-
-                // We don't strictly have a "send" method exposed in the simple hook 
-                // but we can assume the client can send if we exposed it or use raw socket
-                // For PWA demo, we just visualize the "Sending..." state
-            }, 3000);
-        } else {
-            setIsSimulatingDriving(false);
-        }
-
-        return () => clearInterval(interval);
-    }, [status, isConnected]);
+    // This is a seeded demonstration. No GPS coordinates are sent to a real driver backend.
 
     const handleCompleteStop = () => {
         // Optimistic update
-        const newRoute = { ...currentRoute };
-        newRoute.stops[activeStopIndex].status = 'completed';
-        setCurrentRoute(newRoute);
+        setCurrentRoute(prev => ({
+            ...prev,
+            stops: prev.stops.map((stop, index) =>
+                index === activeStopIndex ? { ...stop, status: 'completed' } : stop
+            ),
+        }));
 
-        if (activeStopIndex < newRoute.stops.length - 1) {
+        if (activeStopIndex < currentRoute.stops.length - 1) {
             setActiveStopIndex(prev => prev + 1);
         } else {
             setStatus('available'); // Route complete
@@ -90,7 +62,7 @@ export default function DriverDashboard() {
                             MJ
                         </div>
                         <div>
-                            <h2 className="text-stone-100 font-semibold text-sm">Marcus Johnson</h2>
+                            <h2 className="text-stone-100 font-semibold text-sm">Sample Driver</h2>
                             <div className="flex items-center gap-1.5">
                                 <span className={cn(
                                     "w-2 h-2 rounded-full animate-pulse",
