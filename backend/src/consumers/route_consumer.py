@@ -4,7 +4,7 @@ Route events consumer.
 Consumes route lifecycle events (started, stops completed) and updates database.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from uuid import UUID
 
 import structlog
@@ -153,7 +153,7 @@ class RouteEventsConsumer(BaseKafkaConsumer):
                     "order_id": event_data.get("order_id"),
                     "completed_at": event_data.get("completed_at"),
                     "next_stop_eta": event_data.get("next_stop_eta"),
-                    "updated_at": event_data.get("timestamp", datetime.utcnow().isoformat()),
+                    "updated_at": event_data.get("timestamp", datetime.now(timezone.utc).isoformat()),
                 },
             )
 
