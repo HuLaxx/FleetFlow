@@ -6,12 +6,14 @@ on:
     paths:
       - 'backend/**'
       - 'ml/**'
+      - 'docs/EVIDENCE_REGISTER.md'
       - '.github/workflows/backend-tests.yml'
   pull_request:
     branches: [main]
     paths:
       - 'backend/**'
       - 'ml/**'
+      - 'docs/EVIDENCE_REGISTER.md'
 
 jobs:
   test:
