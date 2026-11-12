@@ -6,6 +6,7 @@ from uuid import UUID
 import pyarrow.parquet as pq
 import pytest
 
+import src.lakehouse.replay as replay_module
 from src.lakehouse.replay import prepare_events, replay
 
 
@@ -174,3 +175,58 @@ def test_replay_refuses_modified_artifacts(tmp_path):
     raw.write_text("tampered", encoding="utf-8")
     with pytest.raises(RuntimeError, match="integrity"):
         replay(source, tmp_path / "lake")
+
+
+@pytest.mark.parametrize("bad_number", ["NaN", "Infinity", "-Infinity", "1e999"])
+def test_replay_rejects_nonfinite_telemetry_numbers(tmp_path, bad_number):
+    source = tmp_path / "nonfinite.jsonl"
+    record = event("11111111-1111-4111-8111-111111111111", "2026-11-12T10:00:00Z")
+    encoded = json.dumps(record, sort_keys=True)
+    assert '"speed_kmh": 25.0' in encoded
+    source.write_text(
+        encoded.replace('"speed_kmh": 25.0', f'"speed_kmh": {bad_number}') + "\n",
+        encoding="utf-8",
+    )
+
+    rows, rejects, counts = prepare_events(source)
+    assert rows == []
+    assert counts["accepted"] == 0
+    assert counts["quarantined"] == 1
+    assert rejects[0]["reason"] == "invalid_contract"
+
+
+def test_replay_redacts_invalid_submitted_values_in_quarantine(tmp_path):
+    secret_value = "private-customer-12345@example.invalid"
+    source = tmp_path / "sensitive.jsonl"
+    bad = event("11111111-1111-4111-8111-111111111111", secret_value)
+    write_events(source, [bad])
+
+    run_dir, manifest = replay(source, tmp_path / "lake")
+    rejected = (run_dir / "quarantine/rejected.jsonl").read_text(encoding="utf-8")
+    assert manifest["counts"]["quarantined"] == 1
+    assert '"reason": "invalid_contract"' in rejected
+    assert "timestamp" in rejected
+    assert secret_value not in rejected
+    # The raw immutable source is kept for authorized auditing, not published in quarantine.
+    assert secret_value in (run_dir / "raw/events.jsonl").read_text(encoding="utf-8")
+
+
+def test_replay_rejects_source_mutation_between_digest_and_copy(tmp_path, monkeypatch):
+    source = tmp_path / "source.jsonl"
+    write_events(
+        source,
+        [event("11111111-1111-4111-8111-111111111111", "2026-11-12T10:00:00Z")],
+    )
+    actual_copy = replay_module.shutil.copyfile
+
+    def corrupted_copy(src, dest):
+        result = actual_copy(src, dest)
+        dest.write_text('{"changed": true}\n', encoding="utf-8")
+        return result
+
+    monkeypatch.setattr(replay_module.shutil, "copyfile", corrupted_copy)
+    with pytest.raises(RuntimeError, match="changed while copying"):
+        replay(source, tmp_path / "lake")
+
+    run_root = tmp_path / "lake/runs"
+    assert not run_root.exists() or not list(run_root.iterdir())

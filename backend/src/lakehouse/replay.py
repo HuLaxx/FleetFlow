@@ -15,6 +15,7 @@ import shutil
 import tempfile
 from collections import defaultdict
 from datetime import UTC, datetime, timedelta
+from math import isfinite
 from pathlib import Path
 from typing import Any
 
@@ -37,6 +38,10 @@ def _normalise_event(payload: dict[str, Any]) -> dict[str, Any]:
     if missing:
         raise ValueError("required event metadata missing: " + ", ".join(missing))
     event = GPSLocationEvent.model_validate(payload)
+    if not all(isfinite(value) for value in (event.location.latitude, event.location.longitude)):
+        raise ValueError("location coordinates must be finite")
+    if event.speed_kmh is not None and not isfinite(event.speed_kmh):
+        raise ValueError("speed_kmh must be finite")
     if event.event_type != EventType.DRIVER_LOCATION_UPDATED:
         raise ValueError("event_type must be driver.location_updated")
     if event.timestamp.tzinfo is None or event.timestamp.utcoffset() is None:
@@ -70,6 +75,11 @@ def _canonical_digest(event: dict[str, Any]) -> str:
     ).hexdigest()
 
 
+def _reject_non_json_constant(value: str) -> None:
+    """Python's JSON decoder accepts NaN/Infinity unless they are explicitly rejected."""
+    raise ValueError(f"non-standard JSON numeric literal {value} is not allowed")
+
+
 def prepare_events(
     input_file: Path, *, allowed_lateness: timedelta = timedelta(minutes=15)
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]], dict[str, int]]:
@@ -94,11 +104,29 @@ def prepare_events(
             if not line.strip():
                 continue
             try:
-                payload = json.loads(line)
+                payload = json.loads(line, parse_constant=_reject_non_json_constant)
                 if not isinstance(payload, dict):
                     raise TypeError("JSON event must be an object")
                 record = _normalise_event(payload)
-            except (ValueError, TypeError, ValidationError) as error:
+            except ValidationError as error:
+                # Pydantic's str(error) may echo rejected input values (including PII).
+                # Expose only the names of schema fields, never their submitted values.
+                fields = sorted(
+                    {
+                        str(issue["loc"][0])
+                        for issue in error.errors(include_input=False)
+                        if issue["loc"]
+                    }
+                )
+                rejected.append(
+                    {
+                        "line": line_number,
+                        "reason": "invalid_contract",
+                        "detail": "invalid GPS field(s): " + ", ".join(fields),
+                    }
+                )
+                continue
+            except (ValueError, TypeError) as error:
                 rejected.append(
                     {"line": line_number, "reason": "invalid_contract", "detail": str(error)[:300]}
                 )
@@ -275,6 +303,10 @@ def replay(
         raw_path = staging / "raw" / "events.jsonl"
         raw_path.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(input_file, raw_path)
+        # A source changing between the first digest and the copy must not be
+        # published under an incorrect content-addressed run identity.
+        if sha256_file(raw_path) != source_digest:
+            raise RuntimeError("Replay input changed while copying; retry with a stable source")
 
         rows, rejects, counts = prepare_events(raw_path, allowed_lateness=allowed_lateness)
         artifacts = ["raw/events.jsonl"]

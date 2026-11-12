@@ -2,7 +2,7 @@ name: Backend Tests
 
 on:
   push:
-    branches: [main, develop, 'feature/**']
+    branches: [main, develop, 'feature/**', 'fix/**']
     paths:
       - 'backend/**'
       - 'ml/**'
@@ -10,7 +10,8 @@ on:
       - 'docs/EVIDENCE_REGISTER.md'
       - '.github/workflows/backend-tests.yml'
   pull_request:
-    branches: [main]
+    # Stacked PRs also need full gates before merging into their parent branch.
+    branches: [main, 'audit/**', 'feature/**']
     paths:
       - 'backend/**'
       - 'ml/**'
@@ -117,11 +118,14 @@ jobs:
         run: |
           pytest --cov=src --cov-report=xml --cov-report=term-missing -v
       
-      - name: Upload coverage
-        uses: codecov/codecov-action@v4
+      - name: Preserve inspectable coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
         with:
-          files: backend/coverage.xml
-          fail_ci_if_error: false
+          name: backend-coverage
+          path: backend/coverage.xml
+          if-no-files-found: warn
+          retention-days: 14
 
   ml-cpu-smoke:
     name: ML CPU smoke (no GPU)
