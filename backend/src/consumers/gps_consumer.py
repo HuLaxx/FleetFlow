@@ -7,7 +7,7 @@ Consumes GPS updates from Kafka and:
 3. Broadcasts to WebSocket clients
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from decimal import Decimal
 from uuid import UUID
 
@@ -78,7 +78,7 @@ class GPSLocationConsumer(BaseKafkaConsumer):
                 if vehicle:
                     vehicle.latitude = latitude
                     vehicle.longitude = longitude
-                    vehicle.updated_at = datetime.utcnow()
+                    vehicle.updated_at = datetime.now(timezone.utc)
 
                     await session.commit()
 
@@ -125,7 +125,7 @@ class GPSLocationConsumer(BaseKafkaConsumer):
                     },
                     "speed_kmh": event_data.get("speed_kmh"),
                     "heading": event_data.get("heading"),
-                    "updated_at": event_data.get("timestamp", datetime.utcnow().isoformat()),
+                    "updated_at": event_data.get("timestamp", datetime.now(timezone.utc).isoformat()),
                 },
             )
 
