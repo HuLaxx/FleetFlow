@@ -74,7 +74,7 @@ class ConnectionManager:
         # Connection metadata
         self.connection_info: dict[WebSocket, dict[str, Any]] = {}
 
-    async def connect(self, websocket: WebSocket, client_id: str = None) -> None:
+    async def connect(self, websocket: WebSocket, client_id: str | None = None) -> None:
         """Accept a new WebSocket connection."""
         await websocket.accept()
         self.active_connections.add(websocket)
@@ -200,7 +200,7 @@ async def health():
 
 
 @app.websocket("/ws")
-async def websocket_endpoint(websocket: WebSocket, client_id: str = None):
+async def websocket_endpoint(websocket: WebSocket, client_id: str | None = None):
     """
     Main WebSocket endpoint.
 
