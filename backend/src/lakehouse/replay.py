@@ -38,9 +38,7 @@ def _normalise_event(payload: dict[str, Any]) -> dict[str, Any]:
     if missing:
         raise ValueError("required event metadata missing: " + ", ".join(missing))
     event = GPSLocationEvent.model_validate(payload)
-    if not all(
-        isfinite(value) for value in (event.location.latitude, event.location.longitude)
-    ):
+    if not all(isfinite(value) for value in (event.location.latitude, event.location.longitude)):
         raise ValueError("location coordinates must be finite")
     if event.speed_kmh is not None and not isfinite(event.speed_kmh):
         raise ValueError("speed_kmh must be finite")
@@ -308,9 +306,7 @@ def replay(
         # A source changing between the first digest and the copy must not be
         # published under an incorrect content-addressed run identity.
         if sha256_file(raw_path) != source_digest:
-            raise RuntimeError(
-                "Replay input changed while copying; retry with a stable source"
-            )
+            raise RuntimeError("Replay input changed while copying; retry with a stable source")
 
         rows, rejects, counts = prepare_events(raw_path, allowed_lateness=allowed_lateness)
         artifacts = ["raw/events.jsonl"]
