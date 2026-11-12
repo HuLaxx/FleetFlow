@@ -95,14 +95,6 @@ async def optimize_routes(
     # If the user wants to "Apply", that would be a separate confirmation step or we assume this IS the action.
     # Given the standard flow, let's persist them as "planned" routes.
 
-    created_routes = []
-
-    # We need to map solution back to DB objects
-    # The optimizer returns dictionaries.
-
-    total_distance = 0
-    total_stops = 0
-
     # Note: In a real app, we might want to delete existing planned routes for this day/depot first if re-optimizing?
     # For now, we assume we are just creating new ones.
 
