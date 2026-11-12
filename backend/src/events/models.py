@@ -1,7 +1,7 @@
 """Pydantic models for Kafka events."""
 
-from datetime import datetime
-from typing import Optional
+from datetime import datetime, timezone
+from typing import Literal, Optional
 from uuid import UUID, uuid4
 from pydantic import BaseModel, Field
 from enum import Enum
@@ -107,8 +107,9 @@ class OrderItem(BaseModel):
 class OrderCreatedEvent(BaseModel):
     """Event published when a new order is created."""
     event_type: EventType = EventType.ORDER_CREATED
+    schema_version: Literal[1] = 1
     event_id: UUID = Field(default_factory=uuid4)
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     
     # Order data
     order_id: UUID
@@ -136,8 +137,9 @@ class OrderCreatedEvent(BaseModel):
 class OrderCancelledEvent(BaseModel):
     """Event published when an order is cancelled."""
     event_type: EventType = EventType.ORDER_CANCELLED
+    schema_version: Literal[1] = 1
     event_id: UUID = Field(default_factory=uuid4)
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     
     order_id: UUID
     order_number: str
@@ -148,8 +150,9 @@ class OrderCancelledEvent(BaseModel):
 class OrderAssignedEvent(BaseModel):
     """Event published when an order is assigned to a route."""
     event_type: EventType = EventType.ORDER_ASSIGNED
+    schema_version: Literal[1] = 1
     event_id: UUID = Field(default_factory=uuid4)
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     
     order_id: UUID
     route_id: UUID
@@ -161,8 +164,9 @@ class OrderAssignedEvent(BaseModel):
 class OrderDeliveredEvent(BaseModel):
     """Event published when an order is delivered."""
     event_type: EventType = EventType.ORDER_DELIVERED
+    schema_version: Literal[1] = 1
     event_id: UUID = Field(default_factory=uuid4)
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     
     order_id: UUID
     route_id: UUID
@@ -180,8 +184,9 @@ class OrderDeliveredEvent(BaseModel):
 class GPSLocationEvent(BaseModel):
     """Real-time GPS location update from driver."""
     event_type: EventType = EventType.DRIVER_LOCATION_UPDATED
+    schema_version: Literal[1] = 1
     event_id: UUID = Field(default_factory=uuid4)
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     
     driver_id: UUID
     vehicle_id: UUID
@@ -197,8 +202,9 @@ class GPSLocationEvent(BaseModel):
 class DriverStatusEvent(BaseModel):
     """Event published when driver status changes."""
     event_type: EventType = EventType.DRIVER_STATUS_CHANGED
+    schema_version: Literal[1] = 1
     event_id: UUID = Field(default_factory=uuid4)
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     
     driver_id: UUID
     previous_status: DriverStatus
@@ -223,8 +229,9 @@ class RouteStop(BaseModel):
 class RouteCreatedEvent(BaseModel):
     """Event published when a route is optimized and created."""
     event_type: EventType = EventType.ROUTE_CREATED
+    schema_version: Literal[1] = 1
     event_id: UUID = Field(default_factory=uuid4)
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     
     route_id: UUID
     route_date: str  # ISO date
@@ -246,8 +253,9 @@ class RouteCreatedEvent(BaseModel):
 class RouteStartedEvent(BaseModel):
     """Event published when driver starts a route."""
     event_type: EventType = EventType.ROUTE_STARTED
+    schema_version: Literal[1] = 1
     event_id: UUID = Field(default_factory=uuid4)
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     
     route_id: UUID
     driver_id: UUID
@@ -258,8 +266,9 @@ class RouteStartedEvent(BaseModel):
 class StopCompletedEvent(BaseModel):
     """Event published when a stop is completed."""
     event_type: EventType = EventType.STOP_COMPLETED
+    schema_version: Literal[1] = 1
     event_id: UUID = Field(default_factory=uuid4)
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     
     route_id: UUID
     stop_id: UUID
@@ -276,8 +285,9 @@ class StopCompletedEvent(BaseModel):
 
 class TrafficUpdateEvent(BaseModel):
     """Traffic data from external API."""
+    schema_version: Literal[1] = 1
     event_id: UUID = Field(default_factory=uuid4)
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     
     segment_id: str
     location: Location
