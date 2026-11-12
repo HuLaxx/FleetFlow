@@ -1,6 +1,6 @@
 """Routes API endpoints - with DATABASE integration."""
 
-from datetime import date as calendar_date, timezone
+from datetime import date as calendar_date, UTC
 from datetime import datetime
 from uuid import UUID
 
@@ -246,8 +246,8 @@ async def start_route(
 
     # Update route
     route.status = "in_progress"
-    route.started_at = datetime.now(timezone.utc)
-    route.updated_at = datetime.now(timezone.utc)
+    route.started_at = datetime.now(UTC).replace(tzinfo=None)
+    route.updated_at = datetime.now(UTC).replace(tzinfo=None)
 
     # Update driver status
     if route.driver:
@@ -259,8 +259,8 @@ async def start_route(
     event = RouteStartedEvent(
         route_id=route_id,
         driver_id=request.driver_id,
-        started_at=datetime.now(timezone.utc),
-        first_stop_eta=datetime.now(timezone.utc),
+        started_at=datetime.now(UTC),
+        first_stop_eta=datetime.now(UTC),
     )
 
     async def publish_event():
@@ -307,17 +307,17 @@ async def complete_stop(
 
     # Update stop
     stop.status = "completed"
-    stop.actual_arrival = datetime.now(timezone.utc)
-    stop.actual_departure = datetime.now(timezone.utc)
+    stop.actual_arrival = datetime.now(UTC).replace(tzinfo=None)
+    stop.actual_departure = datetime.now(UTC).replace(tzinfo=None)
     stop.recipient_name = request.recipient_name
     stop.signature_url = request.signature_url
     stop.photo_url = request.photo_url
-    stop.updated_at = datetime.now(timezone.utc)
+    stop.updated_at = datetime.now(UTC).replace(tzinfo=None)
 
     # Update order status
     if stop.order:
         stop.order.status = "delivered"
-        stop.order.updated_at = datetime.now(timezone.utc)
+        stop.order.updated_at = datetime.now(UTC).replace(tzinfo=None)
 
     # Increment route completed stops
     if stop.route:
@@ -331,9 +331,9 @@ async def complete_stop(
         stop_id=stop_id,
         order_id=stop.order_id,
         driver_id=stop.route.driver_id if stop.route else None,
-        completed_at=datetime.now(timezone.utc),
+        completed_at=datetime.now(UTC),
         actual_service_time_minutes=5,  # TODO: Calculate from timestamps
-        next_stop_eta=datetime.now(timezone.utc),
+        next_stop_eta=datetime.now(UTC),
     )
 
     async def publish_event():
@@ -350,7 +350,7 @@ async def complete_stop(
         "route_id": str(route_id),
         "stop_id": str(stop_id),
         "status": "completed",
-        "completed_at": datetime.now(timezone.utc).isoformat(),
+        "completed_at": datetime.now(UTC).isoformat(),
         "recipient_name": request.recipient_name,
     }
 
@@ -444,7 +444,7 @@ async def get_route_stats(
     db: AsyncSession = Depends(get_db),
 ):
     """Get route statistics."""
-    target_date = date or datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    target_date = date or datetime.now(UTC).strftime("%Y-%m-%d")
 
     # Total routes for date
     total_stmt = select(func.count(Route.id))
