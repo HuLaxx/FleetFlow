@@ -4,7 +4,7 @@ Driver status event consumer.
 Consumes driver status changes and updates the database.
 """
 
-from datetime import datetime, timezone
+from datetime import datetime, UTC
 from uuid import UUID
 
 import structlog
@@ -64,7 +64,7 @@ class DriverStatusConsumer(BaseKafkaConsumer):
 
                 if driver:
                     driver.status = new_status
-                    driver.updated_at = datetime.now(timezone.utc)
+                    driver.updated_at = datetime.now(UTC)
 
                     await session.commit()
 
@@ -100,7 +100,7 @@ class DriverStatusConsumer(BaseKafkaConsumer):
                     "status": event_data["new_status"],
                     "previous_status": event_data.get("previous_status"),
                     "reason": event_data.get("reason"),
-                    "updated_at": event_data.get("timestamp", datetime.now(timezone.utc).isoformat()),
+                    "updated_at": event_data.get("timestamp", datetime.now(UTC).isoformat()),
                 },
             )
 
