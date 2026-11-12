@@ -48,7 +48,13 @@ class WebSocketClient {
         this.emitter.emit(type as keyof WebSocketEvents, event);
     }
 
+    isOpen(): boolean {
+        return this.ws?.readyState === WebSocket.OPEN;
+    }
+
     connect() {
+        if (this.ws && (this.ws.readyState === WebSocket.OPEN || this.ws.readyState === WebSocket.CONNECTING)) return;
+        this.shouldReconnect = true;
         try {
             this.ws = new WebSocket(this.config.url);
 
