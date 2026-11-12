@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import Map, { NavigationControl, Marker } from 'react-map-gl/maplibre';
 import DeckGL from '@deck.gl/react';
 import { PathLayer, ScatterplotLayer } from '@deck.gl/layers';
-import { Layers, Wifi, WifiOff, MapPin } from 'lucide-react';
+import { Layers, Wifi, WifiOff } from 'lucide-react';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { useVehicleTracking, VehicleLocation } from '@/hooks/useWebSocket';
 
@@ -75,7 +75,8 @@ export default function LiveFleetMap() {
     const { vehicles, isConnected, connectionState, lastUpdate } = useVehicleTracking();
 
     useEffect(() => {
-        setMounted(true);
+        const frame = requestAnimationFrame(() => setMounted(true));
+        return () => cancelAnimationFrame(frame);
     }, []);
 
     // Route path layer
@@ -88,7 +89,7 @@ export default function LiveFleetMap() {
                     pickable: false,
                     widthScale: 1,
                     widthMinPixels: 3,
-                    getPath: (d: any) => d.path,
+                    getPath: (d: (typeof mockRoutes)[number]) => d.path,
                     getColor: [16, 185, 129, 180],
                     getWidth: 3,
                 })
@@ -109,8 +110,8 @@ export default function LiveFleetMap() {
                 radiusMinPixels: 6,
                 radiusMaxPixels: 10,
                 lineWidthMinPixels: 1,
-                getPosition: (d: any) => [d.longitude, d.latitude],
-                getFillColor: (d: any) =>
+                getPosition: (d: (typeof mockStops)[number]) => [d.longitude, d.latitude],
+                getFillColor: (d: (typeof mockStops)[number]) =>
                     d.status === 'completed' ? [34, 197, 94, 255] : [251, 191, 36, 255],
                 getLineColor: [24, 24, 27, 255],
             }),
@@ -131,7 +132,7 @@ export default function LiveFleetMap() {
         <div className="relative w-full h-full">
             <DeckGL
                 viewState={viewState}
-                onViewStateChange={(e: any) => setViewState(e.viewState)}
+                onViewStateChange={(e) => setViewState((prev) => ({ ...prev, ...e.viewState }))}
                 controller={true}
                 layers={layers}
             >
@@ -181,7 +182,7 @@ export default function LiveFleetMap() {
                         <div className="h-8 w-px bg-zinc-700" />
                         <div>
                             <p className="text-xl font-bold text-cyan-400">{mockStops.length}</p>
-                            <p className="text-[10px] text-zinc-500 uppercase">Stops</p>
+                            <p className="text-[10px] text-zinc-500 uppercase">Sample stops</p>
                         </div>
                     </div>
                 </div>
