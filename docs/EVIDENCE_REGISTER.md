@@ -49,6 +49,13 @@ The inspected recent CI on branch `redesign/fleetflow-v2` checked frontend quali
 - These are implementation smoke tests, **not** forecasting-accuracy, generalisation or routing-efficiency benchmarks. Those require datasets, held-out baselines and reproducible evaluation.
 - Separate backend lint remains failed in the same workflow. Do not badge the overall pipeline green.
 
+## Current P0 release gate (2026-11-12)
+
+- **PASS**: [Workflow 43257165244](https://github.com/HuLaxx/FleetFlow/actions/runs/43257165244), commit `6d0b6ccc79ac1be4b27132b6b30e85d83a2a08cd`, matches current draft PR head at time of verification. **43 backend tests passed, 0 skipped; ML CPU smoke passed; Ruff and Black passed**.
+- Framework-specific B008 exemptions are documented in `backend/pyproject.toml` for FastAPI dependency descriptors; no failed tests were disabled or marked xfail.
+- Correctness repairs include versioned UTC event contracts, manual Kafka commits after a successful handler, PostGIS-backed API tests, typed date filtering, proper assigned-route lookup, and stricter exception boundaries.
+- **Not claimed:** complete broker-backed delivery, consumer inbox/outbox idempotency, approved-dispatch golden path, ML accuracy benchmark or cloud deployment. Current CI success does not verify these.
+
 ## Verification log
 - 2026-11-12: repository structure, README, current workflow statuses and readiness script inspected via GitHub.
 - 2026-11-12: **Full local readiness was not executed in this environment** (repository dependencies/services unavailable). No cloud resources created.
