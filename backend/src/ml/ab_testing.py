@@ -6,7 +6,7 @@ collecting metrics, and determining winners.
 """
 
 import random
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from uuid import UUID, uuid4
 
@@ -159,7 +159,7 @@ class ABTestingService:
             raise ValueError(f"Experiment {experiment_id} not found")
 
         experiment.status = ExperimentStatus.RUNNING
-        experiment.started_at = datetime.utcnow()
+        experiment.started_at = datetime.now(timezone.utc)
 
         logger.info("Started experiment", experiment_id=str(experiment_id))
         return experiment
@@ -171,7 +171,7 @@ class ABTestingService:
             raise ValueError(f"Experiment {experiment_id} not found")
 
         experiment.status = ExperimentStatus.COMPLETED
-        experiment.completed_at = datetime.utcnow()
+        experiment.completed_at = datetime.now(timezone.utc)
 
         # Determine winner
         self._determine_winner(experiment)
