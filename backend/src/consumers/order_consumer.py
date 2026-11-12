@@ -4,7 +4,7 @@ Order events consumer.
 Consumes order creation/cancellation events and updates the database.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from uuid import UUID
 
 import structlog
@@ -150,7 +150,7 @@ class OrderEventsConsumer(BaseKafkaConsumer):
                     "order_number": event_data.get("order_number"),
                     "status": "pending" if event_type == "order_created" else "cancelled",
                     "reason": event_data.get("reason"),
-                    "updated_at": event_data.get("timestamp", datetime.utcnow().isoformat()),
+                    "updated_at": event_data.get("timestamp", datetime.now(timezone.utc).isoformat()),
                 },
             )
 
