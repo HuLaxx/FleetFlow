@@ -114,12 +114,12 @@ export function OrdersPanel() {
                                             <span className="text-sm font-mono font-medium text-stone-100 group-hover:text-emerald-400 transition-colors">
                                                 {order.order_number || `ORD-${order.id.slice(0, 8)}`}
                                             </span>
-                                            {order.priority > 2 && (
+                                            {(order.priority ?? 0) > 2 && (
                                                 <span className={cn(
                                                     'text-[10px] px-1.5 py-0.5 rounded uppercase font-semibold',
-                                                    order.priority >= 4 ? 'bg-teal-500/10 text-teal-500' : 'bg-emerald-500/10 text-emerald-500'
+                                                    (order.priority ?? 0) >= 4 ? 'bg-teal-500/10 text-teal-500' : 'bg-emerald-500/10 text-emerald-500'
                                                 )}>
-                                                    {order.priority >= 4 ? 'URGENT' : 'HIGH'}
+                                                    {(order.priority ?? 0) >= 4 ? 'URGENT' : 'HIGH'}
                                                 </span>
                                             )}
                                         </div>
