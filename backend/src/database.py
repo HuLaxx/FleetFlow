@@ -8,6 +8,7 @@ from collections.abc import AsyncGenerator
 
 import structlog
 from sqlalchemy import text
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy.pool import NullPool
@@ -100,7 +101,7 @@ async def check_db_health() -> dict:
                 "database": "postgresql",
                 "version": version,
             }
-    except Exception as e:
+    except (SQLAlchemyError, OSError) as e:
         logger.error("Database health check failed", error=str(e))
         return {
             "status": "unhealthy",
