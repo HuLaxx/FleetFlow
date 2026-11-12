@@ -2,7 +2,7 @@ name: Backend Tests
 
 on:
   push:
-    branches: [main, develop, 'feature/**']
+    branches: [main, develop, 'feature/**', 'fix/**']
     paths:
       - 'backend/**'
       - 'ml/**'
@@ -10,7 +10,8 @@ on:
       - 'docs/EVIDENCE_REGISTER.md'
       - '.github/workflows/backend-tests.yml'
   pull_request:
-    branches: [main]
+    # Stacked PRs also need full gates before merging into their parent branch.
+    branches: [main, 'audit/**', 'feature/**']
     paths:
       - 'backend/**'
       - 'ml/**'
