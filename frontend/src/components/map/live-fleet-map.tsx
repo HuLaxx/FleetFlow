@@ -89,7 +89,8 @@ export default function LiveFleetMap() {
                     pickable: false,
                     widthScale: 1,
                     widthMinPixels: 3,
-                    getPath: (d: (typeof mockRoutes)[number]) => d.path,
+                    positionFormat: 'XY',
+                    getPath: (d: (typeof mockRoutes)[number]) => d.path.flat(),
                     getColor: [16, 185, 129, 180],
                     getWidth: 3,
                 })
