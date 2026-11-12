@@ -34,14 +34,31 @@ jobs:
         working-directory: frontend
         run: pnpm install --frozen-lockfile
       - name: Lint
+        id: frontend_lint
+        continue-on-error: true
         working-directory: frontend
         run: pnpm run lint
       - name: Type check
+        id: frontend_types
+        continue-on-error: true
         working-directory: frontend
         run: pnpm exec tsc --noEmit
       - name: Build
+        id: frontend_build
+        continue-on-error: true
         working-directory: frontend
         run: pnpm run build
+      - name: Enforce all frontend quality gates
+        if: always()
+        env:
+          LINT: ${{ steps.frontend_lint.outcome }}
+          TYPES: ${{ steps.frontend_types.outcome }}
+          BUILD: ${{ steps.frontend_build.outcome }}
+        run: |
+          echo "Lint: $LINT | TypeScript: $TYPES | Build: $BUILD"
+          test "$LINT" = success
+          test "$TYPES" = success
+          test "$BUILD" = success
 
   security:
     name: High / Critical Dependency Security Scan
