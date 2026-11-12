@@ -5,6 +5,7 @@ bytes are preserved; accepted events and hourly aggregates are written as
 partitioned Parquet. Input SHA-256 addresses immutable runs so repeated
 backfills never silently overwrite historical evidence.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -122,8 +123,7 @@ def prepare_events(
             vehicle_id = record["vehicle_id"]
             previous_max = high_watermark.get(vehicle_id)
             is_late = (
-                previous_max is not None
-                and record["event_time"] < previous_max - allowed_lateness
+                previous_max is not None and record["event_time"] < previous_max - allowed_lateness
             )
             record["is_late"] = is_late
             record["source_line"] = line_number
@@ -134,12 +134,16 @@ def prepare_events(
                 high_watermark[vehicle_id] = record["event_time"]
 
     rows.sort(key=lambda row: (row["event_time"], row["vehicle_id"], row["event_id"]))
-    return rows, rejected, {
-        "accepted": len(rows),
-        "duplicates": duplicates,
-        "late": late,
-        "quarantined": len(rejected),
-    }
+    return (
+        rows,
+        rejected,
+        {
+            "accepted": len(rows),
+            "duplicates": duplicates,
+            "late": late,
+            "quarantined": len(rejected),
+        },
+    )
 
 
 def _write_parquet(rows: list[dict[str, Any]], path: Path, schema: Any) -> None:
@@ -152,9 +156,7 @@ def _write_parquet(rows: list[dict[str, Any]], path: Path, schema: Any) -> None:
     pq.write_table(table, path, compression="zstd")
 
 
-def _build_parquet(
-    staging: Path, rows: list[dict[str, Any]]
-) -> list[str]:
+def _build_parquet(staging: Path, rows: list[dict[str, Any]]) -> list[str]:
     import pyarrow as pa
 
     clean_schema = pa.schema(
@@ -274,9 +276,7 @@ def replay(
         raw_path.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(input_file, raw_path)
 
-        rows, rejects, counts = prepare_events(
-            raw_path, allowed_lateness=allowed_lateness
-        )
+        rows, rejects, counts = prepare_events(raw_path, allowed_lateness=allowed_lateness)
         artifacts = ["raw/events.jsonl"]
         artifacts.extend(_build_parquet(staging, rows))
 
@@ -296,8 +296,7 @@ def replay(
             "counts": counts,
             "artifacts": sorted(artifacts),
             "artifact_sha256": {
-                relative: sha256_file(staging / relative)
-                for relative in sorted(artifacts)
+                relative: sha256_file(staging / relative) for relative in sorted(artifacts)
             },
         }
         (staging / "manifest.json").write_text(
