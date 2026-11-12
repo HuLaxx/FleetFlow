@@ -2,7 +2,7 @@
 
 from datetime import date, datetime
 from decimal import Decimal
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Optional
 from uuid import UUID, uuid4
 
 from sqlalchemy import Date, ForeignKey, Integer, Numeric, String, func
@@ -10,6 +10,9 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.database import Base
+
+if TYPE_CHECKING:
+    from src.models import Customer, Depot
 
 
 class Order(Base):
