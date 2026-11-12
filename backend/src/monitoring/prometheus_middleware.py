@@ -36,9 +36,6 @@ class PrometheusMiddleware(BaseHTTPMiddleware):
             response: Response = await call_next(request)
             status_code = response.status_code
             return response
-        except Exception:
-            # Re-raise but still record metrics
-            raise
         finally:
             # Record metrics
             duration = time.time() - start_time
