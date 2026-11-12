@@ -1,3 +1,11 @@
+## Current verified five-job CI — 12 November 2026
+
+- **PASS:** [Backend Tests workflow 43270546627](https://github.com/HuLaxx/FleetFlow/actions/runs/43270546627), commit `c5d706926859620d62f2d3ff5f483921fa1fd4d1`, checked against the PR head at the time of verification.
+- **Backend tests, backend Ruff/Black, CPU ML smoke, Next.js frontend ESLint (0 errors; 13 non-blocking warnings), TypeScript, frontend production build and Trivy high/critical dependency scan all passed** in this same workflow.
+- The production frontend compiles with patched Next.js 16.4.6, Auth.js/Drizzle and MapLibre 6.4.1; **a passing build is not an interactive browser smoke test** or proof all map controls work after the major MapLibre upgrade.
+- Remaining P0 acceptance: authenticated end-to-end dispatch through actual seeded depot/orders, WebSocket event replay and duplicate-handling, route optimization benchmark, browser map smoke tests, hosted deployment and observability.
+- Keep draft; no production deployment or merge until acceptance evidence is supplied.
+
 ## P0 extended CI and security review — 12 November 2026
 
 - Backend pytest has **43 passing tests with zero skips**, with separate passing CPU ML smoke tests and backend Ruff/Black checks in current review-branch workflows.
