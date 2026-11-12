@@ -146,3 +146,31 @@ def test_negative_lateness_is_rejected(tmp_path):
     source.write_text("", encoding="utf-8")
     with pytest.raises(ValueError, match="allowed_lateness"):
         replay(source, tmp_path / "lake", allowed_lateness=timedelta(seconds=-1))
+
+
+def test_replay_requires_source_ids_times_and_contract_metadata(tmp_path):
+    source = tmp_path / "missing-metadata.jsonl"
+    valid = event("11111111-1111-4111-8111-111111111111", "2026-11-12T10:00:00Z")
+    missing_variants = [
+        {key: value for key, value in valid.items() if key != missing}
+        for missing in ("event_id", "timestamp", "schema_version", "event_type")
+    ]
+    write_events(source, missing_variants)
+    rows, rejects, summary = prepare_events(source)
+    assert rows == []
+    assert summary["quarantined"] == 4
+    assert all("required event metadata" in result["detail"] for result in rejects)
+
+
+def test_replay_refuses_modified_artifacts(tmp_path):
+    source = tmp_path / "events.jsonl"
+    write_events(
+        source,
+        [event("11111111-1111-4111-8111-111111111111", "2026-11-12T10:00:00Z")],
+    )
+    run_dir, manifest = replay(source, tmp_path / "lake")
+    assert set(manifest["artifact_sha256"]) == set(manifest["artifacts"])
+    raw = run_dir / "raw/events.jsonl"
+    raw.write_text("tampered", encoding="utf-8")
+    with pytest.raises(RuntimeError, match="integrity"):
+        replay(source, tmp_path / "lake")
