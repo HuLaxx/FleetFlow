@@ -166,4 +166,4 @@ jobs:
       
       - name: Run Black
         working-directory: backend
-        run: black --check src/
+        run: black --check --diff src/
