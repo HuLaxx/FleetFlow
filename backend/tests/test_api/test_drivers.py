@@ -29,7 +29,7 @@ async def test_list_drivers_with_data(client: AsyncClient, sample_depot, sample_
     data = response.json()
     assert len(data["drivers"]) == 1
     assert data["drivers"][0]["id"] == str(driver.id)
-    assert data["drivers"][0]["name"] == driver.name
+    assert data["drivers"][0]["name"] == driver.full_name
 
 
 @pytest.mark.asyncio
@@ -42,7 +42,7 @@ async def test_get_driver_by_id(client: AsyncClient, sample_depot, sample_driver
     assert response.status_code == 200
     data = response.json()
     assert data["id"] == str(driver.id)
-    assert data["name"] == driver.name
+    assert data["name"] == driver.full_name
     assert data["email"] == driver.email
 
 
