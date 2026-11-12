@@ -8,6 +8,7 @@ from datetime import datetime, UTC
 from uuid import UUID
 
 import structlog
+from fastapi import WebSocketDisconnect
 from sqlalchemy import select
 
 from src.consumers.base import BaseKafkaConsumer
@@ -164,5 +165,5 @@ class RouteEventsConsumer(BaseKafkaConsumer):
                 clients=sent_count,
             )
 
-        except Exception as e:
+        except (WebSocketDisconnect, RuntimeError, OSError) as e:
             logger.error("Failed to broadcast route update", error=str(e))
