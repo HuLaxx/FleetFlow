@@ -2,21 +2,15 @@
 A/B Testing API endpoints for ML experiments.
 """
 
-from typing import Optional, List
 from uuid import UUID
-from fastapi import APIRouter, HTTPException, Depends
-from pydantic import BaseModel, Field
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.database import get_db
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel, Field
+
+from src.auth.dependencies import require_admin
 from src.ml.ab_testing import (
     get_ab_testing_service,
-    Experiment,
-    ExperimentStatus,
-    ExperimentResult,
-    TrafficSplitStrategy,
 )
-from src.auth.dependencies import require_admin
 
 router = APIRouter(prefix="/experiments", tags=["A/B Testing"])
 
@@ -24,8 +18,9 @@ router = APIRouter(prefix="/experiments", tags=["A/B Testing"])
 # Request/Response Models
 class CreateExperimentRequest(BaseModel):
     """Create experiment request."""
+
     name: str
-    description: Optional[str] = None
+    description: str | None = None
     model_name: str
     control_version: str
     treatment_version: str
@@ -34,6 +29,7 @@ class CreateExperimentRequest(BaseModel):
 
 class ExperimentResponse(BaseModel):
     """Experiment response."""
+
     id: str
     name: str
     model_name: str
@@ -42,12 +38,13 @@ class ExperimentResponse(BaseModel):
     treatment_version: str
     control_weight: float
     created_at: str
-    started_at: Optional[str] = None
-    winner: Optional[str] = None
+    started_at: str | None = None
+    winner: str | None = None
 
 
 class RecordResultRequest(BaseModel):
     """Record experiment result."""
+
     variant_id: str
     success: bool
     latency_ms: float
@@ -59,11 +56,11 @@ class RecordResultRequest(BaseModel):
 @router.post("", response_model=ExperimentResponse)
 async def create_experiment(
     request: CreateExperimentRequest,
-    admin = Depends(require_admin),
+    admin=Depends(require_admin),
 ):
     """Create a new A/B experiment."""
     service = get_ab_testing_service()
-    
+
     experiment = service.create_experiment(
         name=request.name,
         description=request.description,
@@ -72,7 +69,7 @@ async def create_experiment(
         treatment_version=request.treatment_version,
         control_weight=request.control_weight,
     )
-    
+
     return ExperimentResponse(
         id=str(experiment.id),
         name=experiment.name,
@@ -89,22 +86,24 @@ async def create_experiment(
 async def list_experiments():
     """List all experiments."""
     service = get_ab_testing_service()
-    
+
     experiments = []
     for exp in service.experiments.values():
-        experiments.append(ExperimentResponse(
-            id=str(exp.id),
-            name=exp.name,
-            model_name=exp.model_name,
-            status=exp.status.value,
-            control_version=exp.control.model_version,
-            treatment_version=exp.treatment.model_version,
-            control_weight=exp.control.weight,
-            created_at=exp.created_at.isoformat(),
-            started_at=exp.started_at.isoformat() if exp.started_at else None,
-            winner=exp.winner_variant_id,
-        ))
-    
+        experiments.append(
+            ExperimentResponse(
+                id=str(exp.id),
+                name=exp.name,
+                model_name=exp.model_name,
+                status=exp.status.value,
+                control_version=exp.control.model_version,
+                treatment_version=exp.treatment.model_version,
+                control_weight=exp.control.weight,
+                created_at=exp.created_at.isoformat(),
+                started_at=exp.started_at.isoformat() if exp.started_at else None,
+                winner=exp.winner_variant_id,
+            )
+        )
+
     return {"experiments": experiments}
 
 
@@ -113,10 +112,10 @@ async def get_experiment(experiment_id: UUID):
     """Get experiment by ID."""
     service = get_ab_testing_service()
     exp = service.experiments.get(experiment_id)
-    
+
     if not exp:
         raise HTTPException(status_code=404, detail="Experiment not found")
-    
+
     return ExperimentResponse(
         id=str(exp.id),
         name=exp.name,
@@ -134,11 +133,11 @@ async def get_experiment(experiment_id: UUID):
 @router.post("/{experiment_id}/start")
 async def start_experiment(
     experiment_id: UUID,
-    admin = Depends(require_admin),
+    admin=Depends(require_admin),
 ):
     """Start an experiment."""
     service = get_ab_testing_service()
-    
+
     try:
         experiment = service.start_experiment(experiment_id)
         return {"status": "started", "experiment_id": str(experiment_id)}
@@ -149,11 +148,11 @@ async def start_experiment(
 @router.post("/{experiment_id}/stop")
 async def stop_experiment(
     experiment_id: UUID,
-    admin = Depends(require_admin),
+    admin=Depends(require_admin),
 ):
     """Stop an experiment and determine winner."""
     service = get_ab_testing_service()
-    
+
     try:
         experiment = service.stop_experiment(experiment_id)
         return {
@@ -169,11 +168,11 @@ async def stop_experiment(
 @router.get("/{experiment_id}/assign")
 async def assign_variant(
     experiment_id: UUID,
-    user_id: Optional[str] = None,
+    user_id: str | None = None,
 ):
     """Get variant assignment for a user/request."""
     service = get_ab_testing_service()
-    
+
     try:
         variant = service.assign_variant(experiment_id, user_id)
         return {
@@ -192,7 +191,7 @@ async def record_result(
 ):
     """Record a result for an experiment."""
     service = get_ab_testing_service()
-    
+
     service.record_result(
         experiment_id=experiment_id,
         variant_id=request.variant_id,
@@ -201,7 +200,7 @@ async def record_result(
         distance_saved_km=request.distance_saved_km,
         optimization_score=request.optimization_score,
     )
-    
+
     return {"status": "recorded"}
 
 
@@ -209,7 +208,7 @@ async def record_result(
 async def get_experiment_metrics(experiment_id: UUID):
     """Get current metrics for an experiment."""
     service = get_ab_testing_service()
-    
+
     try:
         results = service.get_results(experiment_id)
         return {
@@ -224,7 +223,7 @@ async def get_experiment_metrics(experiment_id: UUID):
                     "avg_optimization_score": result.avg_optimization_score,
                 }
                 for variant_id, result in results.items()
-            }
+            },
         }
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))

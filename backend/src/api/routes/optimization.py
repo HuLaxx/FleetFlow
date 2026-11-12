@@ -4,18 +4,15 @@ Optimization API endpoints.
 Handles requests for route optimization and demand forecasting.
 """
 
-from datetime import datetime, date
+from datetime import datetime
 from uuid import UUID
-from typing import List, Optional
 
-from fastapi import APIRouter, HTTPException, Depends, Query, Body
+from fastapi import APIRouter, Body, Depends, HTTPException
+from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_
-from sqlalchemy.orm import joinedload
 
 from src.database import get_db
-from src.models import Order, Vehicle, Depot, Route
-from src.api.routes.routes import start_route  # Reuse existing logic if needed
+from src.models import Depot, Order, Vehicle
 
 # Import the optimizer (assuming ml package is installed/available in path)
 # In a microservice architecture, this might be a gRPC call or HTTP request to the ML service.
@@ -28,19 +25,19 @@ except ImportError:
 
 router = APIRouter()
 
+
 @router.post("/routes/optimize")
 async def optimize_routes(
     depot_id: UUID = Body(..., embed=True),
     date_str: str = Body(..., alias="date", embed=True),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     """
     Generate optimized routes for a specific depot and date.
     """
     if not VehicleRoutingOptimizer:
         raise HTTPException(
-            status_code=501, 
-            detail="Optimization service not available (ML dependencies missing)"
+            status_code=501, detail="Optimization service not available (ML dependencies missing)"
         )
 
     try:
@@ -49,7 +46,7 @@ async def optimize_routes(
         raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
 
     # 1. Fetch Data
-    
+
     # Depot
     depot_result = await db.execute(select(Depot).where(Depot.id == depot_id))
     depot = depot_result.scalar_one_or_none()
@@ -69,7 +66,7 @@ async def optimize_routes(
         and_(
             Order.depot_id == depot_id,
             Order.delivery_date == route_date,
-            Order.status == 'pending'  # Only optimize pending orders
+            Order.status == "pending",  # Only optimize pending orders
         )
     )
     orders_result = await db.execute(orders_stmt)
@@ -80,13 +77,13 @@ async def optimize_routes(
 
     # 2. Run Optimization
     # Initialize optimizer with constraints
-    optimizer = VehicleRoutingOptimizer(planning_time_limit_sec=5) # fast optimized for demo
-    
+    optimizer = VehicleRoutingOptimizer(planning_time_limit_sec=5)  # fast optimized for demo
+
     try:
         solution_routes = optimizer.optimize(orders, vehicles, depot, route_date)
     except Exception as e:
         # Log error
-        raise HTTPException(status_code=500, detail=f"Optimization failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Optimization failed: {e!s}")
 
     if not solution_routes:
         return {"message": "No solution found that satisfies all constraints", "routes": []}
@@ -94,15 +91,15 @@ async def optimize_routes(
     # 3. Save Routes to Database
     # We don't commit immediately for "preview" mode, but here we assume we want to create them.
     # Or we could return them as a preview. Let's return as preview first or create based on a flag?
-    # The requirement usually implies action. Let's return the preview structure. 
+    # The requirement usually implies action. Let's return the preview structure.
     # If the user wants to "Apply", that would be a separate confirmation step or we assume this IS the action.
     # Given the standard flow, let's persist them as "planned" routes.
 
     created_routes = []
-    
+
     # We need to map solution back to DB objects
     # The optimizer returns dictionaries.
-    
+
     total_distance = 0
     total_stops = 0
 
@@ -115,7 +112,7 @@ async def optimize_routes(
         "routes": solution_routes,  # The frontend can render these
         "metrics": {
             "total_vehicles_used": len(solution_routes),
-            "total_orders_scheduled": sum(len(r['stops']) for r in solution_routes),
-            "total_distance_km": sum(r['metrics']['total_distance_km'] for r in solution_routes)
-        }
+            "total_orders_scheduled": sum(len(r["stops"]) for r in solution_routes),
+            "total_distance_km": sum(r["metrics"]["total_distance_km"] for r in solution_routes),
+        },
     }

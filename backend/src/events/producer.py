@@ -1,13 +1,14 @@
 """Kafka producer for publishing events."""
 
-import json
 import asyncio
-from typing import Any, Optional
-from uuid import UUID
+import json
 from datetime import datetime
+from typing import Any
+from uuid import UUID
+
+import structlog
 from confluent_kafka import Producer
 from confluent_kafka.admin import AdminClient, NewTopic
-import structlog
 
 from src.config import get_settings
 
@@ -16,7 +17,7 @@ logger = structlog.get_logger()
 
 class KafkaEncoder(json.JSONEncoder):
     """Custom JSON encoder for Kafka messages."""
-    
+
     def default(self, obj: Any) -> Any:
         if isinstance(obj, UUID):
             return str(obj)
@@ -28,7 +29,7 @@ class KafkaEncoder(json.JSONEncoder):
 class KafkaProducerService:
     """
     Kafka producer service for publishing events to topics.
-    
+
     Topics:
     - orders.created
     - orders.cancelled
@@ -41,7 +42,7 @@ class KafkaProducerService:
     - routes.stops
     - traffic.updates
     """
-    
+
     TOPICS = [
         "orders.created",
         "orders.cancelled",
@@ -56,29 +57,31 @@ class KafkaProducerService:
         "alerts.driver_late",
         "alerts.hotspot",
     ]
-    
+
     def __init__(self):
         settings = get_settings()
         self.bootstrap_servers = settings.kafka_bootstrap_servers
-        self._producer: Optional[Producer] = None
+        self._producer: Producer | None = None
         self._delivery_count = 0
         self._error_count = 0
-    
+
     def _get_producer(self) -> Producer:
         """Lazy initialization of producer."""
         if self._producer is None:
-            self._producer = Producer({
-                'bootstrap.servers': self.bootstrap_servers,
-                'client.id': 'fleetflow-producer',
-                'acks': 'all',
-                'enable.idempotence': True,
-                'max.in.flight.requests.per.connection': 5,
-                'retries': 3,
-                'retry.backoff.ms': 100,
-                'compression.type': 'snappy',
-            })
+            self._producer = Producer(
+                {
+                    "bootstrap.servers": self.bootstrap_servers,
+                    "client.id": "fleetflow-producer",
+                    "acks": "all",
+                    "enable.idempotence": True,
+                    "max.in.flight.requests.per.connection": 5,
+                    "retries": 3,
+                    "retry.backoff.ms": 100,
+                    "compression.type": "snappy",
+                }
+            )
         return self._producer
-    
+
     def _delivery_callback(self, err: Any, msg: Any) -> None:
         """Callback for message delivery confirmation."""
         if err:
@@ -90,18 +93,18 @@ class KafkaProducerService:
                 "Message delivered",
                 topic=msg.topic(),
                 partition=msg.partition(),
-                offset=msg.offset()
+                offset=msg.offset(),
             )
-    
+
     async def ensure_topics_exist(self) -> None:
         """Create topics if they don't exist."""
         try:
-            admin = AdminClient({'bootstrap.servers': self.bootstrap_servers})
-            
+            admin = AdminClient({"bootstrap.servers": self.bootstrap_servers})
+
             # Get existing topics
             metadata = admin.list_topics(timeout=10)
             existing_topics = set(metadata.topics.keys())
-            
+
             # Create missing topics
             topics_to_create = [
                 NewTopic(
@@ -109,14 +112,14 @@ class KafkaProducerService:
                     num_partitions=3,
                     replication_factor=1,
                     config={
-                        'retention.ms': str(7 * 24 * 60 * 60 * 1000),  # 7 days
-                        'cleanup.policy': 'delete',
-                    }
+                        "retention.ms": str(7 * 24 * 60 * 60 * 1000),  # 7 days
+                        "cleanup.policy": "delete",
+                    },
                 )
                 for topic in self.TOPICS
                 if topic not in existing_topics
             ]
-            
+
             if topics_to_create:
                 futures = admin.create_topics(topics_to_create)
                 for topic, future in futures.items():
@@ -128,17 +131,13 @@ class KafkaProducerService:
                             logger.warning("Failed to create topic", topic=topic, error=str(e))
         except Exception as e:
             logger.error("Failed to ensure topics exist", error=str(e))
-    
+
     def publish(
-        self,
-        topic: str,
-        event: Any,
-        key: Optional[str] = None,
-        headers: Optional[dict] = None
+        self, topic: str, event: Any, key: str | None = None, headers: dict | None = None
     ) -> None:
         """
         Publish an event to a Kafka topic.
-        
+
         Args:
             topic: Kafka topic name
             event: Pydantic model to serialize
@@ -146,59 +145,55 @@ class KafkaProducerService:
             headers: Optional message headers
         """
         producer = self._get_producer()
-        
+
         # Serialize event
-        if hasattr(event, 'model_dump'):
-            value = json.dumps(event.model_dump(), cls=KafkaEncoder).encode('utf-8')
+        if hasattr(event, "model_dump"):
+            value = json.dumps(event.model_dump(), cls=KafkaEncoder).encode("utf-8")
         else:
-            value = json.dumps(event, cls=KafkaEncoder).encode('utf-8')
-        
+            value = json.dumps(event, cls=KafkaEncoder).encode("utf-8")
+
         # Prepare headers
         kafka_headers = None
         if headers:
-            kafka_headers = [(k, v.encode('utf-8') if isinstance(v, str) else v) for k, v in headers.items()]
-        
+            kafka_headers = [
+                (k, v.encode("utf-8") if isinstance(v, str) else v) for k, v in headers.items()
+            ]
+
         try:
             producer.produce(
                 topic=topic,
-                key=key.encode('utf-8') if key else None,
+                key=key.encode("utf-8") if key else None,
                 value=value,
                 headers=kafka_headers,
-                callback=self._delivery_callback
+                callback=self._delivery_callback,
             )
             producer.poll(0)  # Trigger callbacks
         except Exception as e:
             logger.error("Failed to publish event", topic=topic, error=str(e))
             raise
-    
+
     async def publish_async(
-        self,
-        topic: str,
-        event: Any,
-        key: Optional[str] = None,
-        headers: Optional[dict] = None
+        self, topic: str, event: Any, key: str | None = None, headers: dict | None = None
     ) -> None:
         """Async wrapper for publish."""
         loop = asyncio.get_event_loop()
         await loop.run_in_executor(None, self.publish, topic, event, key, headers)
-    
+
     def flush(self, timeout: float = 10.0) -> int:
         """Flush pending messages."""
         if self._producer:
             return self._producer.flush(timeout)
         return 0
-    
+
     def close(self) -> None:
         """Close the producer."""
         if self._producer:
             self._producer.flush(30)
             self._producer = None
             logger.info(
-                "Kafka producer closed",
-                delivered=self._delivery_count,
-                errors=self._error_count
+                "Kafka producer closed", delivered=self._delivery_count, errors=self._error_count
             )
-    
+
     @property
     def stats(self) -> dict:
         """Get producer statistics."""
@@ -209,7 +204,7 @@ class KafkaProducerService:
 
 
 # Singleton instance
-_producer: Optional[KafkaProducerService] = None
+_producer: KafkaProducerService | None = None
 
 
 def get_kafka_producer() -> KafkaProducerService:

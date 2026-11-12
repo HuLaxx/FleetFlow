@@ -7,9 +7,8 @@ Integrates Query, Mutation, and Subscription types.
 import strawberry
 from strawberry.fastapi import GraphQLRouter
 
-from src.graphql.resolvers import Query, Mutation
+from src.graphql.resolvers import Mutation, Query
 from src.graphql.subscriptions import Subscription
-
 
 # Create the schema
 schema = strawberry.Schema(

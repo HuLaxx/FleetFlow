@@ -1,15 +1,16 @@
 """Pydantic models for Kafka events."""
 
-from datetime import datetime, timezone
-from typing import Literal, Optional
-from uuid import UUID, uuid4
-from pydantic import BaseModel, Field
+from datetime import UTC, datetime
 from enum import Enum
+from typing import Literal
+from uuid import UUID, uuid4
 
+from pydantic import BaseModel, Field
 
 # ============================================
 # Enums
 # ============================================
+
 
 class OrderStatus(str, Enum):
     PENDING = "pending"
@@ -45,17 +46,17 @@ class EventType(str, Enum):
     ORDER_ASSIGNED = "order.assigned"
     ORDER_DELIVERED = "order.delivered"
     ORDER_FAILED = "order.failed"
-    
+
     # Driver events
     DRIVER_LOCATION_UPDATED = "driver.location_updated"
     DRIVER_STATUS_CHANGED = "driver.status_changed"
-    
+
     # Route events
     ROUTE_CREATED = "route.created"
     ROUTE_STARTED = "route.started"
     ROUTE_COMPLETED = "route.completed"
     ROUTE_OPTIMIZED = "route.optimized"
-    
+
     # Stop events
     STOP_ARRIVED = "stop.arrived"
     STOP_COMPLETED = "stop.completed"
@@ -66,17 +67,20 @@ class EventType(str, Enum):
 # Base Models
 # ============================================
 
+
 class Location(BaseModel):
     """Geographic location."""
+
     latitude: float = Field(..., ge=-90, le=90)
     longitude: float = Field(..., ge=-180, le=180)
-    
+
     def to_tuple(self) -> tuple[float, float]:
         return (self.latitude, self.longitude)
 
 
 class Address(BaseModel):
     """Physical address."""
+
     street: str
     city: str
     state: str
@@ -87,6 +91,7 @@ class Address(BaseModel):
 
 class TimeWindow(BaseModel):
     """Delivery time window."""
+
     start: datetime
     end: datetime
 
@@ -95,8 +100,10 @@ class TimeWindow(BaseModel):
 # Order Events
 # ============================================
 
+
 class OrderItem(BaseModel):
     """Item in an order."""
+
     sku: str
     name: str
     quantity: int = Field(..., ge=1)
@@ -106,41 +113,43 @@ class OrderItem(BaseModel):
 
 class OrderCreatedEvent(BaseModel):
     """Event published when a new order is created."""
+
     event_type: EventType = EventType.ORDER_CREATED
     schema_version: Literal[1] = 1
     event_id: UUID = Field(default_factory=uuid4)
-    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
     # Order data
     order_id: UUID
     order_number: str
     customer_id: UUID
-    depot_id: Optional[UUID] = None
-    
+    depot_id: UUID | None = None
+
     # Delivery details
     delivery_address: Address
     delivery_date: str  # ISO date
     time_window: TimeWindow
-    
+
     # Items
     items: list[OrderItem]
     total_weight_kg: float
-    total_value: Optional[float] = None
-    
+    total_value: float | None = None
+
     # Metadata
     priority: OrderPriority = OrderPriority.NORMAL
     source: str = "api"
-    external_order_id: Optional[str] = None
-    special_instructions: Optional[str] = None
+    external_order_id: str | None = None
+    special_instructions: str | None = None
 
 
 class OrderCancelledEvent(BaseModel):
     """Event published when an order is cancelled."""
+
     event_type: EventType = EventType.ORDER_CANCELLED
     schema_version: Literal[1] = 1
     event_id: UUID = Field(default_factory=uuid4)
-    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
     order_id: UUID
     order_number: str
     reason: str
@@ -149,11 +158,12 @@ class OrderCancelledEvent(BaseModel):
 
 class OrderAssignedEvent(BaseModel):
     """Event published when an order is assigned to a route."""
+
     event_type: EventType = EventType.ORDER_ASSIGNED
     schema_version: Literal[1] = 1
     event_id: UUID = Field(default_factory=uuid4)
-    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
     order_id: UUID
     route_id: UUID
     driver_id: UUID
@@ -163,61 +173,67 @@ class OrderAssignedEvent(BaseModel):
 
 class OrderDeliveredEvent(BaseModel):
     """Event published when an order is delivered."""
+
     event_type: EventType = EventType.ORDER_DELIVERED
     schema_version: Literal[1] = 1
     event_id: UUID = Field(default_factory=uuid4)
-    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
     order_id: UUID
     route_id: UUID
     driver_id: UUID
     delivered_at: datetime
-    recipient_name: Optional[str] = None
-    signature_url: Optional[str] = None
-    photo_url: Optional[str] = None
+    recipient_name: str | None = None
+    signature_url: str | None = None
+    photo_url: str | None = None
 
 
 # ============================================
 # GPS Events
 # ============================================
 
+
 class GPSLocationEvent(BaseModel):
     """Real-time GPS location update from driver."""
+
     event_type: EventType = EventType.DRIVER_LOCATION_UPDATED
     schema_version: Literal[1] = 1
     event_id: UUID = Field(default_factory=uuid4)
-    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
     driver_id: UUID
     vehicle_id: UUID
     location: Location
-    speed_kmh: Optional[float] = Field(None, ge=0)
-    heading: Optional[float] = Field(None, ge=0, le=360)
-    accuracy_m: Optional[float] = Field(None, ge=0)
-    altitude_m: Optional[float] = None
-    battery_level: Optional[int] = Field(None, ge=0, le=100)
+    speed_kmh: float | None = Field(None, ge=0)
+    heading: float | None = Field(None, ge=0, le=360)
+    accuracy_m: float | None = Field(None, ge=0)
+    altitude_m: float | None = None
+    battery_level: int | None = Field(None, ge=0, le=100)
     is_moving: bool = True
 
 
 class DriverStatusEvent(BaseModel):
     """Event published when driver status changes."""
+
     event_type: EventType = EventType.DRIVER_STATUS_CHANGED
     schema_version: Literal[1] = 1
     event_id: UUID = Field(default_factory=uuid4)
-    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
     driver_id: UUID
     previous_status: DriverStatus
     new_status: DriverStatus
-    reason: Optional[str] = None
+    reason: str | None = None
 
 
 # ============================================
 # Route Events
 # ============================================
 
+
 class RouteStop(BaseModel):
     """Stop within a route."""
+
     stop_sequence: int
     order_id: UUID
     location: Location
@@ -228,22 +244,23 @@ class RouteStop(BaseModel):
 
 class RouteCreatedEvent(BaseModel):
     """Event published when a route is optimized and created."""
+
     event_type: EventType = EventType.ROUTE_CREATED
     schema_version: Literal[1] = 1
     event_id: UUID = Field(default_factory=uuid4)
-    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
     route_id: UUID
     route_date: str  # ISO date
     driver_id: UUID
     vehicle_id: UUID
     depot_id: UUID
-    
+
     # Route details
     stops: list[RouteStop]
     planned_distance_km: float
     planned_duration_minutes: int
-    
+
     # Optimization metadata
     algorithm_used: str
     optimization_score: float
@@ -252,11 +269,12 @@ class RouteCreatedEvent(BaseModel):
 
 class RouteStartedEvent(BaseModel):
     """Event published when driver starts a route."""
+
     event_type: EventType = EventType.ROUTE_STARTED
     schema_version: Literal[1] = 1
     event_id: UUID = Field(default_factory=uuid4)
-    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
     route_id: UUID
     driver_id: UUID
     started_at: datetime
@@ -265,30 +283,33 @@ class RouteStartedEvent(BaseModel):
 
 class StopCompletedEvent(BaseModel):
     """Event published when a stop is completed."""
+
     event_type: EventType = EventType.STOP_COMPLETED
     schema_version: Literal[1] = 1
     event_id: UUID = Field(default_factory=uuid4)
-    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
     route_id: UUID
     stop_id: UUID
     order_id: UUID
     driver_id: UUID
     completed_at: datetime
     actual_service_time_minutes: int
-    next_stop_eta: Optional[datetime] = None
+    next_stop_eta: datetime | None = None
 
 
 # ============================================
 # Traffic Events
 # ============================================
 
+
 class TrafficUpdateEvent(BaseModel):
     """Traffic data from external API."""
+
     schema_version: Literal[1] = 1
     event_id: UUID = Field(default_factory=uuid4)
-    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
     segment_id: str
     location: Location
     current_speed_kmh: float
