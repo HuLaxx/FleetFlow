@@ -1,198 +1,126 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
-import { wsClient, WebSocketMessage } from '../lib/websocket';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { z } from 'zod';
+import { wsClient, type WebSocketMessage } from '../lib/websocket';
 
 type EventHandler = (message: WebSocketMessage) => void;
 
-export function useWebSocket(channels: string | string[] = ['all']) {
-    // Normalize channels to always be an array
-    const channelArray = Array.isArray(channels) ? channels : [channels];
+const incomingMessageSchema = z.object({
+    type: z.string(),
+    data: z.unknown(),
+    timestamp: z.string().optional(),
+});
+
+const vehicleUpdateSchema = z.object({ vehicle_id: z.string() }).passthrough();
+const driverUpdateSchema = z.object({ driver_id: z.string() }).passthrough();
+const orderUpdateSchema = z.object({ order_id: z.string() }).passthrough();
+const routeUpdateSchema = z.object({ route_id: z.string() }).passthrough();
+
+export function useWebSocket(channels: string | string[] = 'all') {
+    const channelKey = JSON.stringify(Array.isArray(channels) ? channels : [channels]);
+    const channelArray = useMemo(() => JSON.parse(channelKey) as string[], [channelKey]);
+    const handlersRef = useRef(new Map<string, Set<EventHandler>>());
 
     const [isConnected, setIsConnected] = useState(false);
     const [lastMessage, setLastMessage] = useState<WebSocketMessage | null>(null);
-    const [eventHandlers, setEventHandlers] = useState<Map<string, EventHandler[]>>(new Map());
 
-    // Subscribe to specific event types
-    const on = useCallback((eventType: string, handler: EventHandler) => {
-        setEventHandlers(prev => {
-            const newMap = new Map(prev);
-            const handlers = newMap.get(eventType) || [];
-            newMap.set(eventType, [...handlers, handler]);
-            return newMap;
-        });
+    const on = useCallback((type: string, handler: EventHandler) => {
+        let handlers = handlersRef.current.get(type);
+        if (!handlers) {
+            handlers = new Set();
+            handlersRef.current.set(type, handlers);
+        }
+        handlers.add(handler);
     }, []);
 
-    // Unsubscribe from event types
-    const off = useCallback((eventType: string, handler: EventHandler) => {
-        setEventHandlers(prev => {
-            const newMap = new Map(prev);
-            const handlers = newMap.get(eventType) || [];
-            newMap.set(eventType, handlers.filter(h => h !== handler));
-            return newMap;
-        });
+    const off = useCallback((type: string, handler: EventHandler) => {
+        handlersRef.current.get(type)?.delete(handler);
     }, []);
 
     useEffect(() => {
-        // Connect to WebSocket
-        wsClient.connect();
-
         function handleConnected() {
             setIsConnected(true);
-
-            // Subscribe to all requested channels
-            channelArray.forEach((channel: string) => {
-                wsClient.subscribe(channel);
-            });
+            channelArray.forEach(channel => wsClient.subscribe(channel));
         }
 
         function handleDisconnected() {
             setIsConnected(false);
         }
 
-        function handleMessage(message: WebSocketMessage) {
+        function handleMessage(event?: unknown) {
+            const parsed = incomingMessageSchema.safeParse(event);
+            if (!parsed.success) return;
+            const message = parsed.data;
             setLastMessage(message);
-
-            // Trigger event-specific handlers
-            const handlers = eventHandlers.get(message.type) || [];
-            handlers.forEach(handler => handler(message));
-
-            // Also trigger 'all' handlers
-            const allHandlers = eventHandlers.get('*') || [];
-            allHandlers.forEach(handler => handler(message));
+            handlersRef.current.get(message.type)?.forEach(handler => handler(message));
+            handlersRef.current.get('*')?.forEach(handler => handler(message));
         }
 
         wsClient.on('connected', handleConnected);
         wsClient.on('disconnected', handleDisconnected);
-        wsClient.on('message', handleMessage as (event?: unknown) => void);
+        wsClient.on('message', handleMessage);
+        wsClient.connect();
 
-        // Check if already connected
-        // @ts-ignore - accessing private property for state check
-        if (wsClient['ws']?.readyState === 1) {
-            handleConnected();
-        }
+        // The socket is a shared singleton. Existing connections do not emit a
+        // second 'connected' event for newly mounted consumers.
+        const readyFrame = requestAnimationFrame(() => {
+            if (wsClient.isOpen()) handleConnected();
+        });
 
         return () => {
-            // Unsubscribe from channels
-            channelArray.forEach((channel: string) => {
-                wsClient.unsubscribe(channel);
-            });
-
+            cancelAnimationFrame(readyFrame);
+            channelArray.forEach(channel => wsClient.unsubscribe(channel));
             wsClient.off('connected', handleConnected);
             wsClient.off('disconnected', handleDisconnected);
-            wsClient.off('message', handleMessage as (event?: unknown) => void);
+            wsClient.off('message', handleMessage);
         };
-    }, [channelArray, eventHandlers]);
+    }, [channelArray]);
 
     return { isConnected, lastMessage, wsClient, on, off };
 }
 
-/**
- * Hook for real-time vehicle updates
- */
+function useEventMap<T extends { [key: string]: unknown }>(
+    channel: string, types: string[], schema: z.ZodType<T>, idField: keyof T
+) {
+    const [records, setRecords] = useState<Map<string, T>>(new Map());
+    const { isConnected, on, off } = useWebSocket(channel);
+    const typeKey = types.join('|');
+
+    useEffect(() => {
+        const handler = (message: WebSocketMessage) => {
+            const parsed = schema.safeParse(message.data);
+            if (!parsed.success) return;
+            const record = parsed.data;
+            const id = record[idField];
+            if (typeof id !== 'string') return;
+            setRecords(prev => new Map(prev).set(id, record));
+        };
+
+        const keys = typeKey.split('|');
+        keys.forEach(key => on(key, handler));
+        return () => keys.forEach(key => off(key, handler));
+    }, [on, off, schema, idField, typeKey]);
+
+    return { records: Array.from(records.values()), isConnected };
+}
+
 export function useVehicleUpdates() {
-    const [vehicles, setVehicles] = useState<Map<string, any>>(new Map());
-    const { isConnected, on, off } = useWebSocket(['vehicles']);
-
-    useEffect(() => {
-        const handler = (message: WebSocketMessage) => {
-            if (message.type === 'vehicle_update') {
-                setVehicles(prev => {
-                    const next = new Map(prev);
-                    next.set(message.data.vehicle_id, message.data);
-                    return next;
-                });
-            }
-        };
-
-        on('vehicle_update', handler);
-        return () => off('vehicle_update', handler);
-    }, [on, off]);
-
-    return { vehicles: Array.from(vehicles.values()), isConnected };
+    const { records, isConnected } = useEventMap('vehicles', ['vehicle_update'], vehicleUpdateSchema, 'vehicle_id');
+    return { vehicles: records, isConnected };
 }
 
-/**
- * Hook for real-time driver status updates
- */
 export function useDriverUpdates() {
-    const [drivers, setDrivers] = useState<Map<string, any>>(new Map());
-    const { isConnected, on, off } = useWebSocket(['drivers']);
-
-    useEffect(() => {
-        const handler = (message: WebSocketMessage) => {
-            if (message.type === 'driver_status_update') {
-                setDrivers(prev => {
-                    const next = new Map(prev);
-                    next.set(message.data.driver_id, message.data);
-                    return next;
-                });
-            }
-        };
-
-        on('driver_status_update', handler);
-        return () => off('driver_status_update', handler);
-    }, [on, off]);
-
-    return { drivers: Array.from(drivers.values()), isConnected };
+    const { records, isConnected } = useEventMap('drivers', ['driver_status_update'], driverUpdateSchema, 'driver_id');
+    return { drivers: records, isConnected };
 }
 
-/**
- * Hook for real-time order updates
- */
 export function useOrderUpdates() {
-    const [orders, setOrders] = useState<Map<string, any>>(new Map());
-    const { isConnected, on, off } = useWebSocket(['orders']);
-
-    useEffect(() => {
-        const handler = (message: WebSocketMessage) => {
-            if (message.type === 'order_created' || message.type === 'order_cancelled') {
-                setOrders(prev => {
-                    const next = new Map(prev);
-                    next.set(message.data.order_id, message.data);
-                    return next;
-                });
-            }
-        };
-
-        on('order_created', handler);
-        on('order_cancelled', handler);
-
-        return () => {
-            off('order_created', handler);
-            off('order_cancelled', handler);
-        };
-    }, [on, off]);
-
-    return { orders: Array.from(orders.values()), isConnected };
+    const { records, isConnected } = useEventMap('orders', ['order_created', 'order_cancelled'], orderUpdateSchema, 'order_id');
+    return { orders: records, isConnected };
 }
 
-/**
- * Hook for real-time route updates
- */
 export function useRouteUpdates() {
-    const [routes, setRoutes] = useState<Map<string, any>>(new Map());
-    const { isConnected, on, off } = useWebSocket(['routes']);
-
-    useEffect(() => {
-        const handler = (message: WebSocketMessage) => {
-            if (message.type === 'route_started' || message.type === 'stop_completed') {
-                setRoutes(prev => {
-                    const next = new Map(prev);
-                    next.set(message.data.route_id, message.data);
-                    return next;
-                });
-            }
-        };
-
-        on('route_started', handler);
-        on('stop_completed', handler);
-
-        return () => {
-            off('route_started', handler);
-            off('stop_completed', handler);
-        };
-    }, [on, off]);
-
-    return { routes: Array.from(routes.values()), isConnected };
+    const { records, isConnected } = useEventMap('routes', ['route_started', 'stop_completed'], routeUpdateSchema, 'route_id');
+    return { routes: records, isConnected };
 }
