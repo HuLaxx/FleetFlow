@@ -35,6 +35,14 @@ The inspected recent CI on branch `redesign/fleetflow-v2` checked frontend quali
 5. Compare distance, feasibility, unassigned stops and solve time to reproducible baseline.
 6. Document local run steps, input seed/hash, logs, assertions, limits and AWS cost plan.
 
+## Priority 1 — additional verified evidence (2026-11-12)
+
+- [PR run 43247824892](https://github.com/HuLaxx/FleetFlow/actions/runs/43247824892): the backend test job **passed** with **37 tests passed, 6 skipped, no failures**, and **58% overall backend statement coverage**. The **separate lint job failed**, so overall CI is not green.
+- The isolated PostGIS API fixtures exposed and helped fix real defects: missing required Customer geography on create, incorrectly typed SQL date filters, outdated Strawberry GraphQL IDE option, and asynchronous connection reuse between test event loops.
+- Two new consumer tests proved **manual offset commits happen only after successful event processing**, and handler failures propagate without committing that offset. This is at-least-once behaviour, **not** end-to-end deduplication or exactly-once delivery.
+- The six skips came from incorrect path-based imports and optional PyTorch. A subsequent change repairs the route optimizer import path and its metres-versus-kilometres assertion. That newer CI run must be checked before declaring the optimiser tests verified.
+- The project still needs an outbox/inbox idempotency design and a broker-backed replay/DLQ integration test before it can be called reliable under restarts.
+
 ## Verification log
 - 2026-11-12: repository structure, README, current workflow statuses and readiness script inspected via GitHub.
 - 2026-11-12: **Full local readiness was not executed in this environment** (repository dependencies/services unavailable). No cloud resources created.
