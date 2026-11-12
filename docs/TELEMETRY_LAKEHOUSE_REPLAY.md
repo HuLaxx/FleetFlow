@@ -63,7 +63,14 @@ The automated tests check:
 6. A fully invalid source still produces typed empty Parquet tables plus an inspectable quarantine.
 7. Missing identity/time metadata is rejected, and tampered persisted files fail replay integrity checks.
 
-GitHub CI must provide the actual test run link and outcome before this slice is marked verified. A passing unit test does **not** verify a live Kafka producer, Postgres/TimescaleDB integration, dbt marts, Airflow DAGs, WebSocket telemetry or AWS hosting.
+### Verified PR evidence — 12 November 2026
+
+- [GitHub Actions run 43289821451](https://github.com/HuLaxx/FleetFlow/actions/runs/43289821451) completed successfully on code commit 4f0507d31fece4f9df5554c78f8309a337d6f15b.
+- Backend test job: **49 passed, 3 warnings**; **six lakehouse replay tests passed**, verifying actual PyArrow/Parquet output, deduplication, late detection, quarantine, identity/time contract, immutable replay and checksum tampering detection.
+- Backend coverage reported **60% overall**; this is not comprehensive integration coverage.
+- Backend Ruff/Black, frontend lint/types/build, ML CPU smoke and high/critical dependency security scan all passed in that run.
+
+A passing replay suite does **not** verify a live Kafka producer, Postgres/TimescaleDB integration, dbt marts, Airflow DAGs, WebSocket telemetry or AWS hosting.
 
 ## Known limitations and next engineering gate
 
