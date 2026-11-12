@@ -94,6 +94,7 @@ from httpx import ASGITransport, AsyncClient
 from sqlalchemy import text
 from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.pool import NullPool
 
 from src.database import Base, get_db
 from src.models import Customer, Depot, Driver, Order, Vehicle
@@ -108,7 +109,7 @@ async def integration_engine():
     if parsed.database != "fleetflow_test" or parsed.host not in {"localhost", "127.0.0.1"}:
         raise RuntimeError("Refusing to create test schema outside local fleetflow_test database")
 
-    engine = create_async_engine(url, pool_pre_ping=True)
+    engine = create_async_engine(url, poolclass=NullPool, pool_pre_ping=True)
     async with engine.begin() as conn:
         await conn.execute(text("CREATE EXTENSION IF NOT EXISTS postgis"))
         await conn.run_sync(Base.metadata.create_all)
