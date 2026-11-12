@@ -1,6 +1,6 @@
 """Routes API endpoints - with DATABASE integration."""
 
-from datetime import datetime, date
+from datetime import datetime, date, date as calendar_date
 from typing import Optional
 from uuid import UUID
 from decimal import Decimal
@@ -63,7 +63,11 @@ async def list_routes(
     
     conditions = []
     if date:
-        conditions.append(Route.route_date == date)
+        try:
+            filter_date = calendar_date.fromisoformat(date)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail="Invalid ISO route date") from exc
+        conditions.append(Route.route_date == filter_date)
     if status:
         conditions.append(Route.status == status)
     if driver_id:
