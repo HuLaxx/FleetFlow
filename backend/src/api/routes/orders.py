@@ -1,9 +1,10 @@
 """Orders API endpoints - with DATABASE integration."""
 
-from datetime import datetime, date
+from datetime import datetime, date, date as calendar_date
 from typing import Optional
 from uuid import UUID, uuid4
 from decimal import Decimal
+from geoalchemy2.elements import WKTElement
 
 from fastapi import APIRouter, HTTPException, Query, BackgroundTasks, Depends
 from pydantic import BaseModel, Field
@@ -43,8 +44,8 @@ class CreateOrderRequest(BaseModel):
     city: str
     state: str
     postal_code: str
-    latitude: float
-    longitude: float
+    latitude: float = Field(..., ge=-90, le=90)
+    longitude: float = Field(..., ge=-180, le=180)
     
     # Delivery
     delivery_date: str  # ISO date
@@ -95,6 +96,9 @@ async def create_order(
             address=f"{request.street}, {request.city}, {request.state} {request.postal_code}",
             latitude=Decimal(str(request.latitude)),
             longitude=Decimal(str(request.longitude)),
+            location=WKTElement(
+                f"POINT({request.longitude} {request.latitude})", srid=4326
+            ),
         )
         db.add(customer)
         await db.flush()
@@ -200,7 +204,11 @@ async def list_orders(
     
     conditions = []
     if date:
-        conditions.append(Order.delivery_date == date)
+        try:
+            filter_date = calendar_date.fromisoformat(date)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail="Invalid ISO delivery date") from exc
+        conditions.append(Order.delivery_date == filter_date)
     if status:
         conditions.append(Order.status == status)
     
@@ -371,7 +379,7 @@ async def get_order_stats(
     # Total orders for date
     total_stmt = select(func.count(Order.id))
     if date:
-        total_stmt = total_stmt.where(Order.delivery_date == target_date)
+        total_stmt = total_stmt.where(Order.delivery_date == calendar_date.fromisoformat(target_date))
     total_result = await db.execute(total_stmt)
     total = total_result.scalar()
     
@@ -381,7 +389,7 @@ async def get_order_stats(
         func.count(Order.id)
     )
     if date:
-        status_stmt = status_stmt.where(Order.delivery_date == target_date)
+        status_stmt = status_stmt.where(Order.delivery_date == calendar_date.fromisoformat(target_date))
     status_stmt = status_stmt.group_by(Order.status)
     
     status_result = await db.execute(status_stmt)
@@ -393,7 +401,7 @@ async def get_order_stats(
         func.count(Order.id)
     )
     if date:
-        priority_stmt = priority_stmt.where(Order.delivery_date == target_date)
+        priority_stmt = priority_stmt.where(Order.delivery_date == calendar_date.fromisoformat(target_date))
     priority_stmt = priority_stmt.group_by(Order.priority)
     
     priority_result = await db.execute(priority_stmt)
