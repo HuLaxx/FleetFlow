@@ -242,13 +242,15 @@ def replay(
         raise ValueError("allowed_lateness must not be negative")
 
     source_digest = sha256_file(input_file)
-    run_dir = output_root / "runs" / source_digest
+    config_key = f"{source_digest}:{int(allowed_lateness.total_seconds())}"
+    run_key = hashlib.sha256(config_key.encode("ascii")).hexdigest()
+    run_dir = output_root / "runs" / run_key
     if run_dir.exists():
         manifest_path = run_dir / "manifest.json"
         if not manifest_path.is_file():
             raise RuntimeError("Existing replay directory is incomplete; refusing to overwrite")
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-        if manifest.get("source_sha256") != source_digest:
+        if manifest.get("source_sha256") != source_digest or manifest.get("run_key") != run_key:
             raise RuntimeError("Existing run manifest does not match source digest")
         if any(not (run_dir / path).is_file() for path in manifest.get("artifacts", [])):
             raise RuntimeError("Existing run has missing output artifacts")
@@ -278,6 +280,7 @@ def replay(
         manifest = {
             "contract": "fleetflow.gps.v1",
             "source_sha256": source_digest,
+            "run_key": run_key,
             "allowed_lateness_seconds": int(allowed_lateness.total_seconds()),
             "counts": counts,
             "artifacts": sorted(artifacts),
@@ -287,7 +290,7 @@ def replay(
             encoding="utf-8",
         )
         run_dir.parent.mkdir(parents=True, exist_ok=True)
-        # The SHA-256 addressed output makes retries/backfills reproducible.
+        # The content-and-configuration-addressed output makes retries/backfills reproducible.
         staging.rename(run_dir)
         return run_dir, manifest
     finally:
