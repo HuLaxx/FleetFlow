@@ -11,10 +11,12 @@ export function Header() {
     const [showOptimizeDialog, setShowOptimizeDialog] = useState(false);
 
     useEffect(() => {
-        setMounted(true);
-        setCurrentTime(new Date());
+        const frame = requestAnimationFrame(() => {
+            setMounted(true);
+            setCurrentTime(new Date());
+        });
         const timer = setInterval(() => setCurrentTime(new Date()), 1000);
-        return () => clearInterval(timer);
+        return () => { cancelAnimationFrame(frame); clearInterval(timer); };
     }, []);
 
     const handleRefresh = () => {
