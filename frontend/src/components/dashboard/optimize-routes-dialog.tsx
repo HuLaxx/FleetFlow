@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Sparkles, MapPin, Calendar, Loader2, CheckCircle, XCircle, TrendingDown } from 'lucide-react';
+import { Sparkles, MapPin, Calendar, Loader2, CheckCircle, XCircle } from 'lucide-react';
 import { trpc } from '@/lib/trpc';
 
 interface OptimizeRoutesDialogProps {
@@ -75,7 +75,7 @@ export function OptimizeRoutesDialog({ isOpen, onClose }: OptimizeRoutesDialogPr
                             </div>
                             <div>
                                 <h2 className="text-xl font-bold text-white">Optimize Routes</h2>
-                                <p className="text-sm text-white/80">AI-powered route generation</p>
+                                <p className="text-sm text-white/80">OR-Tools route proposal · requires matching backend depot data</p>
                             </div>
                         </div>
                     </div>
@@ -107,13 +107,14 @@ export function OptimizeRoutesDialog({ isOpen, onClose }: OptimizeRoutesDialogPr
                                 onChange={(e) => setSelectedDepot(e.target.value)}
                                 className="w-full px-4 py-2 bg-stone-800 border border-stone-700 rounded-lg text-stone-100 focus:outline-none focus:border-emerald-500 transition-colors"
                             >
-                                <option value="">Select a depot...</option>
+                                <option value="">Select a sample depot...</option>
                                 {mockDepots.map(depot => (
                                     <option key={depot.id} value={depot.id}>
                                         {depot.name}
                                     </option>
                                 ))}
                             </select>
+                            <p className="text-xs text-amber-400 mt-2">Sample depot IDs are placeholders. A matching depot must exist in the backend before an optimisation request can succeed.</p>
                         </div>
 
                         {/* Results Display */}
@@ -126,18 +127,18 @@ export function OptimizeRoutesDialog({ isOpen, onClose }: OptimizeRoutesDialogPr
                                 <div className="flex items-start gap-3">
                                     <CheckCircle className="w-5 h-5 text-emerald-500 flex-shrink-0 mt-0.5" />
                                     <div className="flex-1">
-                                        <h4 className="font-semibold text-emerald-400 mb-2">Optimization Complete!</h4>
+                                        <h4 className="font-semibold text-emerald-400 mb-2">Route Proposals Generated</h4>
                                         <div className="space-y-1 text-sm text-stone-300">
                                             <div className="flex justify-between">
-                                                <span>Routes Created:</span>
+                                                <span>Candidate Routes:</span>
                                                 <span className="font-mono text-emerald-400">
                                                     {optimizeMutation.data?.routes?.length || 0}
                                                 </span>
                                             </div>
                                             <div className="flex justify-between">
-                                                <span>Orders Assigned:</span>
+                                                <span>Stops in Proposal:</span>
                                                 <span className="font-mono text-emerald-400">
-                                                    {optimizeMutation.data?.metrics?.orders_assigned || 0}
+                                                    {optimizeMutation.data?.metrics?.total_orders_scheduled || 0}
                                                 </span>
                                             </div>
                                             <div className="flex justify-between items-center">
@@ -146,10 +147,7 @@ export function OptimizeRoutesDialog({ isOpen, onClose }: OptimizeRoutesDialogPr
                                                     {optimizeMutation.data?.metrics?.total_distance_km?.toFixed(1) || 0} km
                                                 </span>
                                             </div>
-                                            <div className="flex items-center gap-1 text-xs text-emerald-500 mt-2">
-                                                <TrendingDown className="w-3 h-3" />
-                                                <span>23% distance reduction vs. greedy algorithm</span>
-                                            </div>
+
                                         </div>
                                     </div>
                                 </div>
