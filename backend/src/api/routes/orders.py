@@ -72,7 +72,7 @@ class CancelOrderRequest(BaseModel):
 # Endpoints
 # ============================================
 
-@router.post("")
+@router.post("", status_code=201)
 async def create_order(
     request: CreateOrderRequest,
     background_tasks: BackgroundTasks,
