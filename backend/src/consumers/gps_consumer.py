@@ -99,7 +99,12 @@ class GPSLocationConsumer(BaseKafkaConsumer):
                 await self._broadcast_to_websocket(value)
         
         except Exception as e:
-            logger.error("Failed to process GPS event", error=str(e), event=value)
+            logger.error(
+                "Failed to process GPS event",
+                error=str(e),
+                event_id=value.get("event_id"),
+                vehicle_id=value.get("vehicle_id"),
+            )
             raise
     
     async def _broadcast_to_websocket(self, event_data: dict):
