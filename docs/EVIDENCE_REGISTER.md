@@ -1,3 +1,10 @@
+## P0 extended CI and security review — 12 November 2026
+
+- Backend pytest has **43 passing tests with zero skips**, with separate passing CPU ML smoke tests and backend Ruff/Black checks in current review-branch workflows.
+- Following Next.js **16.4.6** and patched Auth.js, Drizzle ORM, MapLibre and transitive dependencies, the **high/critical dependency security scan passed** in [run 43265770572](https://github.com/HuLaxx/FleetFlow/actions/runs/43265770572). Backend, lint and ML jobs passed in that run.
+- The new strict frontend lint/type/build job **remains red**. An earlier run showed 58 ESLint errors; a later completed run showed 26 after typed-map, dashboard and socket repairs. The latest source revisions and all static/build results still require verification on the current head.
+- MapLibre was upgraded across major versions. A passing dependency scan is not evidence that map rendering or API integration works. Seeded dispatch, replay, idempotency, failure recovery and benchmark gates remain open.
+
 # FleetFlow — Engineering Evidence Register
 
 Updated: 2026-11-12. This is a truthful readiness inventory, not a claim of a production deployment.
