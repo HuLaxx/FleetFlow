@@ -75,3 +75,12 @@ The inspected recent CI on branch `redesign/fleetflow-v2` checked frontend quali
 - 2026-11-12: repository structure, README, current workflow statuses and readiness script inspected via GitHub.
 - 2026-11-12: **Full local readiness was not executed in this environment** (repository dependencies/services unavailable). No cloud resources created.
 - Statuses must be updated only with links to current reproducible evidence.
+
+## P1 replay-contract integrity — stacked draft PR #3 (2026-11-13)
+
+- [PR #3](https://github.com/HuLaxx/FleetFlow/pull/3) is stacked on PR #2, which is stacked on P0 PR #1. No changes were merged to `main`.
+- [Successful full CI run 43319704238](https://github.com/HuLaxx/FleetFlow/actions/runs/43319704238) at code SHA `3fda7ca4882dad9c0118b68ff0cf0b164a52f1ac` passed all five jobs: **55 backend tests passing, three warnings, 60% aggregate statement coverage**, backend Ruff/Black, frontend lint/typecheck/build, CPU ML smoke and blocking high/critical security scan.
+- Six new parametrised/standalone test cases verify rejection of nonstandard JSON `NaN`/`Infinity` and overflowed speed, value-redacted schema-validation quarantine diagnostics, and refusal to publish a replay when copied source bytes differ from the original SHA-256.
+- Original raw data is **still preserved byte-for-byte**. Quarantine redaction is not anonymisation of the raw layer; permissions, retention rules and data minimisation remain required for any real telemetry.
+- The earlier optional Codecov upload failed due to a missing token despite a green job. The workflow has since been changed to upload `backend/coverage.xml` as a GitHub Actions artifact; verify that artifact on the latest commit before claiming coverage is externally inspectable.
+- This is **local batch replay only**, not live Kafka, durable event reconciliation, route approval, true vehicle tracking, an operational warehouse or AWS deployment.
