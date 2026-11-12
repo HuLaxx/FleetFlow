@@ -12,6 +12,7 @@ from decimal import Decimal
 from uuid import UUID
 
 import structlog
+from fastapi import WebSocketDisconnect
 from sqlalchemy import select
 
 from src.consumers.base import BaseKafkaConsumer
@@ -135,5 +136,5 @@ class GPSLocationConsumer(BaseKafkaConsumer):
                 "GPS update broadcasted", vehicle_id=event_data["vehicle_id"], clients=sent_count
             )
 
-        except Exception as e:
+        except (WebSocketDisconnect, RuntimeError, OSError) as e:
             logger.error("Failed to broadcast GPS update", error=str(e))
