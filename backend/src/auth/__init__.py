@@ -22,20 +22,18 @@ from src.auth.jwt import (
 )
 
 __all__ = [
-    # JWT utilities
-    "verify_password",
-    "get_password_hash",
     "create_access_token",
     "create_refresh_token",
     "decode_token",
-    "validate_password_strength",
-    "TokenData",
-    "TokenResponse",
-    # Dependencies
     "get_current_user",
-    "require_user",
-    "require_role",
+    "get_password_hash",
     "require_admin",
     "require_dispatcher",
     "require_driver",
+    "require_role",
+    "require_user",
+    "TokenData",
+    "TokenResponse",
+    "validate_password_strength",
+    "verify_password",
 ]
