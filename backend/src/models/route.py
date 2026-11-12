@@ -2,7 +2,7 @@
 
 from datetime import date, datetime
 from decimal import Decimal
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 from uuid import UUID, uuid4
 
 from geoalchemy2 import Geography
@@ -10,6 +10,9 @@ from sqlalchemy import Date, ForeignKey, Integer, Numeric, String, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.database import Base
+
+if TYPE_CHECKING:
+    from src.models import Depot, Driver, RouteStop, Vehicle
 
 
 class Route(Base):
