@@ -3,7 +3,7 @@
 import asyncio
 import json
 from datetime import datetime
-from typing import Any
+from typing import Any, ClassVar
 from uuid import UUID
 
 import structlog
@@ -43,7 +43,7 @@ class KafkaProducerService:
     - traffic.updates
     """
 
-    TOPICS = [
+    TOPICS: ClassVar[list[str]] = [
         "orders.created",
         "orders.cancelled",
         "orders.assigned",
