@@ -23,7 +23,7 @@ from src.events import (
     TimeWindow,
     get_kafka_producer,
 )
-from src.models import Customer, Depot, Driver, Order, Route
+from src.models import Customer, Depot, Order, Route, RouteStop
 
 router = APIRouter()
 
@@ -272,22 +272,18 @@ async def get_order(
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
 
-    # Find assigned route/driver (if any)
+    # Query an actual route-stop association instead of returning a fabricated placeholder.
     route_stmt = (
         select(Route)
+        .join(RouteStop, RouteStop.route_id == Route.id)
         .options(joinedload(Route.driver))
-        .join(Driver)  # This assumes route_stops table exists with order_id FK
-        .where(
-            and_(
-                Route.status.in_(["planned", "in_progress"]),
-                # Would need route_stops join here
-            )
-        )
+        .where(RouteStop.order_id == order_id)
+        .where(Route.status.in_(["planned", "in_progress", "completed"]))
+        .order_by(Route.created_at.desc())
         .limit(1)
     )
-
-    # For now, simple route lookup
-    route = None  # TODO: Implement route_stops join
+    route_result = await db.execute(route_stmt)
+    route = route_result.scalar_one_or_none()
 
     response = {
         "order_id": str(order.id),
