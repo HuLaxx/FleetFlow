@@ -41,7 +41,7 @@ class WebSocketClient {
     }
 
     off(type: string, handler: (event?: unknown) => void) {
-        this.emitter.off(type as keyof WebSocketEvents, handler as any);
+        this.emitter.off(type, handler);
     }
 
     private emit(type: string, event?: unknown) {
