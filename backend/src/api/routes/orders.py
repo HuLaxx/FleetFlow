@@ -1,6 +1,6 @@
 """Orders API endpoints - with DATABASE integration."""
 
-from datetime import date, datetime, timezone
+from datetime import date, datetime, UTC
 from datetime import date as calendar_date
 from decimal import Decimal
 from uuid import UUID, uuid4
@@ -115,7 +115,7 @@ async def create_order(
         raise HTTPException(status_code=500, detail="No active depot found")
 
     # Create order
-    order_number = f"ORD-{datetime.now(timezone.utc).strftime('%Y%m%d')}-{str(uuid4())[:8].upper()}"
+    order_number = f"ORD-{datetime.now(UTC).strftime('%Y%m%d')}-{str(uuid4())[:8].upper()}"
 
     order = Order(
         order_number=order_number,
@@ -357,7 +357,7 @@ async def cancel_order(
 
     # Update status
     order.status = "cancelled"
-    order.updated_at = datetime.now(timezone.utc)
+    order.updated_at = datetime.now(UTC).replace(tzinfo=None)
 
     await db.commit()
 
@@ -382,7 +382,7 @@ async def cancel_order(
     return {
         "order_id": str(order_id),
         "status": "cancelled",
-        "cancelled_at": datetime.now(timezone.utc).isoformat(),
+        "cancelled_at": datetime.now(UTC).isoformat(),
         "reason": request.reason,
     }
 
@@ -393,7 +393,7 @@ async def get_order_stats(
     db: AsyncSession = Depends(get_db),
 ):
     """Get order statistics for dashboard."""
-    target_date = date or datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    target_date = date or datetime.now(UTC).strftime("%Y-%m-%d")
 
     # Total orders for date
     total_stmt = select(func.count(Order.id))
