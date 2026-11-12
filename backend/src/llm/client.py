@@ -1,5 +1,4 @@
 ﻿import httpx
-from typing import List
 
 from .config import RAGSettings
 from .store import SearchHit
@@ -9,7 +8,7 @@ class LLMClient:
     def __init__(self, settings: RAGSettings) -> None:
         self.settings = settings
 
-    async def generate(self, question: str, hits: List[SearchHit]) -> tuple[str, bool]:
+    async def generate(self, question: str, hits: list[SearchHit]) -> tuple[str, bool]:
         if not self.settings.llm_api_base or not self.settings.llm_api_key:
             return self._fallback_answer(question, hits), False
 
@@ -53,18 +52,15 @@ class LLMClient:
             return f"{cleaned}/chat/completions"
         return f"{cleaned}/v1/chat/completions"
 
-    def _format_context(self, hits: List[SearchHit]) -> str:
+    def _format_context(self, hits: list[SearchHit]) -> str:
         parts = []
         for hit in hits:
             snippet = hit.text.strip().replace("\n", " ")
             parts.append(f"[{hit.doc_id}] {snippet}")
         return "\n".join(parts)
 
-    def _fallback_answer(self, question: str, hits: List[SearchHit]) -> str:
+    def _fallback_answer(self, question: str, hits: list[SearchHit]) -> str:
         if not hits:
             return "No relevant context found to answer the question."
         bullet_points = "\n".join([f"- {hit.text[:240].strip()}" for hit in hits])
-        return (
-            "LLM provider not configured. Returning top matching passages:\n"
-            f"{bullet_points}"
-        )
+        return "LLM provider not configured. Returning top matching passages:\n" f"{bullet_points}"

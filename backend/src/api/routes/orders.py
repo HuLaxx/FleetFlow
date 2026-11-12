@@ -1,28 +1,29 @@
 """Orders API endpoints - with DATABASE integration."""
 
-from datetime import datetime, date
-from typing import Optional
-from uuid import UUID, uuid4
+from datetime import UTC, date, datetime
+from datetime import date as calendar_date
 from decimal import Decimal
+from uuid import UUID, uuid4
 
-from fastapi import APIRouter, HTTPException, Query, BackgroundTasks, Depends
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
+from geoalchemy2.elements import WKTElement
 from pydantic import BaseModel, Field
-from sqlalchemy import select, func, and_, or_
+from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
 from src.database import get_db
-from src.models import Order, Customer, Depot, Route, Driver
 from src.events import (
-    get_kafka_producer,
-    OrderCreatedEvent,
-    OrderCancelledEvent,
-    Location,
     Address,
-    TimeWindow,
+    Location,
+    OrderCancelledEvent,
+    OrderCreatedEvent,
     OrderItem,
     OrderPriority,
+    TimeWindow,
+    get_kafka_producer,
 )
+from src.models import Customer, Depot, Order, Route, RouteStop
 
 router = APIRouter()
 
@@ -31,39 +32,42 @@ router = APIRouter()
 # Request/Response Models
 # ============================================
 
+
 class CreateOrderRequest(BaseModel):
     """Request to create a new order."""
-    customer_id: Optional[UUID] = None  # If existing customer
+
+    customer_id: UUID | None = None  # If existing customer
     customer_name: str
-    customer_email: Optional[str] = None
-    customer_phone: Optional[str] = None
-    
+    customer_email: str | None = None
+    customer_phone: str | None = None
+
     # Address
     street: str
     city: str
     state: str
     postal_code: str
-    latitude: float
-    longitude: float
-    
+    latitude: float = Field(..., ge=-90, le=90)
+    longitude: float = Field(..., ge=-180, le=180)
+
     # Delivery
     delivery_date: str  # ISO date
     time_window_start: datetime
     time_window_end: datetime
-    
+
     # Items
     items: list[dict] = Field(default_factory=list)
     total_weight_kg: float
-    total_value: Optional[float] = None
-    
+    total_value: float | None = None
+
     # Options
     priority: int = Field(default=2, ge=1, le=5)
-    special_instructions: Optional[str] = None
-    external_order_id: Optional[str] = None
+    special_instructions: str | None = None
+    external_order_id: str | None = None
 
 
 class CancelOrderRequest(BaseModel):
     """Request to cancel an order."""
+
     reason: str
     cancelled_by: str = "dispatcher"
 
@@ -72,7 +76,8 @@ class CancelOrderRequest(BaseModel):
 # Endpoints
 # ============================================
 
-@router.post("")
+
+@router.post("", status_code=201)
 async def create_order(
     request: CreateOrderRequest,
     background_tasks: BackgroundTasks,
@@ -80,12 +85,12 @@ async def create_order(
 ):
     """
     Create a new delivery order.
-    
+
     Creates customer if needed, inserts order, publishes to Kafka.
     """
     # Find or create customer
     customer_id = request.customer_id
-    
+
     if not customer_id:
         # Create new customer
         customer = Customer(
@@ -95,22 +100,23 @@ async def create_order(
             address=f"{request.street}, {request.city}, {request.state} {request.postal_code}",
             latitude=Decimal(str(request.latitude)),
             longitude=Decimal(str(request.longitude)),
+            location=WKTElement(f"POINT({request.longitude} {request.latitude})", srid=4326),
         )
         db.add(customer)
         await db.flush()
         customer_id = customer.id
-    
+
     # Find nearest depot
     depot_stmt = select(Depot).where(Depot.is_active == True).limit(1)
     depot_result = await db.execute(depot_stmt)
     depot = depot_result.scalar_one_or_none()
-    
+
     if not depot:
         raise HTTPException(status_code=500, detail="No active depot found")
-    
+
     # Create order
-    order_number = f"ORD-{datetime.utcnow().strftime('%Y%m%d')}-{str(uuid4())[:8].upper()}"
-    
+    order_number = f"ORD-{datetime.now(UTC).strftime('%Y%m%d')}-{str(uuid4())[:8].upper()}"
+
     order = Order(
         order_number=order_number,
         customer_id=customer_id,
@@ -126,11 +132,11 @@ async def create_order(
         source="api",
         external_order_id=request.external_order_id,
     )
-    
+
     db.add(order)
     await db.commit()
     await db.refresh(order)
-    
+
     # Publish Kafka event
     event = OrderCreatedEvent(
         order_id=order.id,
@@ -159,7 +165,7 @@ async def create_order(
         external_order_id=request.external_order_id,
         source="api",
     )
-    
+
     async def publish_event():
         producer = get_kafka_producer()
         await producer.publish_async(
@@ -167,9 +173,9 @@ async def create_order(
             event=event,
             key=str(order.id),
         )
-    
+
     background_tasks.add_task(publish_event)
-    
+
     return {
         "order_id": str(order.id),
         "order_number": order.order_number,
@@ -186,55 +192,59 @@ async def create_order(
 
 @router.get("")
 async def list_orders(
-    date: Optional[str] = Query(None, description="Filter by delivery date (ISO format)"),
-    status: Optional[str] = Query(None, description="Filter by status"),
+    date: str | None = Query(None, description="Filter by delivery date (ISO format)"),
+    status: str | None = Query(None, description="Filter by status"),
     limit: int = Query(50, ge=1, le=500),
     offset: int = Query(0, ge=0),
     db: AsyncSession = Depends(get_db),
 ):
     """List orders with optional filters."""
     # Build query
-    stmt = select(Order).options(
-        joinedload(Order.customer)
-    ).offset(offset).limit(limit)
-    
+    stmt = select(Order).options(joinedload(Order.customer)).offset(offset).limit(limit)
+
     conditions = []
     if date:
-        conditions.append(Order.delivery_date == date)
+        try:
+            filter_date = calendar_date.fromisoformat(date)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail="Invalid ISO delivery date") from exc
+        conditions.append(Order.delivery_date == filter_date)
     if status:
         conditions.append(Order.status == status)
-    
+
     if conditions:
         stmt = stmt.where(and_(*conditions))
-    
+
     stmt = stmt.order_by(Order.created_at.desc())
-    
+
     # Execute
     result = await db.execute(stmt)
     orders = result.scalars().unique().all()
-    
+
     # Get total count
     count_stmt = select(func.count(Order.id))
     if conditions:
         count_stmt = count_stmt.where(and_(*conditions))
     total_result = await db.execute(count_stmt)
     total = total_result.scalar()
-    
+
     # Format response
     order_list = []
     for order in orders:
-        order_list.append({
-            "order_id": str(order.id),
-            "order_number": order.order_number,
-            "status": order.status,
-            "customer_name": order.customer.name if order.customer else "Unknown",
-            "address": order.customer.address if order.customer else "N/A",
-            "delivery_date": order.delivery_date.isoformat(),
-            "time_window": f"{order.time_window_start.strftime('%I:%M %p')} - {order.time_window_end.strftime('%I:%M %p')}",
-            "priority": order.priority,
-            "total_weight_kg": float(order.total_weight_kg),
-        })
-    
+        order_list.append(
+            {
+                "order_id": str(order.id),
+                "order_number": order.order_number,
+                "status": order.status,
+                "customer_name": order.customer.name if order.customer else "Unknown",
+                "address": order.customer.address if order.customer else "N/A",
+                "delivery_date": order.delivery_date.isoformat(),
+                "time_window": f"{order.time_window_start.strftime('%I:%M %p')} - {order.time_window_end.strftime('%I:%M %p')}",
+                "priority": order.priority,
+                "total_weight_kg": float(order.total_weight_kg),
+            }
+        )
+
     return {
         "orders": order_list,
         "total": total,
@@ -250,46 +260,53 @@ async def get_order(
 ):
     """Get order by ID with full details."""
     # Query with relationships
-    stmt = select(Order).options(
-        joinedload(Order.customer),
-        joinedload(Order.depot)
-    ).where(Order.id == order_id)
-    
+    stmt = (
+        select(Order)
+        .options(joinedload(Order.customer), joinedload(Order.depot))
+        .where(Order.id == order_id)
+    )
+
     result = await db.execute(stmt)
     order = result.scalar_one_or_none()
-    
+
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
-    
-    # Find assigned route/driver (if any)
-    route_stmt = select(Route).options(
-        joinedload(Route.driver)
-    ).join(
-        Driver  # This assumes route_stops table exists with order_id FK
-    ).where(
-        and_(
-            Route.status.in_(["planned", "in_progress"]),
-            # Would need route_stops join here
-        )
-    ).limit(1)
-    
-    # For now, simple route lookup
-    route = None  # TODO: Implement route_stops join
-    
+
+    # Query an actual route-stop association instead of returning a fabricated placeholder.
+    route_stmt = (
+        select(Route)
+        .join(RouteStop, RouteStop.route_id == Route.id)
+        .options(joinedload(Route.driver))
+        .where(RouteStop.order_id == order_id)
+        .where(Route.status.in_(["planned", "in_progress", "completed"]))
+        .order_by(Route.created_at.desc())
+        .limit(1)
+    )
+    route_result = await db.execute(route_stmt)
+    route = route_result.scalar_one_or_none()
+
     response = {
         "order_id": str(order.id),
         "order_number": order.order_number,
         "status": order.status,
-        "customer": {
-            "name": order.customer.name,
-            "email": order.customer.email,
-            "phone": order.customer.phone,
-        } if order.customer else None,
-        "address": {
-            "street": order.customer.address if order.customer else "",
-            "latitude": float(order.customer.latitude) if order.customer else 0,
-            "longitude": float(order.customer.longitude) if order.customer else 0,
-        } if order.customer else None,
+        "customer": (
+            {
+                "name": order.customer.name,
+                "email": order.customer.email,
+                "phone": order.customer.phone,
+            }
+            if order.customer
+            else None
+        ),
+        "address": (
+            {
+                "street": order.customer.address if order.customer else "",
+                "latitude": float(order.customer.latitude) if order.customer else 0,
+                "longitude": float(order.customer.longitude) if order.customer else 0,
+            }
+            if order.customer
+            else None
+        ),
         "delivery_date": order.delivery_date.isoformat(),
         "time_window": {
             "start": order.time_window_start.strftime("%H:%M:%S"),
@@ -300,12 +317,16 @@ async def get_order(
         "total_value": float(order.total_value) if order.total_value else None,
         "priority": order.priority,
         "assigned_route_id": str(route.id) if route else None,
-        "driver": {
-            "id": str(route.driver.id),
-            "name": route.driver.full_name,
-        } if route and route.driver else None,
+        "driver": (
+            {
+                "id": str(route.driver.id),
+                "name": route.driver.full_name,
+            }
+            if route and route.driver
+            else None
+        ),
     }
-    
+
     return response
 
 
@@ -321,19 +342,21 @@ async def cancel_order(
     stmt = select(Order).where(Order.id == order_id)
     result = await db.execute(stmt)
     order = result.scalar_one_or_none()
-    
+
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
-    
+
     if order.status in ["delivered", "cancelled"]:
-        raise HTTPException(status_code=400, detail=f"Cannot cancel order with status: {order.status}")
-    
+        raise HTTPException(
+            status_code=400, detail=f"Cannot cancel order with status: {order.status}"
+        )
+
     # Update status
     order.status = "cancelled"
-    order.updated_at = datetime.utcnow()
-    
+    order.updated_at = datetime.now(UTC).replace(tzinfo=None)
+
     await db.commit()
-    
+
     # Publish event
     event = OrderCancelledEvent(
         order_id=order_id,
@@ -341,7 +364,7 @@ async def cancel_order(
         reason=request.reason,
         cancelled_by=request.cancelled_by,
     )
-    
+
     async def publish_event():
         producer = get_kafka_producer()
         await producer.publish_async(
@@ -349,56 +372,56 @@ async def cancel_order(
             event=event,
             key=str(order_id),
         )
-    
+
     background_tasks.add_task(publish_event)
-    
+
     return {
         "order_id": str(order_id),
         "status": "cancelled",
-        "cancelled_at": datetime.utcnow().isoformat(),
+        "cancelled_at": datetime.now(UTC).isoformat(),
         "reason": request.reason,
     }
 
 
 @router.get("/stats/summary")
 async def get_order_stats(
-    date: Optional[str] = Query(None, description="Date for stats (ISO format)"),
+    date: str | None = Query(None, description="Date for stats (ISO format)"),
     db: AsyncSession = Depends(get_db),
 ):
     """Get order statistics for dashboard."""
-    target_date = date or datetime.utcnow().strftime("%Y-%m-%d")
-    
+    target_date = date or datetime.now(UTC).strftime("%Y-%m-%d")
+
     # Total orders for date
     total_stmt = select(func.count(Order.id))
     if date:
-        total_stmt = total_stmt.where(Order.delivery_date == target_date)
+        total_stmt = total_stmt.where(
+            Order.delivery_date == calendar_date.fromisoformat(target_date)
+        )
     total_result = await db.execute(total_stmt)
     total = total_result.scalar()
-    
+
     # Count by status
-    status_stmt = select(
-        Order.status,
-        func.count(Order.id)
-    )
+    status_stmt = select(Order.status, func.count(Order.id))
     if date:
-        status_stmt = status_stmt.where(Order.delivery_date == target_date)
+        status_stmt = status_stmt.where(
+            Order.delivery_date == calendar_date.fromisoformat(target_date)
+        )
     status_stmt = status_stmt.group_by(Order.status)
-    
+
     status_result = await db.execute(status_stmt)
     by_status = dict(status_result.all())
-    
+
     # Count by priority
-    priority_stmt = select(
-        Order.priority,
-        func.count(Order.id)
-    )
+    priority_stmt = select(Order.priority, func.count(Order.id))
     if date:
-        priority_stmt = priority_stmt.where(Order.delivery_date == target_date)
+        priority_stmt = priority_stmt.where(
+            Order.delivery_date == calendar_date.fromisoformat(target_date)
+        )
     priority_stmt = priority_stmt.group_by(Order.priority)
-    
+
     priority_result = await db.execute(priority_stmt)
     priority_counts = dict(priority_result.all())
-    
+
     return {
         "date": target_date,
         "total_orders": total,

@@ -1,12 +1,11 @@
-﻿from dataclasses import dataclass
-from pathlib import Path
-from typing import Any, Dict, List, Optional
-import json
-import time
+﻿import json
 import re
+import time
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
 
 from .config import RAGSettings
-
 
 INDEX_NAME_RE = re.compile(r"^[a-zA-Z0-9_-]{2,64}$")
 
@@ -15,7 +14,7 @@ INDEX_NAME_RE = re.compile(r"^[a-zA-Z0-9_-]{2,64}$")
 class StoredDocument:
     doc_id: str
     text: str
-    metadata: Dict[str, Any]
+    metadata: dict[str, Any]
     created_at: float
     updated_at: float
 
@@ -25,15 +24,15 @@ class SearchHit:
     doc_id: str
     score: float
     text: str
-    metadata: Dict[str, Any]
+    metadata: dict[str, Any]
 
 
 class RAGStore:
-    def __init__(self, settings: Optional[RAGSettings] = None) -> None:
+    def __init__(self, settings: RAGSettings | None = None) -> None:
         self.settings = settings or RAGSettings.from_env()
         self.settings.data_dir.mkdir(parents=True, exist_ok=True)
 
-    def list_indexes(self) -> List[str]:
+    def list_indexes(self) -> list[str]:
         return sorted([p.name for p in self.settings.data_dir.iterdir() if p.is_dir()])
 
     def create_index(self, name: str) -> Path:
@@ -44,7 +43,7 @@ class RAGStore:
             self._save_documents(index_dir, [])
         return index_dir
 
-    def ingest(self, name: str, documents: List[Dict[str, Any]]) -> int:
+    def ingest(self, name: str, documents: list[dict[str, Any]]) -> int:
         self._validate_index_name(name)
         index_dir = self.create_index(name)
         existing = self._load_documents(index_dir)
@@ -77,7 +76,7 @@ class RAGStore:
         self._rebuild_index(index_dir, updated_docs)
         return len(documents)
 
-    def query(self, name: str, query: str, top_k: Optional[int] = None) -> List[SearchHit]:
+    def query(self, name: str, query: str, top_k: int | None = None) -> list[SearchHit]:
         self._validate_index_name(name)
         index_dir = self._index_dir(name)
         docs = self._load_documents(index_dir)
@@ -92,10 +91,10 @@ class RAGStore:
         scores = self._cosine_similarity(query_vec, matrix)
 
         ranked = sorted(enumerate(scores), key=lambda x: x[1], reverse=True)
-        hits: List[SearchHit] = []
+        hits: list[SearchHit] = []
         limit = top_k or self.settings.top_k
 
-        for idx, score in ranked[:limit * 2]:
+        for idx, score in ranked[: limit * 2]:
             if score < self.settings.min_score:
                 continue
             doc = docs[idx]
@@ -119,7 +118,7 @@ class RAGStore:
         if not INDEX_NAME_RE.match(name):
             raise ValueError("Index name must be 2-64 chars of letters, numbers, _ or -")
 
-    def _load_documents(self, index_dir: Path) -> List[StoredDocument]:
+    def _load_documents(self, index_dir: Path) -> list[StoredDocument]:
         doc_path = index_dir / "documents.json"
         if not doc_path.exists():
             return []
@@ -137,7 +136,7 @@ class RAGStore:
             )
         return docs
 
-    def _save_documents(self, index_dir: Path, docs: List[StoredDocument]) -> None:
+    def _save_documents(self, index_dir: Path, docs: list[StoredDocument]) -> None:
         payload = [
             {
                 "doc_id": doc.doc_id,
@@ -150,9 +149,9 @@ class RAGStore:
         ]
         (index_dir / "documents.json").write_text(json.dumps(payload, indent=2), encoding="utf-8")
 
-    def _rebuild_index(self, index_dir: Path, docs: List[StoredDocument]) -> None:
-        from sklearn.feature_extraction.text import TfidfVectorizer
+    def _rebuild_index(self, index_dir: Path, docs: list[StoredDocument]) -> None:
         from joblib import dump
+        from sklearn.feature_extraction.text import TfidfVectorizer
 
         texts = [doc.text for doc in docs]
         vectorizer = TfidfVectorizer(stop_words="english", ngram_range=(1, 2), max_features=50000)

@@ -2,7 +2,7 @@ import mitt from 'mitt';
 
 export type WebSocketMessage = {
     type: string;
-    data: any;
+    data: unknown;
     timestamp?: string;
 };
 
@@ -37,18 +37,24 @@ class WebSocketClient {
     }
 
     on(type: string, handler: (event?: unknown) => void) {
-        this.emitter.on(type as keyof WebSocketEvents, handler as any);
+        this.emitter.on(type, handler);
     }
 
     off(type: string, handler: (event?: unknown) => void) {
-        this.emitter.off(type as keyof WebSocketEvents, handler as any);
+        this.emitter.off(type, handler);
     }
 
     private emit(type: string, event?: unknown) {
-        this.emitter.emit(type as keyof WebSocketEvents, event as any);
+        this.emitter.emit(type as keyof WebSocketEvents, event);
+    }
+
+    isOpen(): boolean {
+        return this.ws?.readyState === WebSocket.OPEN;
     }
 
     connect() {
+        if (this.ws && (this.ws.readyState === WebSocket.OPEN || this.ws.readyState === WebSocket.CONNECTING)) return;
+        this.shouldReconnect = true;
         try {
             this.ws = new WebSocket(this.config.url);
 

@@ -4,12 +4,12 @@ Driver status event consumer.
 Consumes driver status changes and updates the database.
 """
 
-from datetime import datetime
-from typing import Optional
+from datetime import UTC, datetime
 from uuid import UUID
 
-from sqlalchemy import select
 import structlog
+from fastapi import WebSocketDisconnect
+from sqlalchemy import select
 
 from src.consumers.base import BaseKafkaConsumer
 from src.database import AsyncSessionLocal
@@ -21,9 +21,9 @@ logger = structlog.get_logger()
 class DriverStatusConsumer(BaseKafkaConsumer):
     """
     Consumes driver status change events.
-    
+
     Topic: drivers.status
-    
+
     Event format:
     {
         "driver_id": "uuid",
@@ -33,22 +33,22 @@ class DriverStatusConsumer(BaseKafkaConsumer):
         "timestamp": "2024-01-15T10:30:00Z"
     }
     """
-    
+
     def __init__(self):
         super().__init__(
             topics=["drivers.status"],
             group_id="driver-status-consumer",
         )
         self.websocket_manager = None
-    
+
     def set_websocket_manager(self, manager):
         """Inject WebSocket manager."""
         self.websocket_manager = manager
-    
+
     async def handle_message(
         self,
         topic: str,
-        key: Optional[str],
+        key: str | None,
         value: dict,
         timestamp: int,
     ):
@@ -56,19 +56,19 @@ class DriverStatusConsumer(BaseKafkaConsumer):
         try:
             driver_id = UUID(value["driver_id"])
             new_status = value["new_status"]
-            
+
             # Update driver in database
             async with AsyncSessionLocal() as session:
                 stmt = select(Driver).where(Driver.id == driver_id)
                 result = await session.execute(stmt)
                 driver = result.scalar_one_or_none()
-                
+
                 if driver:
                     driver.status = new_status
-                    driver.updated_at = datetime.utcnow()
-                    
+                    driver.updated_at = datetime.now(UTC)
+
                     await session.commit()
-                    
+
                     logger.info(
                         "Driver status updated",
                         driver_id=str(driver_id),
@@ -77,23 +77,23 @@ class DriverStatusConsumer(BaseKafkaConsumer):
                     )
                 else:
                     logger.warning("Driver not found", driver_id=str(driver_id))
-            
+
             # Broadcast to WebSocket
             if self.websocket_manager:
                 await self._broadcast_to_websocket(value)
-        
+
         except Exception as e:
             logger.error("Failed to process driver status event", error=str(e))
             raise
-    
+
     async def _broadcast_to_websocket(self, event_data: dict):
         """Broadcast driver status update."""
         if not self.websocket_manager:
             return
-        
+
         try:
             from src.websocket_server import WebSocketMessage
-            
+
             message = WebSocketMessage(
                 type="driver_status_update",
                 data={
@@ -101,12 +101,14 @@ class DriverStatusConsumer(BaseKafkaConsumer):
                     "status": event_data["new_status"],
                     "previous_status": event_data.get("previous_status"),
                     "reason": event_data.get("reason"),
-                    "updated_at": event_data.get("timestamp", datetime.utcnow().isoformat()),
-                }
+                    "updated_at": event_data.get("timestamp", datetime.now(UTC).isoformat()),
+                },
             )
-            
+
             sent_count = await self.websocket_manager.broadcast(message, channel="all")
-            logger.debug("Driver status broadcasted", driver_id=event_data["driver_id"], clients=sent_count)
-        
-        except Exception as e:
+            logger.debug(
+                "Driver status broadcasted", driver_id=event_data["driver_id"], clients=sent_count
+            )
+
+        except (WebSocketDisconnect, RuntimeError, OSError) as e:
             logger.error("Failed to broadcast driver status", error=str(e))

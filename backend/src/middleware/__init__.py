@@ -2,6 +2,6 @@
 Middleware package.
 """
 
-from src.middleware.security import configure_security, limiter, SecurityHeadersMiddleware
+from src.middleware.security import SecurityHeadersMiddleware, configure_security, limiter
 
-__all__ = ["configure_security", "limiter", "SecurityHeadersMiddleware"]
+__all__ = ["SecurityHeadersMiddleware", "configure_security", "limiter"]

@@ -1,11 +1,11 @@
-﻿from typing import Any, Dict, List, Optional
+﻿from typing import Any
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
-from .config import RAGSettings
-from .store import RAGStore, SearchHit
 from .client import LLMClient
+from .config import RAGSettings
+from .store import RAGStore
 
 router = APIRouter()
 
@@ -17,41 +17,41 @@ class IndexRequest(BaseModel):
 class DocumentInput(BaseModel):
     id: str = Field(..., min_length=1)
     text: str = Field(..., min_length=1)
-    metadata: Optional[Dict[str, Any]] = None
+    metadata: dict[str, Any] | None = None
 
 
 class IngestRequest(BaseModel):
     index: str
-    documents: List[DocumentInput]
+    documents: list[DocumentInput]
 
 
 class QueryRequest(BaseModel):
     index: str
     query: str
-    top_k: Optional[int] = None
+    top_k: int | None = None
 
 
 class Citation(BaseModel):
     doc_id: str
     score: float
     snippet: str
-    metadata: Dict[str, Any]
+    metadata: dict[str, Any]
 
 
 class QueryResponse(BaseModel):
     answer: str
     llm_used: bool
-    citations: List[Citation]
+    citations: list[Citation]
 
 
 @router.get("/api/v1/rag/indexes")
-async def list_indexes() -> Dict[str, List[str]]:
+async def list_indexes() -> dict[str, list[str]]:
     store = RAGStore()
     return {"indexes": store.list_indexes()}
 
 
 @router.post("/api/v1/rag/indexes")
-async def create_index(request: IndexRequest) -> Dict[str, str]:
+async def create_index(request: IndexRequest) -> dict[str, str]:
     store = RAGStore()
     try:
         store.create_index(request.name)
@@ -61,7 +61,7 @@ async def create_index(request: IndexRequest) -> Dict[str, str]:
 
 
 @router.post("/api/v1/rag/ingest")
-async def ingest_documents(request: IngestRequest) -> Dict[str, Any]:
+async def ingest_documents(request: IngestRequest) -> dict[str, Any]:
     store = RAGStore()
     try:
         count = store.ingest(request.index, [doc.model_dump() for doc in request.documents])

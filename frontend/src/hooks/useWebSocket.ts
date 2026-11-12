@@ -48,7 +48,7 @@ export function useWebSocket(options: UseWebSocketOptions): UseWebSocketReturn {
     const [lastMessage, setLastMessage] = useState<WebSocketMessage | null>(null);
     const [connectionState, setConnectionState] = useState<'connecting' | 'connected' | 'disconnected' | 'error'>('disconnected');
 
-    const connect = useCallback(() => {
+    const connect = useCallback(function attemptConnect() {
         if (wsRef.current?.readyState === WebSocket.OPEN) {
             return;
         }
@@ -74,7 +74,7 @@ export function useWebSocket(options: UseWebSocketOptions): UseWebSocketReturn {
                 if (reconnectAttempts.current < maxReconnectAttempts) {
                     reconnectTimeout.current = setTimeout(() => {
                         reconnectAttempts.current++;
-                        connect();
+                        attemptConnect();
                     }, reconnectInterval);
                 }
             };
@@ -170,11 +170,19 @@ export function useVehicleTracking(wsUrl: string = DEFAULT_WS_URL) {
     const { isConnected, subscribe, connectionState } = useWebSocket({
         url: wsUrl,
         onMessage: handleMessage,
-        onConnect: () => {
-            // Subscribe to vehicles channel
-            setTimeout(() => subscribe('vehicles'), 100);
-        },
     });
+
+    useEffect(() => {
+        if (isConnected) subscribe('alerts');
+    }, [isConnected, subscribe]);
+
+    useEffect(() => {
+        if (isConnected) subscribe('orders');
+    }, [isConnected, subscribe]);
+
+    useEffect(() => {
+        if (isConnected) subscribe('vehicles');
+    }, [isConnected, subscribe]);
 
     return {
         vehicles: Array.from(vehicles.values()),
@@ -211,9 +219,6 @@ export function useOrderUpdates(wsUrl: string = DEFAULT_WS_URL) {
     const { isConnected, subscribe, connectionState } = useWebSocket({
         url: wsUrl,
         onMessage: handleMessage,
-        onConnect: () => {
-            setTimeout(() => subscribe('orders'), 100);
-        },
     });
 
     return {
@@ -245,9 +250,6 @@ export function useAlerts(wsUrl: string = DEFAULT_WS_URL) {
     const { isConnected, subscribe, connectionState } = useWebSocket({
         url: wsUrl,
         onMessage: handleMessage,
-        onConnect: () => {
-            setTimeout(() => subscribe('alerts'), 100);
-        },
     });
 
     const clearAlerts = useCallback(() => {

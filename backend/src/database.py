@@ -4,12 +4,14 @@ Database connection and session management.
 Provides async SQLAlchemy engine and session dependency injection for FastAPI.
 """
 
-from typing import AsyncGenerator
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
+from collections.abc import AsyncGenerator
+
+import structlog
+from sqlalchemy import text
+from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy.pool import NullPool
-from sqlalchemy import text
-import structlog
 
 from src.config import get_settings
 
@@ -20,7 +22,6 @@ settings = get_settings()
 # Base class for all ORM models
 class Base(DeclarativeBase):
     """Base class for all SQLAlchemy models."""
-    pass
 
 
 # Create async engine
@@ -46,7 +47,7 @@ AsyncSessionLocal = async_sessionmaker(
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
     """
     Dependency that provides a database session.
-    
+
     Usage in FastAPI:
         @router.get("/items")
         async def list_items(db: AsyncSession = Depends(get_db)):
@@ -85,13 +86,14 @@ async def close_db() -> None:
 async def check_db_health() -> dict:
     """
     Check database health.
-    
+
     Returns:
         dict: Health status with connection info
     """
     try:
         async with AsyncSessionLocal() as session:
             from sqlalchemy import text
+
             result = await session.execute(text("SELECT version()"))
             version = result.scalar()
             return {
@@ -99,7 +101,7 @@ async def check_db_health() -> dict:
                 "database": "postgresql",
                 "version": version,
             }
-    except Exception as e:
+    except (SQLAlchemyError, OSError) as e:
         logger.error("Database health check failed", error=str(e))
         return {
             "status": "unhealthy",

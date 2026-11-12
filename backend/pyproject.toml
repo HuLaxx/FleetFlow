@@ -12,7 +12,7 @@ dependencies = [
     "pydantic-settings>=2.1.0",
     
     # Database
-    "sqlalchemy>=2.0.25",
+    "sqlalchemy[asyncio]>=2.0.25",
     "asyncpg>=0.29.0",
     "psycopg2-binary>=2.9.9",
     "geoalchemy2>=0.14.3",
@@ -83,6 +83,13 @@ packages = ["src"]
 [tool.ruff]
 line-length = 100
 target-version = "py311"
+
+# FastAPI dependency injection intentionally declares Depends/Query/Body in defaults.
+# Ruff B008 warns about arbitrary function calls at definition time; these framework
+# descriptors are designed to be constructed once. Do not hide other lint rules.
+[tool.ruff.lint.per-file-ignores]
+"src/api/routes/*.py" = ["B008"]
+"src/auth/dependencies.py" = ["B008"]
 
 [tool.black]
 line-length = 100
