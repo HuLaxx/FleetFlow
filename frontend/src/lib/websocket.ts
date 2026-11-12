@@ -2,7 +2,7 @@ import mitt from 'mitt';
 
 export type WebSocketMessage = {
     type: string;
-    data: any;
+    data: unknown;
     timestamp?: string;
 };
 
@@ -37,7 +37,7 @@ class WebSocketClient {
     }
 
     on(type: string, handler: (event?: unknown) => void) {
-        this.emitter.on(type as keyof WebSocketEvents, handler as any);
+        this.emitter.on(type, handler);
     }
 
     off(type: string, handler: (event?: unknown) => void) {
@@ -45,7 +45,7 @@ class WebSocketClient {
     }
 
     private emit(type: string, event?: unknown) {
-        this.emitter.emit(type as keyof WebSocketEvents, event as any);
+        this.emitter.emit(type as keyof WebSocketEvents, event);
     }
 
     connect() {
