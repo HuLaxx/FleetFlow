@@ -123,7 +123,7 @@ class ConnectionManager:
         """Send message to a specific client."""
         try:
             await websocket.send_text(message.to_json())
-        except Exception as e:
+        except (WebSocketDisconnect, RuntimeError, OSError) as e:
             logger.error("Failed to send message", error=str(e))
 
     async def broadcast(self, message: WebSocketMessage, channel: str = "all") -> int:
@@ -140,7 +140,7 @@ class ConnectionManager:
             try:
                 await connection.send_text(message.to_json())
                 sent += 1
-            except Exception:
+            except (WebSocketDisconnect, RuntimeError, OSError):
                 # Connection might be dead, remove it
                 self.disconnect(connection)
 
@@ -153,7 +153,7 @@ class ConnectionManager:
             try:
                 await connection.send_text(message.to_json())
                 sent += 1
-            except Exception:
+            except (WebSocketDisconnect, RuntimeError, OSError):
                 self.disconnect(connection)
         return sent
 
