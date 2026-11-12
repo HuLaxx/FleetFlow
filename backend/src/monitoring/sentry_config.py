@@ -60,7 +60,7 @@ def before_send_hook(event, hint):
     return event
 
 
-def capture_exception(exception: Exception, context: dict = None):
+def capture_exception(exception: Exception, context: dict | None = None):
     """Manually capture an exception with optional context."""
     with sentry_sdk.push_scope() as scope:
         if context:
@@ -69,7 +69,7 @@ def capture_exception(exception: Exception, context: dict = None):
         sentry_sdk.capture_exception(exception)
 
 
-def set_user_context(user_id: str, email: str = None):
+def set_user_context(user_id: str, email: str | None = None):
     """Set user context for error tracking."""
     sentry_sdk.set_user(
         {
