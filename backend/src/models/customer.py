@@ -8,7 +8,12 @@ from geoalchemy2 import Geography
 from sqlalchemy import Integer, Numeric, String, Time, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from typing import TYPE_CHECKING
+
 from src.database import Base
+
+if TYPE_CHECKING:
+    from src.models import Order
 
 
 class Customer(Base):
