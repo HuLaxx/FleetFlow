@@ -84,6 +84,13 @@ packages = ["src"]
 line-length = 100
 target-version = "py311"
 
+# FastAPI dependency injection intentionally declares Depends/Query/Body in defaults.
+# Ruff B008 warns about arbitrary function calls at definition time; these framework
+# descriptors are designed to be constructed once. Do not hide other lint rules.
+[tool.ruff.lint.per-file-ignores]
+"src/api/routes/*.py" = ["B008"]
+"src/auth/dependencies.py" = ["B008"]
+
 [tool.black]
 line-length = 100
 target-version = ["py311"]
