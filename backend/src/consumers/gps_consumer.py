@@ -64,7 +64,6 @@ class GPSLocationConsumer(BaseKafkaConsumer):
         try:
             # Parse event
             vehicle_id = UUID(value["vehicle_id"])
-            driver_id = UUID(value["driver_id"]) if value.get("driver_id") else None
             location = value["location"]
             latitude = Decimal(str(location["latitude"]))
             longitude = Decimal(str(location["longitude"]))
