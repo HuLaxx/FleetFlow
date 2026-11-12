@@ -28,6 +28,7 @@ class BaseKafkaConsumer(ABC):
     - Deserialization
     - Error handling with retries
     - Graceful shutdown
+    - Manual offsets: commit only when a handler has completed successfully
     """
     
     def __init__(
@@ -86,7 +87,7 @@ class BaseKafkaConsumer(ABC):
             bootstrap_servers=settings.kafka_bootstrap_servers,
             group_id=self.group_id,
             auto_offset_reset=self.auto_offset_reset,
-            enable_auto_commit=True,
+            enable_auto_commit=False,  # Commit only after successful handler execution
             value_deserializer=lambda m: json.loads(m.decode('utf-8')) if m else None,
         )
         
@@ -100,6 +101,8 @@ class BaseKafkaConsumer(ABC):
                 
                 try:
                     await self._process_message(message)
+                    # At-least-once delivery: a failed handler must not advance the offset.
+                    await self.consumer.commit()
                 except Exception as e:
                     logger.error(
                         "Error processing message",
@@ -108,7 +111,9 @@ class BaseKafkaConsumer(ABC):
                         partition=message.partition,
                         offset=message.offset,
                     )
-                    # Continue processing next message
+                    # Stop rather than silently drop a failed event. Restart/replay is
+                    # required after fixing the fault; the handler must be idempotent.
+                    raise
         
         except KafkaError as e:
             logger.error("Kafka error in consumer loop", error=str(e))
