@@ -1,6 +1,6 @@
 """Drivers API endpoints - with DATABASE integration."""
 
-from datetime import datetime, timezone
+from datetime import datetime, UTC
 from decimal import Decimal
 from uuid import UUID
 
@@ -226,7 +226,7 @@ async def update_location(
     # Update vehicle location (trigger will sync with PostGIS)
     vehicle.latitude = Decimal(str(request.latitude))
     vehicle.longitude = Decimal(str(request.longitude))
-    vehicle.updated_at = datetime.now(timezone.utc)
+    vehicle.updated_at = datetime.now(UTC).replace(tzinfo=None)
 
     await db.commit()
 
@@ -263,7 +263,7 @@ async def update_location(
             "latitude": request.latitude,
             "longitude": request.longitude,
         },
-        "received_at": datetime.now(timezone.utc).isoformat(),
+        "received_at": datetime.now(UTC).isoformat(),
     }
 
 
@@ -292,7 +292,7 @@ async def update_status(
 
     # Update status
     driver.status = request.status
-    driver.updated_at = datetime.now(timezone.utc)
+    driver.updated_at = datetime.now(UTC).replace(tzinfo=None)
 
     await db.commit()
 
@@ -318,7 +318,7 @@ async def update_status(
         "driver_id": str(driver_id),
         "previous_status": previous_status.value,
         "new_status": new_status.value,
-        "updated_at": datetime.now(timezone.utc).isoformat(),
+        "updated_at": datetime.now(UTC).isoformat(),
     }
 
 
