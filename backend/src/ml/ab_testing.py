@@ -194,9 +194,12 @@ class ABTestingService:
             return experiment.control
 
         # Check for sticky assignment
-        if user_id and experiment.traffic_split == TrafficSplitStrategy.STICKY:
-            if user_id in self.user_assignments:
-                if experiment_id in self.user_assignments[user_id]:
+        if (
+            user_id
+            and experiment.traffic_split == TrafficSplitStrategy.STICKY
+            and user_id in self.user_assignments
+            and experiment_id in self.user_assignments[user_id]
+        ):
                     variant_id = self.user_assignments[user_id][experiment_id]
                     return (
                         experiment.control
