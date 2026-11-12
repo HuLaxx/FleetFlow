@@ -42,6 +42,16 @@ export type BackendRoute = {
 };
 export type BackendStats = Record<string, number>;
 export type BackendMutationResponse = Record<string, unknown>;
+export type RouteOptimizationResponse = {
+    status: string;
+    message?: string;
+    routes: Array<Record<string, unknown>>;
+    metrics?: {
+        total_vehicles_used: number;
+        total_orders_scheduled: number;
+        total_distance_km: number;
+    };
+};
 
 const FASTAPI_BASE_URL = process.env.FASTAPI_URL || 'http://localhost:8000/api/v1';
 
@@ -174,7 +184,7 @@ export class FastAPIClient {
 
     // Optimization
     async optimizeRoutes(data: { date: string; depot_id: string }) {
-        return this.request<BackendMutationResponse>('/optimization/routes/optimize', {
+        return this.request<RouteOptimizationResponse>('/optimization/routes/optimize', {
             method: 'POST',
             body: JSON.stringify(data),
         });
