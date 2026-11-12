@@ -17,6 +17,7 @@ from src.monitoring.prometheus_middleware import PrometheusMiddleware
 from src.monitoring.sentry_config import capture_exception, configure_sentry, set_user_context
 
 __all__ = [
+    "PrometheusMiddleware",
     "app_info",
     "capture_exception",
     "configure_sentry",
@@ -26,7 +27,6 @@ __all__ = [
     "kafka_messages_produced_total",
     "optimization_duration_seconds",
     "orders_total",
-    "PrometheusMiddleware",
     "routes_optimized_total",
     "set_user_context",
     "system_health",

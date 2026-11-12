@@ -2,13 +2,12 @@
 
 from datetime import datetime, time
 from decimal import Decimal
+from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
 from geoalchemy2 import Geography
 from sqlalchemy import Boolean, Integer, Numeric, String, Time, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-
-from typing import TYPE_CHECKING
 
 from src.database import Base
 

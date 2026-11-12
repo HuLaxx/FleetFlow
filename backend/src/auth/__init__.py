@@ -22,6 +22,8 @@ from src.auth.jwt import (
 )
 
 __all__ = [
+    "TokenData",
+    "TokenResponse",
     "create_access_token",
     "create_refresh_token",
     "decode_token",
@@ -32,8 +34,6 @@ __all__ = [
     "require_driver",
     "require_role",
     "require_user",
-    "TokenData",
-    "TokenResponse",
     "validate_password_strength",
     "verify_password",
 ]

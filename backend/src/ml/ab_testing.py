@@ -6,7 +6,7 @@ collecting metrics, and determining winners.
 """
 
 import random
-from datetime import datetime, UTC
+from datetime import UTC, datetime
 from enum import Enum
 from uuid import UUID, uuid4
 
@@ -200,12 +200,10 @@ class ABTestingService:
             and user_id in self.user_assignments
             and experiment_id in self.user_assignments[user_id]
         ):
-                    variant_id = self.user_assignments[user_id][experiment_id]
-                    return (
-                        experiment.control
-                        if variant_id == experiment.control.id
-                        else experiment.treatment
-                    )
+            variant_id = self.user_assignments[user_id][experiment_id]
+            return (
+                experiment.control if variant_id == experiment.control.id else experiment.treatment
+            )
 
         # Random assignment based on weights
         if random.random() < experiment.control.weight:

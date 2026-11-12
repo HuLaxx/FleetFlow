@@ -4,7 +4,7 @@ Route events consumer.
 Consumes route lifecycle events (started, stops completed) and updates database.
 """
 
-from datetime import datetime, UTC
+from datetime import UTC, datetime
 from uuid import UUID
 
 import structlog

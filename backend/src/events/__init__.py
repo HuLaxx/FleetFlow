@@ -31,7 +31,6 @@ __all__ = [
     "DriverStatus",
     "DriverStatusEvent",
     "EventType",
-    "get_kafka_producer",
     "GPSLocationEvent",
     "KafkaProducerService",
     "Location",
@@ -48,4 +47,5 @@ __all__ = [
     "StopCompletedEvent",
     "TimeWindow",
     "TrafficUpdateEvent",
+    "get_kafka_producer",
 ]

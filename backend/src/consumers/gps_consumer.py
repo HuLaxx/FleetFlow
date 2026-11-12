@@ -7,7 +7,7 @@ Consumes GPS updates from Kafka and:
 3. Broadcasts to WebSocket clients
 """
 
-from datetime import datetime, UTC
+from datetime import UTC, datetime
 from decimal import Decimal
 from uuid import UUID
 

@@ -4,7 +4,7 @@ Order events consumer.
 Consumes order creation/cancellation events and updates the database.
 """
 
-from datetime import datetime, UTC
+from datetime import UTC, datetime
 from uuid import UUID
 
 import structlog

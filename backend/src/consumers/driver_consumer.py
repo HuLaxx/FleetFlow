@@ -4,7 +4,7 @@ Driver status event consumer.
 Consumes driver status changes and updates the database.
 """
 
-from datetime import datetime, UTC
+from datetime import UTC, datetime
 from uuid import UUID
 
 import structlog
