@@ -7,7 +7,7 @@ from typing import Any, ClassVar
 from uuid import UUID
 
 import structlog
-from confluent_kafka import Producer
+from confluent_kafka import KafkaException, Producer
 from confluent_kafka.admin import AdminClient, NewTopic
 
 from src.config import get_settings
@@ -126,10 +126,10 @@ class KafkaProducerService:
                     try:
                         future.result()
                         logger.info("Created Kafka topic", topic=topic)
-                    except Exception as e:
+                    except (KafkaException, TimeoutError, RuntimeError, OSError) as e:
                         if "TOPIC_ALREADY_EXISTS" not in str(e):
                             logger.warning("Failed to create topic", topic=topic, error=str(e))
-        except Exception as e:
+        except (KafkaException, TimeoutError, RuntimeError, OSError) as e:
             logger.error("Failed to ensure topics exist", error=str(e))
 
     def publish(
@@ -168,7 +168,7 @@ class KafkaProducerService:
                 callback=self._delivery_callback,
             )
             producer.poll(0)  # Trigger callbacks
-        except Exception as e:
+        except (KafkaException, TimeoutError, RuntimeError, OSError) as e:
             logger.error("Failed to publish event", topic=topic, error=str(e))
             raise
 
