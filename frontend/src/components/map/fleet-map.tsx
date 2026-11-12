@@ -7,6 +7,12 @@ import { PathLayer, ScatterplotLayer } from '@deck.gl/layers';
 import { Layers } from 'lucide-react';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { useWebSocket } from '@/hooks/use-websocket';
+import { z } from 'zod';
+
+const vehicleUpdateSchema = z.object({
+    vehicle_id: z.string(),
+    location: z.object({ latitude: z.number().min(-90).max(90), longitude: z.number().min(-180).max(180) }),
+});
 
 // Initial view state centered on NYC
 const INITIAL_VIEW_STATE = {
@@ -70,8 +76,10 @@ export default function FleetMap() {
     // Handle incoming WebSocket messages
     useEffect(() => {
         if (lastMessage?.type === 'vehicle_update') {
-            const update = lastMessage.data;
-            setVehicles(prev => {
+            const parsed = vehicleUpdateSchema.safeParse(lastMessage.data);
+            if (!parsed.success) return;
+            const update = parsed.data;
+            const frame = requestAnimationFrame(() => setVehicles(prev => {
                 const index = prev.findIndex(v => v.id === update.vehicle_id);
                 if (index >= 0) {
                     // Update existing vehicle
@@ -86,13 +94,15 @@ export default function FleetMap() {
                 }
                 // Add new vehicle if not found (optional, depending on requirements)
                 return prev;
-            });
+            }));
+            return () => cancelAnimationFrame(frame);
         }
     }, [lastMessage]);
 
     useEffect(() => {
-        setMounted(true);
-        // Check for WebGL support
+        const frame = requestAnimationFrame(() => {
+            setMounted(true);
+            // Check for WebGL support
         try {
             const canvas = document.createElement('canvas');
             const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
@@ -100,6 +110,8 @@ export default function FleetMap() {
         } catch {
             setHasWebGL(false);
         }
+        });
+        return () => cancelAnimationFrame(frame);
     }, []);
 
     // Vehicle layer
@@ -116,8 +128,8 @@ export default function FleetMap() {
                 radiusMinPixels: 12,
                 radiusMaxPixels: 20,
                 lineWidthMinPixels: 2,
-                getPosition: (d: any) => [d.longitude, d.latitude],
-                getFillColor: (d: any) => {
+                getPosition: (d: (typeof INITIAL_VEHICLES)[number]) => [d.longitude, d.latitude],
+                getFillColor: (d: (typeof INITIAL_VEHICLES)[number]) => {
                     switch (d.status) {
                         case 'active':
                             return [16, 185, 129, 255]; // Emerald
@@ -150,7 +162,7 @@ export default function FleetMap() {
                     pickable: false,
                     widthScale: 1,
                     widthMinPixels: 3,
-                    getPath: (d: any) => d.path,
+                    getPath: (d: (typeof mockRoutes)[number]) => d.path,
                     getColor: [16, 185, 129, 180],
                     getWidth: 3,
                 })
@@ -171,8 +183,8 @@ export default function FleetMap() {
                 radiusMinPixels: 6,
                 radiusMaxPixels: 10,
                 lineWidthMinPixels: 1,
-                getPosition: (d: any) => [d.longitude, d.latitude],
-                getFillColor: (d: any) =>
+                getPosition: (d: (typeof mockStops)[number]) => [d.longitude, d.latitude],
+                getFillColor: (d: (typeof mockStops)[number]) =>
                     d.status === 'completed' ? [34, 197, 94, 255] : [251, 191, 36, 255],
                 getLineColor: [24, 24, 27, 255],
             }),
@@ -232,12 +244,12 @@ export default function FleetMap() {
                     width={containerDimensions.width}
                     height={containerDimensions.height}
                     viewState={viewState}
-                    onViewStateChange={(e: any) => setViewState(e.viewState)}
+                    onViewStateChange={(e) => setViewState((prev) => ({ ...prev, ...e.viewState }))}
                     controller={true}
                     layers={layers}
                     style={{ position: 'absolute', top: '0px', left: '0px', width: '100%', height: '100%' }}
 
-                    getTooltip={({ object }: any) =>
+                    getTooltip={({ object }) =>
                         object && object.driver
                             ? {
                                 text: `${object.driver}\nStatus: ${object.status}`,
@@ -321,12 +333,12 @@ export default function FleetMap() {
                     <div className="h-8 w-px bg-stone-700" />
                     <div>
                         <p className="text-xl font-bold text-cyan-400">{mockStops.length}</p>
-                        <p className="text-[10px] text-stone-500 uppercase">Stops</p>
+                        <p className="text-[10px] text-stone-500 uppercase">Sample stops</p>
                     </div>
                     <div className="h-8 w-px bg-stone-700" />
                     <div>
                         <p className="text-xl font-bold text-emerald-400">{mockRoutes.length}</p>
-                        <p className="text-[10px] text-stone-500 uppercase">Routes</p>
+                        <p className="text-[10px] text-stone-500 uppercase">Sample routes</p>
                     </div>
                 </div>
             </div>
