@@ -20,11 +20,11 @@ python -m pytest tests/test_lakehouse/test_replay.py -v
 
 All replay runs are immutable and addressed by a digest of the input bytes **and the lateness configuration**. Re-running the same fixture should return the existing snapshot, rather than overwrite history.
 
-The CLI prints the exact output directory, source SHA-256 and reconciliation counts.
+The CLI prints the exact output directory, source SHA-256 and reconciliation counts. It also records SHA-256 checksums for each artifact, and refuses to reuse a snapshot if any artifact changes.
 
 ## Data contract and provenance
 
-Input is newline-delimited JSON containing the existing FleetFlow GPSLocationEvent v1 contract (event_id, schema_version=1, timestamp with timezone, driver/vehicle UUIDs, coordinates, optional speed). Event timestamps are normalised to UTC; schema version, event type, coordinates and timestamps are validated.
+Input is newline-delimited JSON containing the existing FleetFlow GPSLocationEvent v1 contract (event_id, schema_version=1, timestamp with timezone, driver/vehicle UUIDs, coordinates, optional speed). Input event_id, timestamp, schema_version and event_type are required explicitly at the replay boundary (even though producers can generate defaults). Event timestamps are normalised to UTC; schema version, event type, coordinates and timestamps are validated.
 
 ### Actual output layout
 
@@ -61,6 +61,7 @@ The automated tests check:
 4. Conflicting IDs, invalid geolocation, unsupported schema versions and missing timezone information are rejected.
 5. A repeated replay is immutable; changed input or lateness configuration produces a new run.
 6. A fully invalid source still produces typed empty Parquet tables plus an inspectable quarantine.
+7. Missing identity/time metadata is rejected, and tampered persisted files fail replay integrity checks.
 
 GitHub CI must provide the actual test run link and outcome before this slice is marked verified. A passing unit test does **not** verify a live Kafka producer, Postgres/TimescaleDB integration, dbt marts, Airflow DAGs, WebSocket telemetry or AWS hosting.
 
