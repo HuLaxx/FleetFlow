@@ -278,7 +278,7 @@ async def get_order(
         .join(RouteStop, RouteStop.route_id == Route.id)
         .options(joinedload(Route.driver))
         .where(RouteStop.order_id == order_id)
-        .where(Route.status.in_(["planned", "in_progress", "completed"]))
+        .where(Route.status.in_(["planned", "approved", "in_progress", "completed"]))
         .order_by(Route.created_at.desc())
         .limit(1)
     )

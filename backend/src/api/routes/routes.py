@@ -6,10 +6,11 @@ from uuid import UUID
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from pydantic import BaseModel
-from sqlalchemy import and_, func, select
+from sqlalchemy import and_, case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import joinedload
+from sqlalchemy.orm import joinedload, selectinload
 
+from src.auth.dependencies import require_dispatcher, require_driver
 from src.database import get_db
 from src.events import (
     RouteStartedEvent,
@@ -17,6 +18,7 @@ from src.events import (
     get_kafka_producer,
 )
 from src.models import Route, RouteStop
+from src.models.user import User, UserRole
 
 router = APIRouter()
 
@@ -223,25 +225,113 @@ async def get_route(
     return response
 
 
+@router.post("/{route_id}/approve")
+async def approve_route(
+    route_id: UUID,
+    current_user: User = Depends(require_dispatcher),
+    db: AsyncSession = Depends(get_db),
+):
+    """Explicitly approve a persisted planned route after checking basic dispatch constraints.
+
+    The route must already exist in the database. This does not create routes from
+    optimizer previews, record a durable approval audit or prove global optimality.
+    """
+    stmt = (
+        select(Route)
+        .options(
+            selectinload(Route.stops).joinedload(RouteStop.order),
+            selectinload(Route.vehicle),
+        )
+        .where(Route.id == route_id)
+        .with_for_update(of=Route)
+    )
+    result = await db.execute(stmt)
+    route = result.scalar_one_or_none()
+    if route is None:
+        raise HTTPException(status_code=404, detail="Route not found")
+    if route.status != "planned":
+        raise HTTPException(status_code=409, detail="Only planned routes can be approved")
+    if route.driver_id is None or route.vehicle_id is None or route.depot_id is None:
+        raise HTTPException(
+            status_code=422, detail="Route is missing an assigned driver, vehicle or depot"
+        )
+    if not route.vehicle or route.vehicle.depot_id != route.depot_id:
+        raise HTTPException(
+            status_code=422, detail="Assigned vehicle is not stationed at route depot"
+        )
+
+    stops = sorted(route.stops, key=lambda stop: stop.stop_sequence)
+    if not stops or route.planned_stops != len(stops):
+        raise HTTPException(status_code=422, detail="Route stop count does not match the plan")
+    if [stop.stop_sequence for stop in stops] != list(range(1, len(stops) + 1)):
+        raise HTTPException(status_code=422, detail="Route stop sequence must be contiguous")
+
+    order_ids = [stop.order_id for stop in stops]
+    if None in order_ids or len(set(order_ids)) != len(order_ids):
+        raise HTTPException(
+            status_code=422, detail="Route has missing or repeated order assignments"
+        )
+
+    total_weight = 0
+    for stop in stops:
+        if stop.status != "pending" or stop.order is None or stop.order.status != "pending":
+            raise HTTPException(
+                status_code=422, detail="Only pending orders and stops can be approved"
+            )
+        if stop.order.depot_id != route.depot_id or stop.order.delivery_date != route.route_date:
+            raise HTTPException(status_code=422, detail="Order and route depot/date mismatch")
+        if (
+            stop.planned_arrival is None
+            or not stop.order.time_window_start
+            <= stop.planned_arrival
+            <= stop.order.time_window_end
+        ):
+            raise HTTPException(
+                status_code=422, detail="Planned arrival violates an order time window"
+            )
+        total_weight += stop.order.total_weight_kg
+
+    if total_weight > route.vehicle.capacity_kg:
+        raise HTTPException(
+            status_code=422, detail="Total order weight exceeds assigned vehicle capacity"
+        )
+
+    route.status = "approved"
+    route.updated_at = datetime.now(UTC).replace(tzinfo=None)
+    await db.commit()
+    return {"route_id": str(route.id), "status": route.status, "approved_by": current_user.email}
+
+
 @router.post("/{route_id}/start")
 async def start_route(
     route_id: UUID,
     request: StartRouteRequest,
     background_tasks: BackgroundTasks,
+    current_user: User = Depends(require_driver),
     db: AsyncSession = Depends(get_db),
 ):
-    """Start a route."""
-    # Get route
-    stmt = select(Route).where(Route.id == route_id)
+    """Start an explicitly approved route using the assigned driver identity."""
+    stmt = (
+        select(Route)
+        .options(selectinload(Route.driver))
+        .where(Route.id == route_id)
+        .with_for_update(of=Route)
+    )
     result = await db.execute(stmt)
     route = result.scalar_one_or_none()
 
     if not route:
         raise HTTPException(status_code=404, detail="Route not found")
 
-    if route.status != "planned":
+    if route.status != "approved":
+        raise HTTPException(status_code=409, detail="Route requires explicit dispatcher approval")
+    if route.driver_id is None or route.driver_id != request.driver_id:
         raise HTTPException(
-            status_code=400, detail=f"Cannot start route with status: {route.status}"
+            status_code=422, detail="Requested driver is not assigned to this route"
+        )
+    if current_user.role == UserRole.DRIVER and current_user.driver_id != route.driver_id:
+        raise HTTPException(
+            status_code=403, detail="Drivers may only start their own assigned routes"
         )
 
     # Update route
@@ -474,19 +564,46 @@ async def get_route_stats(
     metrics_result = await db.execute(metrics_stmt)
     total_stops, completed_stops, total_distance = metrics_result.one()
 
+    # Only report observed performance. No arbitrary demo percentages.
+    observed = (
+        select(
+            func.count(RouteStop.id),
+            func.sum(case((RouteStop.actual_arrival <= RouteStop.planned_arrival, 1), else_=0)),
+        )
+        .join(Route, RouteStop.route_id == Route.id)
+        .where(
+            RouteStop.status == "completed",
+            RouteStop.actual_arrival.is_not(None),
+            RouteStop.planned_arrival.is_not(None),
+        )
+    )
+    duration = select(func.avg(Route.actual_duration_minutes)).where(
+        Route.status == "completed", Route.actual_duration_minutes.is_not(None)
+    )
+    if date:
+        observed = observed.where(Route.route_date == target_date)
+        duration = duration.where(Route.route_date == target_date)
+    observed_total, on_schedule = (await db.execute(observed)).one()
+    avg_actual_duration = (await db.execute(duration)).scalar()
+
     return {
         "date": target_date,
         "total_routes": total,
         "by_status": {
             "planned": by_status.get("planned", 0),
+            "approved": by_status.get("approved", 0),
             "in_progress": by_status.get("in_progress", 0),
             "completed": by_status.get("completed", 0),
             "cancelled": by_status.get("cancelled", 0),
         },
         "total_stops": total_stops or 0,
         "stops_completed": completed_stops or 0,
-        "on_time_rate": 0.92,  # TODO: Calculate from actual vs planned times
+        "on_time_rate": (round(on_schedule / observed_total, 4) if observed_total else None),
+        "on_time_rate_definition": "fraction of completed stops arriving at or before planned arrival",
+        "on_time_sample_size": observed_total,
         "total_distance_km": float(total_distance) if total_distance else 0,
-        "avg_route_duration_minutes": 0,  # TODO: Calculate
-        "fleet_efficiency": 0.87,  # TODO: Calculate
+        "avg_route_duration_minutes": (
+            round(float(avg_actual_duration), 1) if avg_actual_duration is not None else None
+        ),
+        "fleet_efficiency": None,  # No validated business definition or observed measurement
     }

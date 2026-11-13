@@ -58,7 +58,7 @@ class Route(Base):
     optimization_score: Mapped[Decimal | None] = mapped_column(Numeric(5, 4))
     computation_time_ms: Mapped[int | None] = mapped_column(Integer)
 
-    # Status: planned, in_progress, completed, cancelled
+    # Status: planned (unapproved), approved, in_progress, completed, cancelled
     status: Mapped[str] = mapped_column(String(20), default="planned")
 
     # Timing
