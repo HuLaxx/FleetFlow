@@ -102,3 +102,11 @@ The inspected recent CI on branch `redesign/fleetflow-v2` checked frontend quali
 - The CI job generates a fresh ephemeral test-only key. Six additional parametrized/unit tests verify rejected defaults and an accepted non-template secret. Docker Compose requires an externally configured `JWT_SECRET_KEY`; `.env.example` documents generation without storing a real secret.
 - **Compatibility note:** backend startup without a configured signing key will fail after this change; explicitly configure the key before running local Compose or any future deployment. No secret was committed, no running production deployment was modified, and no cloud resources were provisioned.
 - **Remaining auth gaps:** token rotation/revocation policy, comprehensive API authorization audits and durable persisted dispatcher approval identity are not yet evidenced; a configured strong key is necessary but not sufficient to claim complete security.
+
+## P1 candidate-route persistence — draft branch, 14 November 2026 (pending CI)
+
+- New branch `feature/p1-persisted-optimizer-plans-2026-11-14` stacked on [draft PR #4](https://github.com/HuLaxx/FleetFlow/pull/4); **not merged or deployed**.
+- Code now packages the previously repository-root-only OR-Tools solver in `backend/src/optimization` and reads delivery coordinates from related `Customer` records rather than nonexistent `Order.latitude` fields. The standalone `ml/route_optimizer.py` path is a compatibility wrapper, not another independent implementation.
+- `POST /api/v1/optimization/routes/optimize` remains a non-mutating preview; dispatcher-only `POST /api/v1/optimization/routes/plan` writes actual planned route and stop rows atomically after post-solver integrity checks, with order/vehicle row locks and active-plan conflict detection. Plan creation never auto-approves dispatch.
+- Added PostGIS-backed acceptance tests for preview, persisted routes, existing explicit approval, duplicate conflicts, missing location, unavailable vehicle, infeasible capacity and role enforcement; **test execution awaits GitHub Actions confirmation on the final branch SHA**.
+- See [P1 planning scope and reproduction](P1_OPTIMIZER_PLANNED_ROUTES.md). Do **not** claim broker-backed ingestion, full GPS/UI tracking, an immutable approval event, true road distance or AWS deployment from these changes.
