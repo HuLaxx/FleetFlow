@@ -17,7 +17,7 @@ from src.events import (
     StopCompletedEvent,
     get_kafka_producer,
 )
-from src.models import Route, RouteStop
+from src.models import Order, Route, RouteStop
 from src.models.user import User, UserRole
 
 router = APIRouter()
@@ -140,13 +140,13 @@ async def get_route(
             joinedload(Route.driver),
             joinedload(Route.vehicle),
             joinedload(Route.depot),
-            joinedload(Route.stops).joinedload(RouteStop.order),
+            joinedload(Route.stops).joinedload(RouteStop.order).joinedload(Order.customer),
         )
         .where(Route.id == route_id)
     )
 
     result = await db.execute(stmt)
-    route = result.scalar_one_or_none()
+    route = result.unique().scalar_one_or_none()
 
     if not route:
         raise HTTPException(status_code=404, detail="Route not found")
