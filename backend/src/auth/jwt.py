@@ -5,12 +5,30 @@ Authentication utilities: JWT tokens and password hashing.
 import os
 from datetime import UTC, datetime, timedelta
 
+from dotenv import load_dotenv
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from pydantic import BaseModel
 
 # Configuration
-SECRET_KEY = os.getenv("JWT_SECRET_KEY", "your-secret-key-change-in-production-immediately")
+load_dotenv()  # Local .env support; existing real environment variables win.
+
+
+def validate_jwt_secret(key: str | None) -> str:
+    """Reject missing, short and template authentication secrets in every environment."""
+    if (
+        not key
+        or len(key) < 32
+        or key.startswith("CHANGE_ME")
+        or key.startswith("your-secret-key")
+    ):
+        raise RuntimeError(
+            "JWT_SECRET_KEY must be set to a generated secret of at least 32 characters"
+        )
+    return key
+
+
+SECRET_KEY = validate_jwt_secret(os.getenv("JWT_SECRET_KEY"))
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 REFRESH_TOKEN_EXPIRE_DAYS = 7
