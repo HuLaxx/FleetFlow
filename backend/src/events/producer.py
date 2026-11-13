@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+import time
 from datetime import datetime
 from typing import Any, ClassVar
 from uuid import UUID
@@ -52,6 +53,7 @@ class KafkaProducerService:
         "drivers.status",
         "routes.created",
         "routes.started",
+        "routes.approved",
         "routes.stops",
         "traffic.updates",
         "alerts.driver_late",
@@ -178,6 +180,49 @@ class KafkaProducerService:
         """Async wrapper for publish."""
         loop = asyncio.get_event_loop()
         await loop.run_in_executor(None, self.publish, topic, event, key, headers)
+
+    def publish_confirmed(
+        self,
+        topic: str,
+        event: dict,
+        key: str,
+        timeout: float = 10.0,
+    ) -> None:
+        """Return only after Kafka's delivery callback confirms broker ACK.
+
+        Unconfirmed sends must never mark durable outbox rows as published.
+        Timeout raises; a late ACK can still happen, causing a safe replay.
+        """
+        producer = self._get_producer()
+        completed: list[object] = []
+
+        def on_delivery(error: object, message: Any) -> None:
+            self._delivery_callback(error, message)
+            completed.append(error)
+
+        producer.produce(
+            topic=topic,
+            key=key.encode("utf-8"),
+            value=json.dumps(event, cls=KafkaEncoder).encode("utf-8"),
+            callback=on_delivery,
+        )
+        deadline = time.monotonic() + timeout
+        while not completed and time.monotonic() < deadline:
+            producer.poll(min(0.2, max(0, deadline - time.monotonic())))
+        if not completed:
+            raise TimeoutError("Broker delivery acknowledgement not received")
+        if completed[0] is not None:
+            raise RuntimeError("Broker rejected event delivery")
+
+    async def publish_confirmed_async(
+        self,
+        topic: str,
+        event: dict,
+        key: str,
+        timeout: float = 10.0,
+    ) -> None:
+        """Use confirmed publication without blocking the API event loop."""
+        await asyncio.to_thread(self.publish_confirmed, topic, event, key, timeout)
 
     def flush(self, timeout: float = 10.0) -> int:
         """Flush pending messages."""
