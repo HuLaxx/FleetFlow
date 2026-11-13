@@ -252,9 +252,13 @@ async def approve_route(
     if route.status != "planned":
         raise HTTPException(status_code=409, detail="Only planned routes can be approved")
     if route.driver_id is None or route.vehicle_id is None or route.depot_id is None:
-        raise HTTPException(status_code=422, detail="Route is missing an assigned driver, vehicle or depot")
+        raise HTTPException(
+            status_code=422, detail="Route is missing an assigned driver, vehicle or depot"
+        )
     if not route.vehicle or route.vehicle.depot_id != route.depot_id:
-        raise HTTPException(status_code=422, detail="Assigned vehicle is not stationed at route depot")
+        raise HTTPException(
+            status_code=422, detail="Assigned vehicle is not stationed at route depot"
+        )
 
     stops = sorted(route.stops, key=lambda stop: stop.stop_sequence)
     if not stops or route.planned_stops != len(stops):
@@ -264,23 +268,33 @@ async def approve_route(
 
     order_ids = [stop.order_id for stop in stops]
     if None in order_ids or len(set(order_ids)) != len(order_ids):
-        raise HTTPException(status_code=422, detail="Route has missing or repeated order assignments")
+        raise HTTPException(
+            status_code=422, detail="Route has missing or repeated order assignments"
+        )
 
     total_weight = 0
     for stop in stops:
         if stop.status != "pending" or stop.order is None or stop.order.status != "pending":
-            raise HTTPException(status_code=422, detail="Only pending orders and stops can be approved")
+            raise HTTPException(
+                status_code=422, detail="Only pending orders and stops can be approved"
+            )
         if stop.order.depot_id != route.depot_id or stop.order.delivery_date != route.route_date:
             raise HTTPException(status_code=422, detail="Order and route depot/date mismatch")
         if (
             stop.planned_arrival is None
-            or not stop.order.time_window_start <= stop.planned_arrival <= stop.order.time_window_end
+            or not stop.order.time_window_start
+            <= stop.planned_arrival
+            <= stop.order.time_window_end
         ):
-            raise HTTPException(status_code=422, detail="Planned arrival violates an order time window")
+            raise HTTPException(
+                status_code=422, detail="Planned arrival violates an order time window"
+            )
         total_weight += stop.order.total_weight_kg
 
     if total_weight > route.vehicle.capacity_kg:
-        raise HTTPException(status_code=422, detail="Total order weight exceeds assigned vehicle capacity")
+        raise HTTPException(
+            status_code=422, detail="Total order weight exceeds assigned vehicle capacity"
+        )
 
     route.status = "approved"
     route.updated_at = datetime.now(UTC).replace(tzinfo=None)
@@ -312,9 +326,13 @@ async def start_route(
     if route.status != "approved":
         raise HTTPException(status_code=409, detail="Route requires explicit dispatcher approval")
     if route.driver_id is None or route.driver_id != request.driver_id:
-        raise HTTPException(status_code=422, detail="Requested driver is not assigned to this route")
+        raise HTTPException(
+            status_code=422, detail="Requested driver is not assigned to this route"
+        )
     if current_user.role == UserRole.DRIVER and current_user.driver_id != route.driver_id:
-        raise HTTPException(status_code=403, detail="Drivers may only start their own assigned routes")
+        raise HTTPException(
+            status_code=403, detail="Drivers may only start their own assigned routes"
+        )
 
     # Update route
     route.status = "in_progress"
@@ -550,9 +568,7 @@ async def get_route_stats(
     observed = (
         select(
             func.count(RouteStop.id),
-            func.sum(
-                case((RouteStop.actual_arrival <= RouteStop.planned_arrival, 1), else_=0)
-            ),
+            func.sum(case((RouteStop.actual_arrival <= RouteStop.planned_arrival, 1), else_=0)),
         )
         .join(Route, RouteStop.route_id == Route.id)
         .where(
@@ -582,9 +598,7 @@ async def get_route_stats(
         },
         "total_stops": total_stops or 0,
         "stops_completed": completed_stops or 0,
-        "on_time_rate": (
-            round(on_schedule / observed_total, 4) if observed_total else None
-        ),
+        "on_time_rate": (round(on_schedule / observed_total, 4) if observed_total else None),
         "on_time_rate_definition": "fraction of completed stops arriving at or before planned arrival",
         "on_time_sample_size": observed_total,
         "total_distance_km": float(total_distance) if total_distance else 0,
