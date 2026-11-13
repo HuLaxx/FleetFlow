@@ -16,13 +16,13 @@ from src.models.vehicle import Vehicle
 
 __all__ = [
     "Customer",
+    "Depot",
     "DispatchConsumerInbox",
     "DispatchOutboxEvent",
-    "RouteApprovalAudit",
-    "Depot",
     "Driver",
     "Order",
     "Route",
+    "RouteApprovalAudit",
     "RouteStop",
     "User",
     "Vehicle",
