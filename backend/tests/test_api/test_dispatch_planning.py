@@ -6,7 +6,7 @@ in the API test fixture; this is not a broker-backed end-to-end deployment test.
 
 from datetime import datetime, date
 from decimal import Decimal
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 from geoalchemy2.elements import WKTElement
@@ -88,7 +88,7 @@ async def test_real_solver_persists_plan_then_requires_existing_explicit_approva
     assert planned.json()["route_count"] == 1
     route_id = planned.json()["route_ids"][0]
 
-    saved = await db_session.get(Route, route_id)
+    saved = await db_session.get(Route, UUID(route_id))
     assert saved is not None
     assert saved.status == "planned"
     assert saved.algorithm_used == "ortools-cvrptw-haversine"
