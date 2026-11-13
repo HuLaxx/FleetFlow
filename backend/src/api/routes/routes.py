@@ -146,7 +146,7 @@ async def get_route(
     )
 
     result = await db.execute(stmt)
-    route = result.scalar_one_or_none()
+    route = result.unique().scalar_one_or_none()
 
     if not route:
         raise HTTPException(status_code=404, detail="Route not found")
