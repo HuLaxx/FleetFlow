@@ -9,6 +9,7 @@ from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
+from confluent_kafka import KafkaException
 from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -53,7 +54,7 @@ async def dispatch_outbox_batch(
         event.attempts += 1
         try:
             await publish(event.topic, event.payload, event.message_key)
-        except Exception as exc:
+        except (KafkaException, BufferError, TimeoutError, RuntimeError, OSError) as exc:
             # Store only the exception class, never secrets, payloads or broker URLs.
             event.last_error = type(exc).__name__[:150]
             backoff = min(300, 2 ** min(event.attempts, 8))
