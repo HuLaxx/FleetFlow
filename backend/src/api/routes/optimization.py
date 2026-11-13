@@ -19,7 +19,7 @@ from sqlalchemy.orm import selectinload
 
 from src.auth.dependencies import require_dispatcher
 from src.database import get_db
-from src.models import Customer, Depot, Driver, Order, Route, RouteStop, Vehicle
+from src.models import Depot, Driver, Order, Route, RouteStop, Vehicle
 from src.models.user import User
 from src.optimization import VehicleRoutingOptimizer
 
@@ -118,7 +118,9 @@ def _solve(depot, vehicles, orders, route_date: date):
             orders, vehicles, depot, route_date
         )
     except (ValueError, TypeError, RuntimeError, AttributeError) as exc:
-        raise HTTPException(status_code=422, detail="Cannot optimise this set of constraints") from exc
+        raise HTTPException(
+            status_code=422, detail="Cannot optimise this set of constraints"
+        ) from exc
 
     if not routes:
         raise HTTPException(
@@ -139,7 +141,9 @@ def _check_candidate_integrity(routes, vehicles, orders):
         vehicle_id = candidate["vehicle_id"]
         vehicle = available.get(vehicle_id)
         if vehicle is None or vehicle_id in vehicles_used:
-            raise HTTPException(status_code=422, detail="Solver returned invalid vehicle assignment")
+            raise HTTPException(
+                status_code=422, detail="Solver returned invalid vehicle assignment"
+            )
         vehicles_used.add(vehicle_id)
         if candidate["driver_id"] is None or candidate["driver_id"] != vehicle.current_driver_id:
             raise HTTPException(status_code=422, detail="Solver returned an unassigned driver")
