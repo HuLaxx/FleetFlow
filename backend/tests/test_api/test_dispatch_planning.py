@@ -62,7 +62,8 @@ async def test_preview_uses_real_customer_coordinates_without_writing(
     response = await client.post("/api/v1/optimization/routes/optimize", json=_request(depot))
     assert response.status_code == 200, response.text
     result = response.json()
-    assert result["status"] == "preview"
+    assert result["status"] == "success"
+    assert result["mode"] == "preview"
     assert result["metrics"]["total_orders_scheduled"] == 1
     assert result["metrics"]["total_distance_km"] > 0
     assert result["routes"][0]["vehicle_id"] == str(vehicle.id)
