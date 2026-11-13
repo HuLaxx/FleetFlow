@@ -2,7 +2,7 @@
 
 from datetime import UTC, datetime
 from datetime import date as calendar_date
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from pydantic import BaseModel
@@ -17,7 +17,7 @@ from src.events import (
     StopCompletedEvent,
     get_kafka_producer,
 )
-from src.models import Order, Route, RouteStop
+from src.models import DispatchOutboxEvent, Order, Route, RouteApprovalAudit, RouteStop
 from src.models.user import User, UserRole
 
 router = APIRouter()
@@ -234,7 +234,7 @@ async def approve_route(
     """Explicitly approve a persisted planned route after checking basic dispatch constraints.
 
     The route must already exist in the database. This does not create routes from
-    optimizer previews, record a durable approval audit or prove global optimality.
+    optimizer previews or prove global optimality.
     """
     stmt = (
         select(Route)
@@ -296,10 +296,49 @@ async def approve_route(
             status_code=422, detail="Total order weight exceeds assigned vehicle capacity"
         )
 
+    # Route status, immutable approval fact and publishable event must all commit
+    # together. Do not publish Kafka messages inside the request transaction.
+    approved_at = datetime.now(UTC)
+    event_id = uuid4()
     route.status = "approved"
-    route.updated_at = datetime.now(UTC).replace(tzinfo=None)
+    route.updated_at = approved_at.replace(tzinfo=None)
+    db.add(
+        RouteApprovalAudit(
+            route_id=route.id,
+            approved_by_user_id=current_user.id,
+            event_id=event_id,
+            previous_status="planned",
+            new_status="approved",
+            approved_at=approved_at,
+        )
+    )
+    db.add(
+        DispatchOutboxEvent(
+            id=event_id,
+            topic="routes.approved",
+            message_key=str(route.id),
+            payload={
+                "event_id": str(event_id),
+                "schema_version": 1,
+                "event_type": "route.approved",
+                "route_id": str(route.id),
+                "driver_id": str(route.driver_id),
+                "vehicle_id": str(route.vehicle_id),
+                "approved_by_user_id": str(current_user.id),
+                "timestamp": approved_at.isoformat(),
+            },
+            status="pending",
+            next_attempt_at=approved_at,
+        )
+    )
     await db.commit()
-    return {"route_id": str(route.id), "status": route.status, "approved_by": current_user.email}
+    return {
+        "route_id": str(route.id),
+        "status": route.status,
+        "approved_by": current_user.email,
+        "approval_event_id": str(event_id),
+        "delivery_status": "pending",
+    }
 
 
 @router.post("/{route_id}/start")
