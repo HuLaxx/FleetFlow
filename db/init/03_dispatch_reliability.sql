@@ -10,7 +10,7 @@ ALTER TABLE routes ADD CONSTRAINT routes_status_check
 CREATE TABLE IF NOT EXISTS route_approval_audit (
     id UUID PRIMARY KEY,
     route_id UUID NOT NULL UNIQUE REFERENCES routes(id) ON DELETE RESTRICT,
-    approved_by_user_id UUID NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+    approved_by_user_id UUID NOT NULL,
     event_id UUID NOT NULL UNIQUE,
     previous_status VARCHAR(20) NOT NULL,
     new_status VARCHAR(20) NOT NULL,
