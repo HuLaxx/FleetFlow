@@ -174,7 +174,9 @@ async def optimize_routes(request: OptimizeRequest, db: AsyncSession = Depends(g
     routes = _solve(depot, vehicles, orders, request.date)
     _check_candidate_integrity(routes, vehicles, orders)
     return {
-        "status": "preview",
+        "status": "success",
+        "mode": "preview",
+        "message": f"Generated {len(routes)} route candidates; no rows persisted",
         "routes": routes,
         "metrics": {
             "total_vehicles_used": len(routes),
