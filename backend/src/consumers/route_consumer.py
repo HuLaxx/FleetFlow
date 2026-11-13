@@ -91,27 +91,26 @@ class RouteEventsConsumer(BaseKafkaConsumer):
         event_id = UUID(event_data["event_id"])
         route_id = UUID(event_data["route_id"])
 
-        async with AsyncSessionLocal() as session:
-            async with session.begin():
+        async with AsyncSessionLocal() as session, session.begin():
 
-                async def verify_approval() -> None:
-                    route = await session.scalar(select(Route).where(Route.id == route_id))
-                    audit = await session.scalar(
-                        select(RouteApprovalAudit).where(
-                            RouteApprovalAudit.event_id == event_id,
-                            RouteApprovalAudit.route_id == route_id,
-                        )
+            async def verify_approval() -> None:
+                route = await session.scalar(select(Route).where(Route.id == route_id))
+                audit = await session.scalar(
+                    select(RouteApprovalAudit).where(
+                        RouteApprovalAudit.event_id == event_id,
+                        RouteApprovalAudit.route_id == route_id,
                     )
-                    if (
-                        route is None
-                        or route.status not in ("approved", "in_progress", "completed")
-                        or audit is None
-                    ):
-                        raise ValueError("Route approval event not backed by durable audit")
-
-                processed = await apply_once(
-                    session, "fleetflow-route-approval-v1", event_id, verify_approval
                 )
+                if (
+                    route is None
+                    or route.status not in ("approved", "in_progress", "completed")
+                    or audit is None
+                ):
+                    raise ValueError("Route approval event not backed by durable audit")
+
+            processed = await apply_once(
+                session, "fleetflow-route-approval-v1", event_id, verify_approval
+            )
 
         if processed:
             logger.info("Route approval acknowledged", route_id=str(route_id))
