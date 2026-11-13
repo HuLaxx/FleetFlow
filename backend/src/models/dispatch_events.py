@@ -24,9 +24,8 @@ class RouteApprovalAudit(Base):
     route_id: Mapped[UUID] = mapped_column(
         ForeignKey("routes.id", ondelete="RESTRICT"), nullable=False, unique=True
     )
-    approved_by_user_id: Mapped[UUID] = mapped_column(
-        ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
-    )
+    # Keep the actor UUID even if user records are later retained/anonymised separately.
+    approved_by_user_id: Mapped[UUID] = mapped_column(nullable=False)
     event_id: Mapped[UUID] = mapped_column(nullable=False, unique=True)
     previous_status: Mapped[str] = mapped_column(String(20), nullable=False)
     new_status: Mapped[str] = mapped_column(String(20), nullable=False)
