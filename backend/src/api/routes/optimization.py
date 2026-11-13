@@ -162,7 +162,7 @@ def _check_candidate_integrity(routes, vehicles, orders):
 
         total_weight = sum(
             (expected[stop["order_id"]].total_weight_kg for stop in candidate["stops"]),
-            Decimal("0"),
+            Decimal(0),
         )
         if total_weight > vehicle.capacity_kg:
             raise HTTPException(status_code=422, detail="Solver route exceeds vehicle capacity")
