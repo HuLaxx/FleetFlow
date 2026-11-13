@@ -45,26 +45,16 @@ class VehicleRoutingOptimizer:
             ],
         ]
         distances = [
-            [
-                round(self._haversine(*origin, *destination))
-                for destination in locations
-            ]
+            [round(self._haversine(*origin, *destination)) for destination in locations]
             for origin in locations
         ]
         # Both distance and travel time are approximate, never road-network results.
         travel_seconds = [
-            [math.ceil(distance / (30_000 / 3_600)) for distance in row]
-            for row in distances
+            [math.ceil(distance / (30_000 / 3_600)) for distance in row] for row in distances
         ]
-        service_seconds = [0] + [
-            int(order.service_time_minutes or 0) * 60 for order in orders
-        ]
-        demands = [0] + [
-            math.ceil(float(order.total_weight_kg) * 1000) for order in orders
-        ]
-        capacities = [
-            math.floor(float(vehicle.capacity_kg) * 1000) for vehicle in vehicles
-        ]
+        service_seconds = [0] + [int(order.service_time_minutes or 0) * 60 for order in orders]
+        demands = [0] + [math.ceil(float(order.total_weight_kg) * 1000) for order in orders]
+        capacities = [math.floor(float(vehicle.capacity_kg) * 1000) for vehicle in vehicles]
 
         depot_start = self._time_to_seconds(depot.operating_hours_start, default=6 * 3600)
         depot_end = self._time_to_seconds(depot.operating_hours_end, default=22 * 3600)
@@ -120,9 +110,7 @@ class VehicleRoutingOptimizer:
             times.CumulVar(routing.End(index)).SetRange(depot_start, depot_end)
 
         search = pywrapcp.DefaultRoutingSearchParameters()
-        search.first_solution_strategy = (
-            routing_enums_pb2.FirstSolutionStrategy.PATH_CHEAPEST_ARC
-        )
+        search.first_solution_strategy = routing_enums_pb2.FirstSolutionStrategy.PATH_CHEAPEST_ARC
         search.local_search_metaheuristic = (
             routing_enums_pb2.LocalSearchMetaheuristic.GUIDED_LOCAL_SEARCH
         )
@@ -150,9 +138,7 @@ class VehicleRoutingOptimizer:
                         {
                             "sequence": len(stops) + 1,
                             "order_id": order.id,
-                            "planned_arrival": self._seconds_to_datetime(
-                                arrival, route_date
-                            ),
+                            "planned_arrival": self._seconds_to_datetime(arrival, route_date),
                             "location": {
                                 "latitude": float(order.customer.latitude),
                                 "longitude": float(order.customer.longitude),
@@ -201,9 +187,7 @@ class VehicleRoutingOptimizer:
     @staticmethod
     def _seconds_to_datetime(value: int, route_date: date) -> datetime:
         # The existing PostgreSQL schema stores UTC as naive timestamps.
-        return datetime.combine(route_date, datetime.min.time()) + timedelta(
-            seconds=value
-        )
+        return datetime.combine(route_date, datetime.min.time()) + timedelta(seconds=value)
 
     @staticmethod
     def _haversine(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
@@ -211,8 +195,5 @@ class VehicleRoutingOptimizer:
         phi1, phi2 = math.radians(lat1), math.radians(lat2)
         dphi = math.radians(lat2 - lat1)
         dlambda = math.radians(lon2 - lon1)
-        a = (
-            math.sin(dphi / 2) ** 2
-            + math.cos(phi1) * math.cos(phi2) * math.sin(dlambda / 2) ** 2
-        )
+        a = math.sin(dphi / 2) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(dlambda / 2) ** 2
         return radius * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
