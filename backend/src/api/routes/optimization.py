@@ -185,9 +185,7 @@ async def optimize_routes(request: OptimizeRequest, db: AsyncSession = Depends(g
         "metrics": {
             "total_vehicles_used": len(routes),
             "total_orders_scheduled": sum(len(route["stops"]) for route in routes),
-            "total_distance_km": sum(
-                route["metrics"]["total_distance_km"] for route in routes
-            ),
+            "total_distance_km": sum(route["metrics"]["total_distance_km"] for route in routes),
             "distance_basis": "Haversine straight-line estimate, not road distance",
         },
     }
