@@ -13,7 +13,8 @@ from sqlalchemy import select
 
 from src.consumers.base import BaseKafkaConsumer
 from src.database import AsyncSessionLocal
-from src.models import Route, RouteStop
+from src.models import Route, RouteApprovalAudit, RouteStop
+from src.reliability.dispatch import apply_once
 
 logger = structlog.get_logger()
 
@@ -50,7 +51,7 @@ class RouteEventsConsumer(BaseKafkaConsumer):
 
     def __init__(self):
         super().__init__(
-            topics=["routes.started", "routes.stops"],
+            topics=["routes.started", "routes.stops", "routes.approved"],
             group_id="route-events-consumer",
         )
         self.websocket_manager = None
@@ -67,12 +68,52 @@ class RouteEventsConsumer(BaseKafkaConsumer):
         timestamp: int,
     ):
         """Process route event based on topic."""
-        if topic == "routes.started":
+        if topic == "routes.approved":
+            await self._handle_route_approved(value)
+        elif topic == "routes.started":
             await self._handle_route_started(value)
         elif topic == "routes.stops":
             await self._handle_stop_completed(value)
         else:
             logger.warning("Unknown route topic", topic=topic)
+
+    async def _handle_route_approved(self, event_data: dict) -> None:
+        """Consume one validated approval event and commit its inbox receipt.
+
+        This consumer records processing, not an external WebSocket side effect.
+        Kafka offsets are committed by BaseKafkaConsumer only after this returns.
+        """
+        if (
+            event_data.get("schema_version") != 1
+            or event_data.get("event_type") != "route.approved"
+        ):
+            raise ValueError("Unsupported route approval contract")
+        event_id = UUID(event_data["event_id"])
+        route_id = UUID(event_data["route_id"])
+
+        async with AsyncSessionLocal() as session, session.begin():
+
+            async def verify_approval() -> None:
+                route = await session.scalar(select(Route).where(Route.id == route_id))
+                audit = await session.scalar(
+                    select(RouteApprovalAudit).where(
+                        RouteApprovalAudit.event_id == event_id,
+                        RouteApprovalAudit.route_id == route_id,
+                    )
+                )
+                if (
+                    route is None
+                    or route.status not in ("approved", "in_progress", "completed")
+                    or audit is None
+                ):
+                    raise ValueError("Route approval event not backed by durable audit")
+
+            processed = await apply_once(
+                session, "fleetflow-route-approval-v1", event_id, verify_approval
+            )
+
+        if processed:
+            logger.info("Route approval acknowledged", route_id=str(route_id))
 
     async def _handle_route_started(self, event_data: dict):
         """Handle route start event."""

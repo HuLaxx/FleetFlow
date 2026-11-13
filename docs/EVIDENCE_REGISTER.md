@@ -110,3 +110,17 @@ The inspected recent CI on branch `redesign/fleetflow-v2` checked frontend quali
 - `POST /api/v1/optimization/routes/optimize` remains a non-mutating preview; dispatcher-only `POST /api/v1/optimization/routes/plan` writes actual planned route and stop rows atomically after post-solver integrity checks, with order/vehicle row locks and active-plan conflict detection. Plan creation never auto-approves dispatch.
 - Added PostGIS-backed acceptance tests for preview, persisted routes, existing explicit approval, duplicate conflicts, missing location, unavailable vehicle, infeasible capacity and role enforcement; **test execution awaits GitHub Actions confirmation on the final branch SHA**.
 - See [P1 planning scope and reproduction](P1_OPTIMIZER_PLANNED_ROUTES.md). Do **not** claim broker-backed ingestion, full GPS/UI tracking, an immutable approval event, true road distance or AWS deployment from these changes.
+
+## FleetFlow P1 — approval audit and reliable messaging (14 Nov 2026, new draft)
+
+- Proposed branch `feature/p1-approval-audit-outbox-2026-11-14` stacks on [PR #5](https://github.com/HuLaxx/FleetFlow/pull/5); previous PR #5 was [all five CI jobs green at SHA `dfe720ec`](https://github.com/HuLaxx/FleetFlow/actions/runs/43493598780).
+- Added approval audit row, outbox row and route state in one DB transaction. The migration `db/init/03_dispatch_reliability.sql` installs a database-level append-only trigger; ORM-only test `create_all` does not install this trigger by itself.
+- The manually started outbox worker requires a Kafka delivery callback ACK before marking published, with retry backoff. Events may be published twice after a crash; consumer inbox deduplicates IDs transactionally with its DB verification. No claims of end-to-end exactly-once effects.
+- New acceptance tests for audit, pending event, duplicate approvals, broker timeout/retry, inbox dedup/rollback and trigger enforcement. Broker ACK tests use a controlled fake producer; real broker integration remains unverified.
+- This PR is NOT a production deployment or merge and does not start worker processes or provision AWS. Exact current-head CI evidence **pending**; do not inherit PR #5's check results as proof this PR passed.
+
+### Verified five-job P1 audit/outbox gate — 14 November 2026
+
+- [GitHub Actions run 43504618864](https://github.com/HuLaxx/FleetFlow/actions/runs/43504618864), code commit `d3aa2aae3ab655e1a3f2df9a327a11624e9ffffb`: **all 5 jobs passed** — 80 backend tests passed, 3 warnings, **62% combined backend statement coverage**, Ruff/Black, Next.js lint/types/build, CPU ML smoke, and Trivy high/critical scan. The runner uploaded `backend-coverage` artifact **14075259185**. This evidence belongs to the named commit; subsequent documentation changes require their own check.
+- New PostGIS integration assertions verify an approval writes one `route_approval_audit` and pending `dispatch_outbox` row, repeated approval conflicts, simulated NACK/timeout preserves pending and later ACK marks delivered, inbox deduplicates event IDs, inbox receipt rollback on handler error, and a SQL audit trigger blocks UPDATE and DELETE. Fake Kafka producer tests assert ACK, NACK, and no-ACK timeout behavior.
+- **Not verified:** actual Kafka broker's on-network ACK semantics or cross-process crash recovery, database migration applied to an existing live service, concurrent outbox workers under load, live WebSocket reliability, dead-letter / alerting operations, or AWS. The worker is opt-in, not deployed.
