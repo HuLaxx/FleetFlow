@@ -117,6 +117,10 @@ async def test_real_solver_persists_plan_then_requires_existing_explicit_approva
     assert approved.status_code == 200, approved.text
     assert approved.json()["status"] == "approved"
 
+    detail = await client.get(f"/api/v1/routes/{route_id}")
+    assert detail.status_code == 200, detail.text
+    assert detail.json()["stops"][0]["customer_name"] == "Test Recipient"
+
     # A second planning request must not silently duplicate approved assignments.
     duplicate = await client.post(path, json=_request(depot), headers=headers)
     assert duplicate.status_code == 409
