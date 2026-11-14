@@ -4,16 +4,19 @@ Route events consumer.
 Consumes route lifecycle events (started, stops completed) and updates database.
 """
 
+import hashlib
+import json
 from datetime import UTC, datetime
 from uuid import UUID
 
 import structlog
 from fastapi import WebSocketDisconnect
 from sqlalchemy import select
+from sqlalchemy.dialects.postgresql import insert
 
-from src.consumers.base import BaseKafkaConsumer
+from src.consumers.base import BaseKafkaConsumer, PermanentEventError
 from src.database import AsyncSessionLocal
-from src.models import Route, RouteApprovalAudit, RouteStop
+from src.models import DispatchQuarantineEvent, Route, RouteApprovalAudit, RouteStop
 from src.reliability.dispatch import apply_once
 
 logger = structlog.get_logger()
@@ -23,7 +26,7 @@ class RouteEventsConsumer(BaseKafkaConsumer):
     """
     Consumes route-related events.
 
-    Topics: routes.started, routes.stops
+    Topics: routes.approved, routes.started, routes.stops
 
     Event formats:
 
@@ -75,7 +78,47 @@ class RouteEventsConsumer(BaseKafkaConsumer):
         elif topic == "routes.stops":
             await self._handle_stop_completed(value)
         else:
-            logger.warning("Unknown route topic", topic=topic)
+            raise PermanentEventError("unsupported_route_topic")
+
+    async def quarantine_message(self, message, *, reason: str) -> None:
+        """Persist poison Kafka identity and hash before the offset can advance.
+
+        Raw bytes, customer data and message keys are not stored in the database.
+        """
+        raw = message.value
+        if isinstance(raw, bytes):
+            payload = raw
+        else:
+            payload = json.dumps(raw, sort_keys=True, default=str).encode("utf-8")
+
+        statement = (
+            insert(DispatchQuarantineEvent)
+            .values(
+                topic=message.topic,
+                partition=message.partition,
+                kafka_offset=message.offset,
+                payload_sha256=hashlib.sha256(payload).hexdigest(),
+                payload_bytes=len(payload),
+                reason=reason,
+            )
+            .on_conflict_do_nothing(
+                index_elements=[
+                    DispatchQuarantineEvent.topic,
+                    DispatchQuarantineEvent.partition,
+                    DispatchQuarantineEvent.kafka_offset,
+                ]
+            )
+        )
+        # If this insert/commit fails the error propagates, preventing offset commit.
+        async with AsyncSessionLocal() as session, session.begin():
+            await session.execute(statement)
+        logger.warning(
+            "Route event quarantined",
+            topic=message.topic,
+            partition=message.partition,
+            offset=message.offset,
+            reason=reason,
+        )
 
     async def _handle_route_approved(self, event_data: dict) -> None:
         """Consume one validated approval event and commit its inbox receipt.
@@ -87,9 +130,15 @@ class RouteEventsConsumer(BaseKafkaConsumer):
             event_data.get("schema_version") != 1
             or event_data.get("event_type") != "route.approved"
         ):
-            raise ValueError("Unsupported route approval contract")
-        event_id = UUID(event_data["event_id"])
-        route_id = UUID(event_data["route_id"])
+            raise PermanentEventError("unsupported_route_contract")
+        try:
+            event_id = UUID(event_data["event_id"])
+            route_id = UUID(event_data["route_id"])
+            UUID(event_data["driver_id"])
+            UUID(event_data["vehicle_id"])
+            UUID(event_data["approved_by_user_id"])
+        except (KeyError, ValueError, TypeError) as exc:
+            raise PermanentEventError("invalid_route_identifiers") from exc
 
         async with AsyncSessionLocal() as session, session.begin():
 

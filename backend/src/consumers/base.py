@@ -18,6 +18,14 @@ logger = structlog.get_logger()
 settings = get_settings()
 
 
+class PermanentEventError(ValueError):
+    """Permanent schema failure; safe to commit only after durable quarantine."""
+
+    def __init__(self, reason: str):
+        self.reason = reason
+        super().__init__(reason)
+
+
 class BaseKafkaConsumer(ABC):
     """
     Base class for Kafka consumers.
@@ -87,7 +95,9 @@ class BaseKafkaConsumer(ABC):
             group_id=self.group_id,
             auto_offset_reset=self.auto_offset_reset,
             enable_auto_commit=False,  # Commit only after successful handler execution
-            value_deserializer=lambda m: json.loads(m.decode("utf-8")) if m else None,
+            # Decode inside _process_message, where malformed payloads can be
+            # durably quarantined before committing the broker offset.
+            value_deserializer=None,
         )
 
         try:
@@ -136,13 +146,30 @@ class BaseKafkaConsumer(ABC):
                 offset=message.offset,
             )
 
-            # Call subclass handler
-            await self.handle_message(
-                topic=message.topic,
-                key=message.key.decode("utf-8") if message.key else None,
-                value=message.value,
-                timestamp=message.timestamp,
-            )
+            try:
+                raw = message.value
+                if isinstance(raw, bytes):
+                    if len(raw) > 131072:
+                        raise PermanentEventError("payload_too_large")
+                    value = json.loads(raw.decode("utf-8"))
+                else:
+                    # Direct handler fixtures may already provide decoded dicts.
+                    value = raw
+                if not isinstance(value, dict):
+                    raise PermanentEventError("non_object_payload")
+                key = message.key.decode("utf-8") if message.key else None
+                await self.handle_message(
+                    topic=message.topic,
+                    key=key,
+                    value=value,
+                    timestamp=message.timestamp,
+                )
+            except UnicodeDecodeError:
+                await self.quarantine_message(message, reason="invalid_utf8")
+            except json.JSONDecodeError:
+                await self.quarantine_message(message, reason="invalid_json")
+            except PermanentEventError as exc:
+                await self.quarantine_message(message, reason=exc.reason)
 
         except Exception as e:
             logger.error(
@@ -151,6 +178,14 @@ class BaseKafkaConsumer(ABC):
                 topic=message.topic,
             )
             raise
+
+    async def quarantine_message(self, message, *, reason: str) -> None:
+        """Fail closed for consumers without a transactional quarantine handler.
+
+        Only handlers that have implemented durable quarantine may return here.
+        The outer consumer loop commits the Kafka offset only after a return.
+        """
+        raise RuntimeError("Consumer has no durable quarantine handler")
 
     @abstractmethod
     async def handle_message(
