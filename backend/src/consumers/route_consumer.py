@@ -96,7 +96,7 @@ class RouteEventsConsumer(BaseKafkaConsumer):
             .values(
                 topic=message.topic,
                 partition=message.partition,
-                offset=message.offset,
+                kafka_offset=message.offset,
                 payload_sha256=hashlib.sha256(payload).hexdigest(),
                 payload_bytes=len(payload),
                 reason=reason,
@@ -105,7 +105,7 @@ class RouteEventsConsumer(BaseKafkaConsumer):
                 index_elements=[
                     DispatchQuarantineEvent.topic,
                     DispatchQuarantineEvent.partition,
-                    DispatchQuarantineEvent.offset,
+                    DispatchQuarantineEvent.kafka_offset,
                 ]
             )
         )
