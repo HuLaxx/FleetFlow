@@ -26,7 +26,6 @@ class PermanentEventError(ValueError):
         super().__init__(reason)
 
 
-
 class BaseKafkaConsumer(ABC):
     """
     Base class for Kafka consumers.
