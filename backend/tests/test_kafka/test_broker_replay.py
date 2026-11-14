@@ -213,7 +213,7 @@ async def test_real_broker_outbox_restart_replay_and_poison_quarantine(integrati
                 select(DispatchQuarantineEvent).where(
                     DispatchQuarantineEvent.topic == "routes.approved",
                     DispatchQuarantineEvent.partition == quarantined_partition,
-                    DispatchQuarantineEvent.offset == quarantined_offset,
+                    DispatchQuarantineEvent.kafka_offset == quarantined_offset,
                 )
             )
             assert quarantined is not None
@@ -224,7 +224,7 @@ async def test_real_broker_outbox_restart_replay_and_poison_quarantine(integrati
                 select(func.count(DispatchQuarantineEvent.id)).where(
                     DispatchQuarantineEvent.topic == "routes.approved",
                     DispatchQuarantineEvent.partition == quarantined_partition,
-                    DispatchQuarantineEvent.offset == quarantined_offset,
+                    DispatchQuarantineEvent.kafka_offset == quarantined_offset,
                 )
             )
             assert quarantine_count == 1
