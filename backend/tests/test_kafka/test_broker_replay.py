@@ -14,7 +14,7 @@ from uuid import uuid4
 import pytest
 from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
 from geoalchemy2.elements import WKTElement
-from sqlalchemy import delete, func, select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from src.consumers.route_consumer import RouteEventsConsumer
@@ -232,33 +232,6 @@ async def test_real_broker_outbox_restart_replay_and_poison_quarantine(integrati
             assert outbox.status == "published"
             assert outbox.attempts == 2
     finally:
+        # This is a disposable PostGIS CI database. Approval audit rows are
+        # immutable by SQL trigger, so cleanup must not delete or rewrite them.
         producer.close()
-        # Only delete test records; the broker and DB exist solely for CI/local tests.
-        async with session_factory() as session, session.begin():
-            await session.execute(
-                delete(DispatchConsumerInbox).where(
-                    DispatchConsumerInbox.event_id == event_id
-                )
-            )
-            if quarantined_offset is not None:
-                await session.execute(
-                    delete(DispatchQuarantineEvent).where(
-                        DispatchQuarantineEvent.topic == "routes.approved",
-                        DispatchQuarantineEvent.partition == quarantined_partition,
-                        DispatchQuarantineEvent.offset == quarantined_offset,
-                    )
-                )
-            await session.execute(
-                delete(DispatchOutboxEvent).where(DispatchOutboxEvent.id == event_id)
-            )
-            await session.execute(
-                delete(RouteApprovalAudit).where(RouteApprovalAudit.event_id == event_id)
-            )
-            if route is not None and route.id is not None:
-                await session.execute(delete(Route).where(Route.id == route.id))
-            if vehicle is not None and vehicle.id is not None:
-                await session.execute(delete(Vehicle).where(Vehicle.id == vehicle.id))
-            if driver is not None and driver.id is not None:
-                await session.execute(delete(Driver).where(Driver.id == driver.id))
-            if depot is not None and depot.id is not None:
-                await session.execute(delete(Depot).where(Depot.id == depot.id))
