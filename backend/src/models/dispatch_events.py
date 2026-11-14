@@ -104,5 +104,7 @@ class DispatchQuarantineEvent(Base):
     )
 
     __table_args__ = (
-        UniqueConstraint("topic", "partition", "kafka_offset", name="uq_dispatch_quarantine_offset"),
+        UniqueConstraint(
+            "topic", "partition", "kafka_offset", name="uq_dispatch_quarantine_offset"
+        ),
     )
