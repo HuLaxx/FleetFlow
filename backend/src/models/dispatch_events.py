@@ -95,7 +95,7 @@ class DispatchQuarantineEvent(Base):
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
     topic: Mapped[str] = mapped_column(String(100), nullable=False)
     partition: Mapped[int] = mapped_column(Integer, nullable=False)
-    offset: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    kafka_offset: Mapped[int] = mapped_column(BigInteger, nullable=False)
     payload_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
     payload_bytes: Mapped[int] = mapped_column(Integer, nullable=False)
     reason: Mapped[str] = mapped_column(String(80), nullable=False)
@@ -104,5 +104,5 @@ class DispatchQuarantineEvent(Base):
     )
 
     __table_args__ = (
-        UniqueConstraint("topic", "partition", "offset", name="uq_dispatch_quarantine_offset"),
+        UniqueConstraint("topic", "partition", "kafka_offset", name="uq_dispatch_quarantine_offset"),
     )
