@@ -3,7 +3,14 @@
 **Proposed milestone:** A real Kafka-compatible disposable broker is exercised
 in a dedicated GitHub Actions job, and the `routes.approved` consumer stores
 permanently malformed records in PostGIS *before* acknowledging their offsets.
-This document describes code awaiting final current-head CI verification.
+The implementation passed real-broker acceptance at code commit `588835b6`; subsequent documentation-only HEADs require their own checks.
+
+## Verified CI evidence
+
+- [Real Kafka + PostGIS run 43611852641](https://github.com/HuLaxx/FleetFlow/actions/runs/43611852641): **1 real broker test passed**, **5 offset/quarantine tests passed**. No test was skipped in the dedicated broker job.
+- [Normal backend run 43611852471](https://github.com/HuLaxx/FleetFlow/actions/runs/43611852471): **85 tests passed, 1 broker-only test skipped, 3 warnings, 62% statement coverage**; frontend, Ruff/Black, CPU ML smoke and dependency security checks passed.
+- Both runs tested code SHA `588835b6475f3b267f35d8de7c6b8f0ac822aae9`.
+- The real broker run exposed a runtime decoder mismatch: the producer emits Snappy-compressed records. The fix adds `python-snappy` to backend **runtime** dependencies rather than treating CI as a special case.
 
 ## End-to-end boundary under test
 
