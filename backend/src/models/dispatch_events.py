@@ -8,7 +8,7 @@ is not sufficient to make a record immutable.
 from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
-from sqlalchemy import DateTime, ForeignKey, Index, Integer, String, UniqueConstraint, func
+from sqlalchemy import BigInteger, DateTime, ForeignKey, Index, Integer, String, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -70,4 +70,30 @@ class DispatchConsumerInbox(Base):
 
     __table_args__ = (
         UniqueConstraint("consumer_name", "event_id", name="uq_dispatch_consumer_receipt"),
+    )
+
+
+class DispatchQuarantineEvent(Base):
+    """Append-only record for a broker message whose contract is permanently invalid.
+
+    Only the SHA-256 digest and bounded error reason are persisted, not raw
+    payloads, PII, access tokens or customer addresses. Kafka identity makes
+    repeated processing after an offset-commit failure idempotent.
+    """
+
+    __tablename__ = "dispatch_message_quarantine"
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    topic: Mapped[str] = mapped_column(String(100), nullable=False)
+    partition: Mapped[int] = mapped_column(Integer, nullable=False)
+    offset: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    payload_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    payload_bytes: Mapped[int] = mapped_column(Integer, nullable=False)
+    reason: Mapped[str] = mapped_column(String(80), nullable=False)
+    quarantined_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+    __table_args__ = (
+        UniqueConstraint("topic", "partition", "offset", name="uq_dispatch_quarantine_offset"),
     )
