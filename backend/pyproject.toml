@@ -21,6 +21,8 @@ dependencies = [
     # Kafka
     "confluent-kafka>=2.3.0",
     "aiokafka>=0.10.0",
+    # Our producer writes Snappy batches; aiokafka must be able to decode them.
+    "python-snappy>=0.7.3,<1.0.0",
     
     # Redis
     "redis>=5.0.1",
