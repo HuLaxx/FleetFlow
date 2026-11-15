@@ -58,10 +58,10 @@ export function DemoNotice() {
           </div>
           <div>
             <h3 className={`${isLive ? "text-emerald-200" : "text-amber-200"} font-bold`}>
-              {isLive ? "Live Data" : "Demo Mode"}
+              {isLive ? "Seeded Demo · API reachable" : "Seeded Demo · API offline"}
             </h3>
             <p className={`${isLive ? "text-emerald-300/70" : "text-amber-300/70"} text-xs`}>
-              {isLive ? "Connected to FleetFlow API - real-time updates" : "Free-tier demo with limited workloads"}
+              {isLive ? "API health is reachable; this map still uses fixtures" : "Sample vehicles, routes and stops; not real GPS"}
             </p>
           </div>
         </div>
@@ -70,13 +70,13 @@ export function DemoNotice() {
           <p className={`${isLive ? "text-emerald-100/80" : "text-amber-100/80"} text-sm`}>
             {isLive ? (
               <>
-                Streaming routes via{" "}
-                <span className="text-emerald-300 font-semibold">Kafka + WebSocket</span>
+                API reachable does not verify{" "}
+                <span className="text-emerald-300 font-semibold">Kafka or WebSocket delivery</span>
               </>
             ) : (
               <>
-                Run locally for{" "}
-                <span className="text-amber-300 font-semibold">Kafka, Flink, Airflow, PostGIS</span>
+                Seeded display only. Local stack requires{" "}
+                <span className="text-amber-300 font-semibold">PostGIS + Kafka + API</span>
               </>
             )}
           </p>
