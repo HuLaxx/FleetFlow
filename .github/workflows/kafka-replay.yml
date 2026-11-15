@@ -105,6 +105,7 @@ jobs:
         working-directory: backend
         run: |
           pytest tests/test_kafka/test_broker_replay.py -v -rs
+          pytest tests/test_kafka/test_gps_broker_tracking.py -v -rs
           pytest tests/test_consumers/test_poison_offsets.py -v
 
       - name: Broker diagnostics on failure

@@ -5,6 +5,9 @@ Tests for Driver API endpoints.
 import pytest
 from httpx import AsyncClient
 
+from src.models.user import UserRole
+from tests.test_api.test_dispatch_approval import token_for
+
 
 @pytest.mark.asyncio
 async def test_list_drivers_empty(client: AsyncClient):
@@ -70,7 +73,7 @@ async def test_filter_drivers_by_status(client: AsyncClient, sample_depot, sampl
 
 
 @pytest.mark.asyncio
-async def test_update_driver_location(client: AsyncClient, sample_depot, sample_driver, sample_vehicle):
+async def test_update_driver_location(client: AsyncClient, db_session, sample_depot, sample_driver, sample_vehicle):
     """Test updating driver GPS location."""
     depot = await sample_depot()
     driver = await sample_driver(depot_id=depot.id)
@@ -85,17 +88,19 @@ async def test_update_driver_location(client: AsyncClient, sample_depot, sample_
     
     response = await client.post(
         f"/api/v1/drivers/{driver.id}/location",
-        json=location_data
+        json=location_data,
+        headers=await token_for(db_session, UserRole.DRIVER, driver_id=driver.id),
     )
-    assert response.status_code == 200
+    assert response.status_code == 202
     data = response.json()
     assert data["driver_id"] == str(driver.id)
-    assert data["location"]["latitude"] == 40.7580
+    assert data["status"] == "queued"
+    assert data["delivery_status"] == "pending"
 
 
 @pytest.mark.integration
 @pytest.mark.asyncio
-async def test_driver_workflow(client: AsyncClient, sample_depot, sample_driver, sample_vehicle):
+async def test_driver_workflow(client: AsyncClient, db_session, sample_depot, sample_driver, sample_vehicle):
     """Integration test: Create driver, update status, get driver."""
     depot = await sample_depot()
     driver = await sample_driver(depot_id=depot.id)
@@ -108,9 +113,11 @@ async def test_driver_workflow(client: AsyncClient, sample_depot, sample_driver,
     # Update location
     response = await client.post(
         f"/api/v1/drivers/{driver.id}/location",
-        json={"latitude": 40.7590, "longitude": -73.9800}
+        json={"latitude": 40.7590, "longitude": -73.9800},
+        headers=await token_for(db_session, UserRole.DRIVER, driver_id=driver.id),
     )
-    assert response.status_code == 200
+    assert response.status_code == 202
+    assert response.json()["status"] == "queued"
     
     # Verify driver still exists
     response = await client.get(f"/api/v1/drivers/{driver.id}")

@@ -22,7 +22,7 @@ export default defineConfig({
         },
     ],
     webServer: {
-        command: `pnpm dev -- --port ${frontendPort}`,
+        command: `pnpm exec next dev --port ${frontendPort}`,
         url: baseURL,
         reuseExistingServer: true,
         timeout: 120 * 1000,

@@ -30,6 +30,7 @@ from src.graphql import graphql_router
 from src.llm import router as rag_router
 from src.middleware.security import configure_security
 from src.monitoring import PrometheusMiddleware, configure_sentry
+from src.websocket_server import websocket_endpoint
 
 logger = structlog.get_logger()
 settings = get_settings()
@@ -134,6 +135,9 @@ configure_security(app)
 
 # Add Prometheus metrics middleware
 app.add_middleware(PrometheusMiddleware)
+
+# The Kafka consumer and browser share an in-process WebSocket manager.
+app.add_api_websocket_route("/ws", websocket_endpoint)
 
 # Include routers
 app.include_router(monitoring.router, tags=["Monitoring"])  # No auth required for metrics
