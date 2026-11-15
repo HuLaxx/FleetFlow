@@ -9,13 +9,13 @@ from contextlib import asynccontextmanager
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from unittest.mock import AsyncMock
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
-from sqlalchemy import func, select
+from sqlalchemy import select
 
 from src.consumers.gps_consumer import GPSLocationConsumer
-from src.models import DispatchOutboxEvent, Vehicle
+from src.models import DispatchOutboxEvent
 from src.models.user import UserRole
 from tests.test_api.test_dispatch_approval import token_for
 
@@ -57,7 +57,7 @@ async def test_gps_submission_authenticates_driver_and_queues_outbox(
     assert vehicle.last_gps_at is None
     queued = await db_session.scalar(
         select(DispatchOutboxEvent).where(
-            DispatchOutboxEvent.id == valid.json()["event_id"]
+            DispatchOutboxEvent.id == UUID(valid.json()["event_id"])
         )
     )
     assert queued is not None
@@ -99,7 +99,7 @@ async def test_gps_commit_precedes_broadcast_and_old_events_cannot_rollback_posi
     await consumer.handle_message("gps.location", str(vehicle.id), event, 0)
     assert vehicle.latitude == Decimal("55.8752")
     assert vehicle.longitude == Decimal("-4.2581")
-    assert vehicle.last_gps_event_id == event["event_id"]
+    assert str(vehicle.last_gps_event_id) == event["event_id"]
     assert vehicle.last_gps_at == now.replace(tzinfo=None)
     assert websocket.broadcast.await_count == 1
     message = websocket.broadcast.await_args.args[0]
