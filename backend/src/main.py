@@ -135,6 +135,12 @@ configure_security(app)
 # Add Prometheus metrics middleware
 app.add_middleware(PrometheusMiddleware)
 
+# The Kafka consumer and browser must share an in-process WebSocket manager.
+# The separate standalone WebSocket app has no cross-process shared registry.
+from src.websocket_server import websocket_endpoint
+
+app.add_api_websocket_route("/ws", websocket_endpoint)
+
 # Include routers
 app.include_router(monitoring.router, tags=["Monitoring"])  # No auth required for metrics
 app.include_router(auth.router, prefix="/api/v1", tags=["Authentication"])
