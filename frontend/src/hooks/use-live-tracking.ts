@@ -45,8 +45,9 @@ export function useLiveTracking() {
     const localhost = ["localhost", "127.0.0.1"].includes(window.location.hostname);
     const url = process.env.NEXT_PUBLIC_WS_URL || (localhost ? "ws://localhost:8000/ws" : "");
     if (!url) {
-      setConnection("unconfigured");
-      return;
+      // Schedule state change outside the synchronous effect body.
+      const frame = requestAnimationFrame(() => setConnection("unconfigured"));
+      return () => cancelAnimationFrame(frame);
     }
     let stopped = false;
     let retry = 0;
