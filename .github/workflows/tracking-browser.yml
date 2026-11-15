@@ -19,7 +19,8 @@ concurrency:
 jobs:
   browser-tracking:
     name: Playwright tracking freshness/reconnect acceptance
-    runs-on: ubuntu-latest
+    # Playwright Chromium currently has no ubuntu-26.04 installer target.
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
