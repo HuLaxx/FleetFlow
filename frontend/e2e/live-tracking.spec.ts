@@ -16,12 +16,14 @@ function gpsPosition(latitude: number, observedAt: string, source: "postgres" | 
 }
 
 test("shows real GPS updates, ignores older positions and reconnects", async ({ page }) => {
-  const sockets: WebSocketRoute[] = [];
+  let activeSocket: WebSocketRoute | undefined;
   const startingTime = new Date(Date.now() - 10_000).toISOString();
   await page.routeWebSocket("ws://localhost:8000/ws", socket => {
-    sockets.push(socket);
     socket.onMessage(message => {
       if (JSON.parse(String(message)).action === "subscribe") {
+        // React Strict Mode can create/close a throwaway socket before the
+        // actual active subscription. Only send updates to the newest one.
+        activeSocket = socket;
         socket.send(JSON.stringify({
           type: "vehicle_snapshot",
           data: { vehicles: [gpsPosition(55.86, startingTime, "postgres")] },
@@ -37,21 +39,27 @@ test("shows real GPS updates, ignores older positions and reconnects", async ({ 
   await expect(page.getByTestId("tracking-freshness")).toHaveText("FRESH");
   await expect(page.getByTestId("tracking-vehicle-row")).toContainText("55.86000");
 
+  // The last socket to subscribe is the one owned by the mounted hook.
   const newerTime = new Date().toISOString();
-  sockets[0].send(JSON.stringify({
+  const sendOnActiveSocket = (data: object) => {
+    if (!activeSocket) throw new Error("No subscribed tracking socket");
+    activeSocket.send(JSON.stringify(data));
+  };
+  sendOnActiveSocket({
     type: "vehicle_update",
     data: gpsPosition(55.8721, newerTime, "kafka"),
-  }));
+  });
   await expect(page.getByTestId("tracking-vehicle-row")).toContainText("55.87210");
 
   // A delayed Kafka event and a reconnect snapshot may not roll back position.
-  sockets[0].send(JSON.stringify({
+  sendOnActiveSocket({
     type: "vehicle_update",
     data: gpsPosition(51.5, startingTime, "kafka"),
-  }));
+  });
   await expect(page.getByTestId("tracking-vehicle-row")).toContainText("55.87210");
 
-  sockets[0].close();
+  if (!activeSocket) throw new Error("Missing active tracking socket");
+  activeSocket.close();
   await expect(page.getByTestId("tracking-connection")).toContainText("reconnecting");
   await expect(page.getByTestId("tracking-connection")).toContainText("connected", {
     timeout: 10_000,
