@@ -85,9 +85,7 @@ class GPSLocationConsumer(BaseKafkaConsumer):
             longitude = Decimal(str(event.location.longitude))
             vehicle.latitude = latitude
             vehicle.longitude = longitude
-            vehicle.current_location = WKTElement(
-                f"POINT({longitude} {latitude})", srid=4326
-            )
+            vehicle.current_location = WKTElement(f"POINT({longitude} {latitude})", srid=4326)
             vehicle.last_gps_at = observed
             vehicle.last_gps_event_id = event.event_id
             vehicle.updated_at = datetime.now(UTC).replace(tzinfo=None)
