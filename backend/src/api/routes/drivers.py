@@ -10,6 +10,7 @@ from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
+from src.auth.dependencies import require_driver
 from src.database import get_db
 from src.events import (
     DriverStatus,
@@ -18,7 +19,8 @@ from src.events import (
     Location,
     get_kafka_producer,
 )
-from src.models import Driver, Route, Vehicle
+from src.models import DispatchOutboxEvent, Driver, Route, Vehicle
+from src.models.user import User, UserRole
 
 router = APIRouter()
 
@@ -203,41 +205,32 @@ async def get_driver(
     return response
 
 
-@router.post("/{driver_id}/location")
+@router.post("/{driver_id}/location", status_code=202)
 async def update_location(
     driver_id: UUID,
     request: UpdateLocationRequest,
-    background_tasks: BackgroundTasks,
+    current_user: User = Depends(require_driver),
     db: AsyncSession = Depends(get_db),
 ):
-    """
-    Update driver's GPS location.
+    """Queue a GPS event atomically; actual position comes from Kafka consumer.
 
-    Updates the vehicle's current location and publishes to Kafka.
+    A successful HTTP response means *queued*, never "broadcast" or "delivered".
+    Drivers can only submit telemetry for their linked identity. Dispatcher
+    and admin operations remain available for controlled local workflows.
     """
-    # Get driver's current vehicle
-    vehicle_stmt = select(Vehicle).where(Vehicle.current_driver_id == driver_id)
-    result = await db.execute(vehicle_stmt)
-    vehicle = result.scalar_one_or_none()
+    if current_user.role == UserRole.DRIVER and current_user.driver_id != driver_id:
+        raise HTTPException(status_code=403, detail="Cannot submit another driver's GPS")
 
-    if not vehicle:
+    vehicle = await db.scalar(
+        select(Vehicle).where(Vehicle.current_driver_id == driver_id)
+    )
+    if vehicle is None:
         raise HTTPException(status_code=404, detail="Driver has no assigned vehicle")
 
-    # Update vehicle location (trigger will sync with PostGIS)
-    vehicle.latitude = Decimal(str(request.latitude))
-    vehicle.longitude = Decimal(str(request.longitude))
-    vehicle.updated_at = datetime.now(UTC).replace(tzinfo=None)
-
-    await db.commit()
-
-    # Publish GPS event to Kafka
     event = GPSLocationEvent(
         driver_id=driver_id,
         vehicle_id=vehicle.id,
-        location=Location(
-            latitude=request.latitude,
-            longitude=request.longitude,
-        ),
+        location=Location(latitude=request.latitude, longitude=request.longitude),
         speed_kmh=request.speed_kmh,
         heading=request.heading,
         accuracy_m=request.accuracy_m,
@@ -245,27 +238,25 @@ async def update_location(
         battery_level=request.battery_level,
         is_moving=request.is_moving,
     )
-
-    async def publish_event():
-        producer = get_kafka_producer()
-        await producer.publish_async(
+    db.add(
+        DispatchOutboxEvent(
+            id=event.event_id,
             topic="gps.location",
-            event=event,
-            key=str(driver_id),
+            message_key=str(vehicle.id),
+            payload=event.model_dump(mode="json"),
+            status="pending",
+            next_attempt_at=event.timestamp,
         )
-
-    background_tasks.add_task(publish_event)
+    )
+    await db.commit()
 
     return {
+        "status": "queued",
+        "event_id": str(event.event_id),
         "driver_id": str(driver_id),
         "vehicle_id": str(vehicle.id),
-        "location": {
-            "latitude": request.latitude,
-            "longitude": request.longitude,
-        },
-        "received_at": datetime.now(UTC).isoformat(),
+        "delivery_status": "pending",
     }
-
 
 @router.post("/{driver_id}/status")
 async def update_status(
