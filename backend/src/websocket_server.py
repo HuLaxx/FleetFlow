@@ -283,7 +283,8 @@ async def websocket_endpoint(websocket: WebSocket, client_id: str | None = None)
                                                     "latitude": float(vehicle.latitude),
                                                     "longitude": float(vehicle.longitude),
                                                 },
-                                                "observed_at": vehicle.last_gps_at.isoformat() + "Z",
+                                                "observed_at": vehicle.last_gps_at.isoformat()
+                                                + "Z",
                                                 "event_id": (
                                                     str(vehicle.last_gps_event_id)
                                                     if vehicle.last_gps_event_id
