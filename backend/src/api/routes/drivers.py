@@ -220,9 +220,7 @@ async def update_location(
     if current_user.role == UserRole.DRIVER and current_user.driver_id != driver_id:
         raise HTTPException(status_code=403, detail="Cannot submit another driver's GPS")
 
-    vehicle = await db.scalar(
-        select(Vehicle).where(Vehicle.current_driver_id == driver_id)
-    )
+    vehicle = await db.scalar(select(Vehicle).where(Vehicle.current_driver_id == driver_id))
     if vehicle is None:
         raise HTTPException(status_code=404, detail="Driver has no assigned vehicle")
 
@@ -256,6 +254,7 @@ async def update_location(
         "vehicle_id": str(vehicle.id),
         "delivery_status": "pending",
     }
+
 
 @router.post("/{driver_id}/status")
 async def update_status(
