@@ -8,9 +8,9 @@ Real-time communication for:
 - System alerts
 """
 
-import asyncio
 import json
 import os
+import secrets
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from typing import Any
@@ -18,6 +18,11 @@ from typing import Any
 import structlog
 from fastapi import FastAPI, Header, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import select
+
+from src.config import get_settings
+from src.database import AsyncSessionLocal
+from src.models import Vehicle
 
 logger = structlog.get_logger()
 
@@ -25,11 +30,12 @@ ALLOWED_ORIGINS = [
     origin.strip()
     for origin in os.getenv(
         "WEBSOCKET_ALLOWED_ORIGINS",
-        "http://localhost:3000,http://localhost:3001",
+        "http://localhost:3000,http://localhost:3001,http://127.0.0.1:3000",
     ).split(",")
     if origin.strip()
 ]
 BROADCAST_TOKEN = os.getenv("WEBSOCKET_BROADCAST_TOKEN", "")
+settings = get_settings()
 
 
 @dataclass
@@ -84,8 +90,7 @@ class ConnectionManager:
             "subscriptions": [],
         }
 
-        # Subscribe to 'all' by default
-        self.channel_subscriptions["all"].add(websocket)
+        # No implicit subscriptions: explicitly request a channel.
 
         logger.info("WebSocket connected", client_id=client_id, total=len(self.active_connections))
 
@@ -211,7 +216,9 @@ async def websocket_endpoint(websocket: WebSocket, client_id: str | None = None)
     }
     """
     origin = websocket.headers.get("origin")
-    if origin and origin not in ALLOWED_ORIGINS:
+    # Fail closed outside the local development environment until an
+    # authenticated remote WebSocket handshake is implemented.
+    if settings.environment != "development" or origin not in ALLOWED_ORIGINS:
         await websocket.close(code=1008)
         return
 
@@ -248,6 +255,50 @@ async def websocket_endpoint(websocket: WebSocket, client_id: str | None = None)
                             data={"channel": channel, "success": success},
                         ),
                     )
+                    if success and channel == "vehicles":
+                        # Snapshot-on-subscribe restores missed best-effort updates.
+                        async with AsyncSessionLocal() as session:
+                            positions = (
+                                await session.scalars(
+                                    select(Vehicle)
+                                    .where(Vehicle.last_gps_at.is_not(None))
+                                    .order_by(Vehicle.last_gps_at.desc())
+                                    .limit(100)
+                                )
+                            ).all()
+                            await manager.send_personal(
+                                websocket,
+                                WebSocketMessage(
+                                    type="vehicle_snapshot",
+                                    data={
+                                        "vehicles": [
+                                            {
+                                                "vehicle_id": str(vehicle.id),
+                                                "driver_id": (
+                                                    str(vehicle.current_driver_id)
+                                                    if vehicle.current_driver_id
+                                                    else None
+                                                ),
+                                                "location": {
+                                                    "latitude": float(vehicle.latitude),
+                                                    "longitude": float(vehicle.longitude),
+                                                },
+                                                "observed_at": vehicle.last_gps_at.isoformat() + "Z",
+                                                "event_id": (
+                                                    str(vehicle.last_gps_event_id)
+                                                    if vehicle.last_gps_event_id
+                                                    else None
+                                                ),
+                                                "source": "postgres",
+                                            }
+                                            for vehicle in positions
+                                            if vehicle.latitude is not None
+                                            and vehicle.longitude is not None
+                                        ],
+                                        "limit": 100,
+                                    },
+                                ),
+                            )
 
                 elif action == "unsubscribe" and channel:
                     success = manager.unsubscribe(websocket, channel)
@@ -264,6 +315,8 @@ async def websocket_endpoint(websocket: WebSocket, client_id: str | None = None)
                 )
 
     except WebSocketDisconnect:
+        pass
+    finally:
         manager.disconnect(websocket)
 
 
@@ -278,7 +331,7 @@ async def broadcast_to_channel(
 
     Used by other services to push updates.
     """
-    if BROADCAST_TOKEN and x_broadcast_token != BROADCAST_TOKEN:
+    if not BROADCAST_TOKEN or not secrets.compare_digest(x_broadcast_token, BROADCAST_TOKEN):
         raise HTTPException(status_code=401, detail="Unauthorized")
     ws_message = WebSocketMessage(
         type=f"{channel}_update",
@@ -294,57 +347,11 @@ async def broadcast_to_channel(
     }
 
 
-# ============================================
-# Background task for simulated updates
-# ============================================
-
-
-async def simulate_vehicle_updates():
-    """Simulate vehicle location updates for demo."""
-    import random
-
-    vehicles = [
-        {"id": "v1", "driver": "Marcus J.", "lat": 40.7484, "lon": -73.9857},
-        {"id": "v2", "driver": "Sarah C.", "lat": 40.7831, "lon": -73.9712},
-        {"id": "v3", "driver": "James W.", "lat": 40.7128, "lon": -74.0060},
-    ]
-
-    while True:
-        for vehicle in vehicles:
-            # Simulate movement
-            vehicle["lat"] += random.uniform(-0.001, 0.001)
-            vehicle["lon"] += random.uniform(-0.001, 0.001)
-            vehicle["speed"] = random.uniform(20, 50)
-            vehicle["heading"] = random.uniform(0, 360)
-
-            await manager.broadcast(
-                WebSocketMessage(
-                    type="vehicle_update",
-                    data={
-                        "vehicle_id": vehicle["id"],
-                        "driver": vehicle["driver"],
-                        "location": {
-                            "latitude": round(vehicle["lat"], 6),
-                            "longitude": round(vehicle["lon"], 6),
-                        },
-                        "speed_kmh": round(vehicle["speed"], 1),
-                        "heading": round(vehicle["heading"], 1),
-                    },
-                ),
-                channel="vehicles",
-            )
-
-        await asyncio.sleep(2)  # Update every 2 seconds
-
-
-@app.on_event("startup")
-async def startup():
-    """Start background tasks."""
-    asyncio.create_task(simulate_vehicle_updates())
-    logger.info("WebSocket server started")
+# The public Next.js demo uses explicitly seeded map fixtures. This service
+# never manufactures simulated GPS broadcasts in the background.
 
 
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run("websocket_server:app", host="0.0.0.0", port=8002, reload=True, log_level="info")
+    uvicorn.run("src.main:app", host="127.0.0.1", port=8000, reload=False)
