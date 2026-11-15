@@ -61,7 +61,7 @@ export default function TrackingPage() {
         </div>
         <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
           <div className="h-[460px] min-h-0 md:h-[620px]">
-            <LocalLiveTrackingMap vehicles={vehicles} now={now} />
+            <LocalLiveTrackingMap vehicles={vehicles} now={now} connected={connected} />
           </div>
           <section className="rounded-2xl border border-stone-800 bg-stone-900 p-4">
             <h2 className="mb-4 font-semibold">Verified position stream</h2>
