@@ -58,6 +58,11 @@ class Vehicle(Base):
         Geography(geometry_type="POINT", srid=4326)
     )
 
+    # Last validated GPS event time. Separate from updated_at, which can change for
+    # status, assignments or maintenance and must not imply fresh tracking.
+    last_gps_at: Mapped[datetime | None] = mapped_column()
+    last_gps_event_id: Mapped[UUID | None] = mapped_column()
+
     # Status: available, in_use, maintenance, retired
     status: Mapped[str] = mapped_column(String(20), default="available")
 
