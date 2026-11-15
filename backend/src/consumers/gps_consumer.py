@@ -8,7 +8,6 @@ FastAPI WebSocket. We do not claim exactly-once external broadcasts.
 import math
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
-from uuid import UUID
 
 import structlog
 from geoalchemy2.elements import WKTElement
