@@ -10,7 +10,8 @@ const navLinks = [
     { href: '/portfolio', label: 'Portfolio' },
     { href: '/architecture', label: 'Architecture' },
     { href: '/tech-stack', label: 'Tech Stack' },
-    { href: '/demo', label: 'Live Demo', highlight: true },
+    { href: '/tracking', label: 'GPS Console' },
+    { href: '/demo', label: 'Seeded Demo', highlight: true },
 ];
 
 export function SiteHeader() {
