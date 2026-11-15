@@ -1,6 +1,6 @@
 # FleetFlow P1 — local live GPS tracking console
 
-**Review status:** stacked draft PR #8 on PR #7. This integration is deliberately
+**Review status:** stacked draft PR #8 on PR #7; code CI and separate browser tests verified on commit `c27af41f38b4a14f535372465206249481d1a54d`. This integration is deliberately
 **local-development only**. Public hosted telemetry is disabled until a
 permission-scoped, authenticated WebSocket handshake and reviewed deployment
 model exist. Do not call a Vercel build a live backend deployment.
@@ -84,6 +84,14 @@ authenticated GPS POST returns an event ID and `delivery_status=pending`.
 Once the outbox worker publishes it and the subscribed GPS consumer has
 committed the position, `/tracking` can show the fresh vehicle. Without the
 worker or Kafka, the tracking console will show no data or stale data.
+
+## Verified CI results
+
+- [Backend run 43688456913](https://github.com/HuLaxx/FleetFlow/actions/runs/43688456913), **5/5 jobs successful** on code SHA `c27af41f38b4a14f535372465206249481d1a54d`: **91 backend tests passed, 2 intentionally skipped broker-only tests, 3 warnings, 65% backend statement coverage**. Ruff, Black, frontend lint/types/build, CPU ML smoke and high/critical security checks all passed.
+- [Chromium run 43688456894](https://github.com/HuLaxx/FleetFlow/actions/runs/43688456894), same code SHA: **3 Playwright live-tracking tests passed, with no retries**. Validated GPS movement, late-packet rejection, resubscription after reconnect, stale position badge, and zero fabricated vehicles. Test broker messages are **stubbed** in this browser workflow.
+- [Real Kafka + PostGIS run 43688250065](https://github.com/HuLaxx/FleetFlow/actions/runs/43688250065), previous backend-identical code SHA `febef2d2c8bdfd1e1f15423b7c30fcf7fb241409`: **both actual Redpanda broker tests and 5 focused poison/offset tests passed**, including newly added GPS broker-to-PostGIS-to-WebSocket manager delivery and duplicate-on-restart suppression. Subsequent commits modified frontend components/browser tests only; the broker-tested backend sources did not change. This test intentionally uses a mocked WS manager, not a real browser.
+- Earlier failing checks identified and fixed map camera/fallback handling, a stale browser mock socket, unused imports/formatting and a Playwright Next.js startup command. These failure modes remain in review history; do not count any failed/cancelled runs as passing.
+- Documentation-only commits after these code checks require an independent matching HEAD check. These results do **not** demonstrate a deployed internet-facing live tracking service.
 
 ## Acceptance evidence
 
