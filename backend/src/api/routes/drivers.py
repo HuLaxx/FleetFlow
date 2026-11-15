@@ -1,7 +1,6 @@
 """Drivers API endpoints - with DATABASE integration."""
 
 from datetime import UTC, datetime
-from decimal import Decimal
 from uuid import UUID
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
