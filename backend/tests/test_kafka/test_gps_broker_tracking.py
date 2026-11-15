@@ -91,20 +91,24 @@ async def test_real_gps_outbox_event_updates_db_and_websocket_once(integration_e
             sent = await dispatch_outbox_batch(session, producer.publish_confirmed_async)
             assert sent["published"] == 1
         group = f"fleetflow-gps-test-{suffix}"
-        consumer_client = AIOKafkaConsumer(
-            "gps.location",
-            bootstrap_servers=os.environ["KAFKA_BOOTSTRAP_SERVERS"],
-            group_id=group,
-            auto_offset_reset="earliest",
-            enable_auto_commit=False,
-            value_deserializer=None,
-        )
+        async def new_consumer():
+            client = AIOKafkaConsumer(
+                "gps.location",
+                bootstrap_servers=os.environ["KAFKA_BOOTSTRAP_SERVERS"],
+                group_id=group,
+                auto_offset_reset="earliest",
+                enable_auto_commit=False,
+                value_deserializer=None,
+            )
+            await client.start()
+            return client
+
         handler = GPSLocationConsumer()
         socket_manager = AsyncMock()
         socket_manager.broadcast.return_value = 1
         handler.set_websocket_manager(socket_manager)
 
-        await consumer_client.start()
+        consumer_client = await new_consumer()
         try:
             first = await asyncio.wait_for(consumer_client.getone(), timeout=25)
             await handler._process_message(first)
@@ -112,7 +116,7 @@ async def test_real_gps_outbox_event_updates_db_and_websocket_once(integration_e
         finally:
             await consumer_client.stop()
 
-        await consumer_client.start()
+        consumer_client = await new_consumer()
         try:
             duplicate = await asyncio.wait_for(consumer_client.getone(), timeout=25)
             assert duplicate.value == first.value
