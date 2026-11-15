@@ -33,9 +33,13 @@ async def test_gps_updates_vehicle_coordinates_and_commits():
     vehicle_id = uuid4()
     driver_id = uuid4()
     vehicle = MagicMock()
+    vehicle.current_driver_id = driver_id
+    vehicle.last_gps_at = None
     context, session = mock_db_session(vehicle)
 
     event = {
+        "event_id": str(uuid4()),
+        "schema_version": 1,
         "vehicle_id": str(vehicle_id),
         "driver_id": str(driver_id),
         "location": {"latitude": 55.8642, "longitude": -4.2518},
@@ -53,7 +57,7 @@ async def test_gps_updates_vehicle_coordinates_and_commits():
 
 @pytest.mark.asyncio
 async def test_invalid_gps_payload_raises_instead_of_silently_passing():
-    with pytest.raises(KeyError):
+    with pytest.raises(ValueError):
         await GPSLocationConsumer().handle_message("gps.location", None, {"invalid": "data"}, 0)
 
 
