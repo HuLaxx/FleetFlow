@@ -1,6 +1,7 @@
 'use client';
 
 import dynamic from 'next/dynamic';
+import Link from 'next/link';
 import { SiteHeader } from '@/components/site/site-header';
 import { SiteFooter } from '@/components/site/site-footer';
 import { Sidebar } from '@/components/dashboard/sidebar';
@@ -28,8 +29,14 @@ export default function DemoPage() {
 
             {/* Demo Content */}
             <main className="flex-1 pt-24 md:pt-28 pb-12 flex flex-col gap-6">
-                <div className="px-6">
+                <div className="flex flex-col gap-3 px-6">
                     <DemoNotice />
+                    <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-stone-400">
+                        <p>Dashboard routes, stops and vehicles below are seeded demonstration data.</p>
+                        <Link href="/tracking" className="font-semibold text-emerald-400 underline underline-offset-4">
+                            Open local GPS tracking console
+                        </Link>
+                    </div>
                 </div>
 
                 {/* Dashboard Container - Full viewport height minus header */}
