@@ -113,8 +113,13 @@ class ConnectionManager:
         self.connection_info: dict[WebSocket, dict[str, Any]] = {}
 
     async def connect(
-        self, websocket: WebSocket, client_id: str | None = None,
-        *, user: User, expires: datetime, already_accepted: bool = False,
+        self,
+        websocket: WebSocket,
+        client_id: str | None = None,
+        *,
+        user: User,
+        expires: datetime,
+        already_accepted: bool = False,
     ) -> None:
         if not already_accepted:
             await websocket.accept()
@@ -196,9 +201,7 @@ class ConnectionManager:
                     return 0
                 for socket in subscribed:
                     meta = self.connection_info.get(socket)
-                    user = (
-                        await session.get(User, meta["user_id"]) if meta else None
-                    )
+                    user = await session.get(User, meta["user_id"]) if meta else None
                     if not self.is_current_user(user, meta):
                         await self.revoke(socket)
                         continue
@@ -260,9 +263,7 @@ async def permitted_snapshot(user_id: UUID, role: UserRole) -> list[dict[str, An
         elif user.role == UserRole.DRIVER:
             query = query.where(Vehicle.current_driver_id == user.driver_id)
         vehicles = (
-            await session.scalars(
-                query.order_by(Vehicle.last_gps_at.desc()).limit(100)
-            )
+            await session.scalars(query.order_by(Vehicle.last_gps_at.desc()).limit(100))
         ).all()
         return [
             {
@@ -274,9 +275,7 @@ async def permitted_snapshot(user_id: UUID, role: UserRole) -> list[dict[str, An
                 "source": "postgres",
             }
             for v in vehicles
-            if may_view_vehicle(user, v)
-            and v.latitude is not None
-            and v.longitude is not None
+            if may_view_vehicle(user, v) and v.latitude is not None and v.longitude is not None
         ]
 
 
@@ -310,7 +309,11 @@ async def websocket_endpoint(websocket: WebSocket, client_id: str | None = None)
         return
 
     await manager.connect(
-        websocket, client_id, user=user, expires=expires, already_accepted=True,
+        websocket,
+        client_id,
+        user=user,
+        expires=expires,
+        already_accepted=True,
     )
     await manager.send_personal(
         websocket,
@@ -326,9 +329,7 @@ async def websocket_endpoint(websocket: WebSocket, client_id: str | None = None)
                 await websocket.close(code=1008)
                 break
             try:
-                raw = await asyncio.wait_for(
-                    websocket.receive_text(), timeout=min(30, seconds)
-                )
+                raw = await asyncio.wait_for(websocket.receive_text(), timeout=min(30, seconds))
             except TimeoutError:
                 continue
             if len(raw) > 4096:
@@ -338,7 +339,8 @@ async def websocket_endpoint(websocket: WebSocket, client_id: str | None = None)
                 request = json.loads(raw)
             except json.JSONDecodeError:
                 await manager.send_personal(
-                    websocket, WebSocketMessage(type="error", data={"message": "Invalid JSON"}),
+                    websocket,
+                    WebSocketMessage(type="error", data={"message": "Invalid JSON"}),
                 )
                 continue
             if not isinstance(request, dict):
@@ -383,7 +385,8 @@ async def websocket_endpoint(websocket: WebSocket, client_id: str | None = None)
                 )
             elif action == "ping":
                 await manager.send_personal(
-                    websocket, WebSocketMessage(type="pong", data={}),
+                    websocket,
+                    WebSocketMessage(type="pong", data={}),
                 )
     except WebSocketDisconnect:
         pass
@@ -398,16 +401,15 @@ async def broadcast_to_channel(
     x_broadcast_token: str = Header(default=""),
 ):
     """Opt-in authenticated internal endpoint, still subject to scope checks."""
-    if not BROADCAST_TOKEN or not secrets.compare_digest(
-        x_broadcast_token, BROADCAST_TOKEN
-    ):
+    if not BROADCAST_TOKEN or not secrets.compare_digest(x_broadcast_token, BROADCAST_TOKEN):
         raise HTTPException(status_code=401, detail="Unauthorized")
     if channel != "vehicles":
         raise HTTPException(status_code=403, detail="Unsupported location channel")
     if not isinstance(message, dict) or "vehicle_id" not in message:
         raise HTTPException(status_code=422, detail="Missing vehicle ID")
     sent = await manager.broadcast(
-        WebSocketMessage(type="vehicle_update", data=message), channel=channel,
+        WebSocketMessage(type="vehicle_update", data=message),
+        channel=channel,
     )
     return {"status": "sent", "channel": channel, "recipients": sent}
 
