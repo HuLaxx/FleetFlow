@@ -137,7 +137,8 @@ async def login(
         )
 
     # Update last login
-    user.last_login = datetime.now(UTC)
+    # Legacy column is TIMESTAMP WITHOUT TIME ZONE; store naive UTC consistently.
+    user.last_login = datetime.now(UTC).replace(tzinfo=None)
     await db.commit()
 
     # Create tokens
