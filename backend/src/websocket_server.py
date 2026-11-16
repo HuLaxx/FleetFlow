@@ -99,9 +99,8 @@ async def authenticate_access_token(token: str) -> tuple[User, datetime] | None:
             return None
         if data.role != user.role.value or not may_subscribe(user):
             return None
-        # Capture only immutable identity/scope fields; no session or raw
-        # access token is kept in the socket registry.
-        session.expunge(user)
+        # Only identity/scope attributes are retained by the registry.
+        # No session or raw access token is kept with the connection.
         return user, expires
 
 
