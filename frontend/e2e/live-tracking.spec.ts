@@ -39,6 +39,9 @@ function handleAuth(socket: WebSocketRoute, message: string | Buffer, snapshot: 
   if (packet.action === "authenticate") {
     socket.send(JSON.stringify({ type: "authenticated", data: { channel: "vehicles" } }));
   } else if (packet.action === "subscribe") {
+    socket.send(JSON.stringify({
+      type: "subscribed", data: { channel: "vehicles", success: true },
+    }));
     socket.send(JSON.stringify({ type: "vehicle_snapshot", data: snapshot }));
   }
 }
