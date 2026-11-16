@@ -165,7 +165,7 @@ async def login(
 @router.post("/refresh", response_model=TokenResponse)
 async def refresh_token(request: RefreshRequest, db: AsyncSession = Depends(get_db)):
     """Refresh access token using refresh token."""
-    token_data = decode_token(request.refresh_token)
+    token_data = decode_token(request.refresh_token, expected_type="refresh")
 
     if token_data is None:
         raise HTTPException(
