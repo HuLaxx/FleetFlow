@@ -81,3 +81,30 @@ async def test_public_list_and_detail_redact_gps_coordinates(
     assert allowed.json()["current_location"]["latitude"] == 55.87
     allowed_driver = await client.get(f"/api/v1/drivers/{driver.id}", headers=headers)
     assert allowed_driver.json()["current_location"]["latitude"] == 55.87
+
+
+@pytest.mark.asyncio
+async def test_dispatcher_cannot_queue_another_depots_gps(
+    client, db_session, sample_depot, sample_driver, sample_vehicle
+):
+    depot = await sample_depot()
+    other_depot = await sample_depot()
+    driver = await sample_driver(depot_id=depot.id)
+    await sample_vehicle(driver_id=driver.id, depot_id=depot.id)
+    path = f"/api/v1/drivers/{driver.id}/location"
+    payload = {"latitude": 55.87, "longitude": -4.26}
+    for scope in (None, other_depot.id):
+        _, token = await make_user(db_session, UserRole.DISPATCHER, depot_id=scope)
+        response = await client.post(
+            path, json=payload, headers={"Authorization": f"Bearer {token}"}
+        )
+        assert response.status_code == 403
+
+    _, allowed_token = await make_user(
+        db_session, UserRole.DISPATCHER, depot_id=depot.id
+    )
+    response = await client.post(
+        path, json=payload, headers={"Authorization": f"Bearer {allowed_token}"}
+    )
+    assert response.status_code == 202
+    assert response.json()["status"] == "queued"
