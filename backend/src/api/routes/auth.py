@@ -137,7 +137,8 @@ async def login(
         )
 
     # Update last login
-    user.last_login = datetime.now(UTC)
+    # Legacy column is TIMESTAMP WITHOUT TIME ZONE; store naive UTC consistently.
+    user.last_login = datetime.now(UTC).replace(tzinfo=None)
     await db.commit()
 
     # Create tokens
@@ -165,7 +166,7 @@ async def login(
 @router.post("/refresh", response_model=TokenResponse)
 async def refresh_token(request: RefreshRequest, db: AsyncSession = Depends(get_db)):
     """Refresh access token using refresh token."""
-    token_data = decode_token(request.refresh_token)
+    token_data = decode_token(request.refresh_token, expected_type="refresh")
 
     if token_data is None:
         raise HTTPException(

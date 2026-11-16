@@ -7,14 +7,18 @@ from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
+from src.auth.dependencies import get_current_user, require_user
 from src.database import get_db
 from src.models import Vehicle
+from src.models.user import User
+from src.websocket_server import may_view_vehicle
 
 router = APIRouter()
 
 
 @router.get("")
 async def list_vehicles(
+    current_user: User | None = Depends(get_current_user),
     status: str | None = Query(None),
     depot_id: UUID | None = Query(None),
     type: str | None = Query(None),
@@ -75,7 +79,12 @@ async def list_vehicles(
                 "name": vehicle.current_driver.full_name,
             }
 
-        if vehicle.latitude and vehicle.longitude:
+        if (
+            current_user
+            and may_view_vehicle(current_user, vehicle)
+            and vehicle.latitude is not None
+            and vehicle.longitude is not None
+        ):
             vehicle_data["current_location"] = {
                 "latitude": float(vehicle.latitude),
                 "longitude": float(vehicle.longitude),
@@ -98,6 +107,7 @@ async def list_vehicles(
 @router.get("/{vehicle_id}")
 async def get_vehicle(
     vehicle_id: UUID,
+    current_user: User | None = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Get vehicle details by ID."""
@@ -139,7 +149,12 @@ async def get_vehicle(
             "name": vehicle.current_driver.full_name,
         }
 
-    if vehicle.latitude and vehicle.longitude:
+    if (
+        current_user
+        and may_view_vehicle(current_user, vehicle)
+        and vehicle.latitude is not None
+        and vehicle.longitude is not None
+    ):
         response["current_location"] = {
             "latitude": float(vehicle.latitude),
             "longitude": float(vehicle.longitude),
@@ -176,6 +191,7 @@ async def get_vehicle(
 @router.get("/{vehicle_id}/location")
 async def get_vehicle_location(
     vehicle_id: UUID,
+    current_user: User = Depends(require_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Get vehicle's current location."""
@@ -189,7 +205,9 @@ async def get_vehicle_location(
     if not vehicle:
         raise HTTPException(status_code=404, detail="Vehicle not found")
 
-    if not vehicle.latitude or not vehicle.longitude:
+    if not may_view_vehicle(current_user, vehicle):
+        raise HTTPException(status_code=403, detail="Vehicle GPS access denied")
+    if vehicle.latitude is None or vehicle.longitude is None:
         raise HTTPException(status_code=404, detail="Vehicle location not available")
 
     return {

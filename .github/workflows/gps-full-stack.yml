@@ -1,0 +1,183 @@
+name: FleetFlow GPS Real Full Stack
+
+# Real browser -> FastAPI -> durable outbox -> Redpanda -> PostGIS
+# -> authenticated same-process WebSocket -> browser. No mocked sockets,
+# external credentials, cloud resources or production database access.
+on:
+  push:
+    branches: ['feature/**', 'fix/**']
+    paths:
+      - 'backend/**'
+      - 'frontend/**'
+      - 'db/init/06_websocket_dispatch_scope.sql'
+      - '.github/workflows/gps-full-stack.yml'
+  pull_request:
+    branches: [main, 'feature/**']
+    paths:
+      - 'backend/**'
+      - 'frontend/**'
+      - 'db/init/06_websocket_dispatch_scope.sql'
+      - '.github/workflows/gps-full-stack.yml'
+
+concurrency:
+  group: gps-full-stack-${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  actual-gps-browser:
+    name: Actual GPS Kafka to authenticated Chromium
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgis/postgis:15-3.3
+        env:
+          POSTGRES_USER: fleetflow
+          POSTGRES_PASSWORD: fleetpass
+          POSTGRES_DB: fleetflow_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      ENVIRONMENT: development
+      POSTGRES_HOST: localhost
+      POSTGRES_PORT: '5432'
+      POSTGRES_USER: fleetflow
+      POSTGRES_PASSWORD: fleetpass
+      POSTGRES_DB: fleetflow_test
+      DATABASE_URL: postgresql+asyncpg://fleetflow:fleetpass@localhost:5432/fleetflow_test
+      KAFKA_BOOTSTRAP_SERVERS: localhost:19092
+      GPS_E2E_EMAIL: gps-browser@example.test
+      NEXT_PUBLIC_FASTAPI_BASE_URL: http://localhost:8000
+      NEXT_PUBLIC_WS_URL: ws://localhost:8000/ws
+      NEXT_TELEMETRY_DISABLED: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Generate disposable CI-only credentials
+        run: |
+          echo "JWT_SECRET_KEY=$(python -c 'import secrets; print(secrets.token_urlsafe(48))')" >> "$GITHUB_ENV"
+          echo "GPS_E2E_PASSWORD=$(python -c 'import secrets; print(secrets.token_urlsafe(28))')" >> "$GITHUB_ENV"
+
+      - name: Install locked dependencies
+        run: |
+          python -m pip install -e './backend[dev]'
+          cd frontend
+          pnpm install --frozen-lockfile
+          pnpm exec playwright install --with-deps chromium
+
+      - name: Start disposable Kafka-compatible Redpanda
+        run: |
+          docker run --detach --name fleetflow-redpanda --hostname fleetflow-redpanda \
+            -p 19092:19092 \
+            docker.redpanda.com/redpandadata/redpanda:v25.1.1 \
+            redpanda start --mode dev-container --smp 1 \
+            --kafka-addr internal://0.0.0.0:9092,external://0.0.0.0:19092 \
+            --advertise-kafka-addr internal://fleetflow-redpanda:9092,external://localhost:19092 \
+            --rpc-addr fleetflow-redpanda:33145 \
+            --advertise-rpc-addr fleetflow-redpanda:33145 \
+            --check=false
+          timeout 100s bash -c 'until docker exec fleetflow-redpanda rpk cluster info -X brokers=127.0.0.1:9092; do sleep 2; done'
+
+      - name: Bootstrap isolated PostGIS and exercise additive migrations
+        run: |
+          python - <<'PY'
+          import asyncio
+          from sqlalchemy import text
+          import src.models
+          from src.database import Base, engine
+
+          assert engine.url.database == "fleetflow_test" and engine.url.host in ("localhost", "127.0.0.1")
+          async def create():
+              async with engine.begin() as connection:
+                  await connection.execute(text("CREATE EXTENSION IF NOT EXISTS postgis"))
+                  await connection.run_sync(Base.metadata.create_all)
+              await engine.dispose()
+
+          asyncio.run(create())
+          PY
+          for file in db/init/03_dispatch_reliability.sql db/init/04_dispatch_quarantine.sql db/init/05_gps_tracking.sql db/init/06_websocket_dispatch_scope.sql; do
+            PGPASSWORD=fleetpass psql -h localhost -U fleetflow -d fleetflow_test -v ON_ERROR_STOP=1 -1 -f "$file"
+          done
+
+      - name: Create a synthetic driver, vehicle and scoped login
+        run: |
+          python backend/scripts/seed_gps_browser_ci.py > "$RUNNER_TEMP/gps-fixture.json"
+          python - <<'PY' >> "$GITHUB_ENV"
+          import json, os
+          with open(os.path.join(os.environ["RUNNER_TEMP"], "gps-fixture.json")) as f:
+              record = json.load(f)
+          print("GPS_E2E_DRIVER_ID=" + record["driver_id"])
+          print("GPS_E2E_VEHICLE_ID=" + record["vehicle_id"])
+          PY
+
+      - name: Verify non-mocked GPS through actual Chromium
+        run: |
+          set -euo pipefail
+          python -m uvicorn src.main:app --host 127.0.0.1 --port 8000 > "$RUNNER_TEMP/gps-api.log" 2>&1 &
+          api_pid=$!
+          python -m src.reliability.worker --forever --interval 0.5 > "$RUNNER_TEMP/gps-outbox.log" 2>&1 &
+          worker_pid=$!
+          trap 'kill "$api_pid" "$worker_pid" 2>/dev/null || true' EXIT
+          ready=0
+          for attempt in $(seq 1 60); do
+            if curl --silent --fail http://localhost:8000/health > /dev/null; then
+              ready=1
+              break
+            fi
+            sleep 1
+          done
+          if [ "$ready" != 1 ]; then
+            echo "FastAPI failed to start"
+            tail -80 "$RUNNER_TEMP/gps-api.log"
+            exit 1
+          fi
+          # Await actual Kafka group assignment, so earliest/latest
+          # offset-reset races cannot hide a freshly submitted GPS event.
+          for attempt in $(seq 1 40); do
+            if docker exec fleetflow-redpanda rpk group describe gps-location-consumer -X brokers=127.0.0.1:9092 2>/dev/null | grep -q 'gps.location'; then
+              break
+            fi
+            sleep 1
+          done
+          cd frontend
+          pnpm exec playwright test e2e/gps-full-stack.spec.ts --reporter=line
+
+      - name: Preserve CI diagnostics on failure
+        if: failure()
+        run: |
+          for file in "$RUNNER_TEMP/gps-api.log" "$RUNNER_TEMP/gps-outbox.log"; do
+            if [ -f "$file" ]; then tail -100 "$file"; fi
+          done
+          docker logs --tail 70 fleetflow-redpanda || true
+
+      - name: Save browser traces on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gps-full-stack-playwright-traces
+          path: |
+            frontend/test-results/
+            frontend/playwright-report/
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Remove temporary broker
+        if: always()
+        run: docker rm -f fleetflow-redpanda || true

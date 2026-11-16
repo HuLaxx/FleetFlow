@@ -18,7 +18,7 @@ const vehicleSchema = z.object({
 });
 
 export type LiveVehicle = z.infer<typeof vehicleSchema>;
-export type LiveConnection = "unconfigured" | "connecting" | "connected" | "reconnecting";
+export type LiveConnection = "signed-out" | "unconfigured" | "connecting" | "connected" | "reconnecting" | "unauthorized";
 export const STALE_AFTER_MS = 60_000;
 
 export function mergeLivePosition(
@@ -36,17 +36,21 @@ export function mergeLivePosition(
   return { ...previous, [next.vehicle_id]: next };
 }
 
-export function useLiveTracking() {
+export function useLiveTracking(accessToken: string | null) {
   const [positions, setPositions] = useState<Record<string, LiveVehicle>>({});
-  const [connection, setConnection] = useState<LiveConnection>("connecting");
+  const [connection, setConnection] = useState<LiveConnection>("signed-out");
   const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
     const localhost = ["localhost", "127.0.0.1"].includes(window.location.hostname);
     const url = process.env.NEXT_PUBLIC_WS_URL || (localhost ? "ws://localhost:8000/ws" : "");
-    if (!url) {
-      // Schedule state change outside the synchronous effect body.
-      const frame = requestAnimationFrame(() => setConnection("unconfigured"));
+    // No unauthenticated socket is opened. The access token lives only in
+    // React component memory; it is never sent as a URL, cookie or subprotocol.
+    if (!accessToken || !url || (!localhost && url.startsWith("ws://"))) {
+      const frame = requestAnimationFrame(() => {
+        setConnection(accessToken ? "unconfigured" : "signed-out");
+        setPositions({});
+      });
       return () => cancelAnimationFrame(frame);
     }
     let stopped = false;
@@ -67,8 +71,7 @@ export function useLiveTracking() {
       }
       socket.onopen = () => {
         retry = 0;
-        setConnection("connected");
-        socket?.send(JSON.stringify({ action: "subscribe", channel: "vehicles" }));
+        socket?.send(JSON.stringify({ action: "authenticate", token: accessToken }));
         if (pingTimer) clearInterval(pingTimer);
         pingTimer = setInterval(() => {
           if (socket?.readyState === WebSocket.OPEN) {
@@ -79,7 +82,14 @@ export function useLiveTracking() {
       socket.onmessage = event => {
         try {
           const message = JSON.parse(event.data) as { type?: string; data?: unknown };
-          if (message.type === "vehicle_update") {
+          if (message.type === "authenticated") {
+            socket?.send(JSON.stringify({ action: "subscribe", channel: "vehicles" }));
+          } else if (message.type === "subscribed") {
+            const accepted = z.object({
+              channel: z.literal("vehicles"), success: z.literal(true),
+            }).safeParse(message.data);
+            if (accepted.success) setConnection("connected");
+          } else if (message.type === "vehicle_update") {
             setPositions(previous => mergeLivePosition(previous, message.data));
           } else if (message.type === "vehicle_snapshot") {
             const snapshot = z.object({ vehicles: z.array(z.unknown()).max(100) }).safeParse(message.data);
@@ -93,9 +103,17 @@ export function useLiveTracking() {
           // Invalid socket messages never create map markers.
         }
       };
-      socket.onclose = () => {
+      socket.onclose = (event) => {
         if (pingTimer) clearInterval(pingTimer);
-        if (!stopped) scheduleRetry();
+        if (stopped) return;
+        // 1008 signals expired, revoked or insufficiently scoped credentials.
+        // Do not reconnect or retain another user's previously visible GPS.
+        if (event.code === 1008) {
+          setPositions({});
+          setConnection("unauthorized");
+          return;
+        }
+        scheduleRetry();
       };
       socket.onerror = () => {
         // Closing triggers bounded reconnect and resubscription.
@@ -117,11 +135,11 @@ export function useLiveTracking() {
       if (pingTimer) clearInterval(pingTimer);
       socket?.close();
     };
-  }, []);
+  }, [accessToken]);
 
   const vehicles = Object.values(positions);
   const fresh = vehicles.filter(
-    vehicle => now - Date.parse(vehicle.observed_at) <= STALE_AFTER_MS,
+    vehicle => connection === "connected" && now - Date.parse(vehicle.observed_at) <= STALE_AFTER_MS,
   );
   return { vehicles, fresh, connection, now };
 }
