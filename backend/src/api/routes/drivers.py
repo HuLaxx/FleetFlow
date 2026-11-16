@@ -237,6 +237,10 @@ async def update_location(
     vehicle = await db.scalar(select(Vehicle).where(Vehicle.current_driver_id == driver_id))
     if vehicle is None:
         raise HTTPException(status_code=404, detail="Driver has no assigned vehicle")
+    if current_user.role == UserRole.DISPATCHER and (
+        current_user.depot_id is None or current_user.depot_id != vehicle.depot_id
+    ):
+        raise HTTPException(status_code=403, detail="Driver outside assigned dispatcher depot")
 
     event = GPSLocationEvent(
         driver_id=driver_id,
