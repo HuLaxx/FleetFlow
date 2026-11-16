@@ -9,7 +9,7 @@ from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
-from src.auth.dependencies import require_driver
+from src.auth.dependencies import get_current_user, require_driver
 from src.database import get_db
 from src.events import (
     DriverStatus,
@@ -20,6 +20,7 @@ from src.events import (
 )
 from src.models import DispatchOutboxEvent, Driver, Route, Vehicle
 from src.models.user import User, UserRole
+from src.websocket_server import may_view_vehicle
 
 router = APIRouter()
 
@@ -56,6 +57,7 @@ class UpdateStatusRequest(BaseModel):
 
 @router.get("")
 async def list_drivers(
+    current_user: User | None = Depends(get_current_user),
     status: str | None = Query(None, description="Filter by status"),
     limit: int = Query(50, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
@@ -100,7 +102,7 @@ async def list_drivers(
             "vehicle": None,
         }
 
-        if vehicle and vehicle.latitude and vehicle.longitude:
+        if vehicle and current_user and may_view_vehicle(current_user, vehicle) and vehicle.latitude is not None and vehicle.longitude is not None:
             driver_data["current_location"] = {
                 "latitude": float(vehicle.latitude),
                 "longitude": float(vehicle.longitude),
@@ -122,6 +124,7 @@ async def list_drivers(
 @router.get("/{driver_id}")
 async def get_driver(
     driver_id: UUID,
+    current_user: User | None = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Get driver details by ID."""
@@ -176,7 +179,7 @@ async def get_driver(
             "type": vehicle.type,
             "capacity_kg": float(vehicle.capacity_kg),
         }
-        if vehicle.latitude and vehicle.longitude:
+        if current_user and may_view_vehicle(current_user, vehicle) and vehicle.latitude is not None and vehicle.longitude is not None:
             response["current_location"] = {
                 "latitude": float(vehicle.latitude),
                 "longitude": float(vehicle.longitude),
