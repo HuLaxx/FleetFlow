@@ -79,7 +79,12 @@ async def list_vehicles(
                 "name": vehicle.current_driver.full_name,
             }
 
-        if current_user and may_view_vehicle(current_user, vehicle) and vehicle.latitude is not None and vehicle.longitude is not None:
+        if (
+            current_user
+            and may_view_vehicle(current_user, vehicle)
+            and vehicle.latitude is not None
+            and vehicle.longitude is not None
+        ):
             vehicle_data["current_location"] = {
                 "latitude": float(vehicle.latitude),
                 "longitude": float(vehicle.longitude),
@@ -144,7 +149,12 @@ async def get_vehicle(
             "name": vehicle.current_driver.full_name,
         }
 
-    if current_user and may_view_vehicle(current_user, vehicle) and vehicle.latitude is not None and vehicle.longitude is not None:
+    if (
+        current_user
+        and may_view_vehicle(current_user, vehicle)
+        and vehicle.latitude is not None
+        and vehicle.longitude is not None
+    ):
         response["current_location"] = {
             "latitude": float(vehicle.latitude),
             "longitude": float(vehicle.longitude),
