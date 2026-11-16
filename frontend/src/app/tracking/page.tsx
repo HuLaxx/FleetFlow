@@ -1,6 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import { useState, type FormEvent } from "react";
 import Link from "next/link";
 import { Activity, AlertTriangle, Clock3, Truck } from "lucide-react";
 
@@ -14,7 +15,45 @@ const LocalLiveTrackingMap = dynamic(
 );
 
 export default function TrackingPage() {
-  const { vehicles, fresh, connection, now } = useLiveTracking();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [accessToken, setAccessToken] = useState<string | null>(null);
+  const [loginError, setLoginError] = useState("");
+  const [loggingIn, setLoggingIn] = useState(false);
+  const { vehicles, fresh, connection, now } = useLiveTracking(accessToken);
+
+  async function login(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setLoggingIn(true);
+    setLoginError("");
+    const localApi = process.env.NEXT_PUBLIC_FASTAPI_BASE_URL || "http://localhost:8000";
+    try {
+      const form = new URLSearchParams({ username: email.trim(), password });
+      const response = await fetch(`${localApi}/api/v1/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: form,
+        cache: "no-store",
+      });
+      if (!response.ok) throw new Error("Login failed. Check the local API and credentials.");
+      const body: { access_token?: string } = await response.json();
+      if (!body.access_token) throw new Error("The API did not return an access token.");
+      setPassword("");
+      setAccessToken(body.access_token);
+    } catch (error) {
+      setPassword("");
+      setLoginError(error instanceof Error ? error.message : "Login unavailable");
+    } finally {
+      setLoggingIn(false);
+    }
+  }
+
+  function signOut() {
+    setAccessToken(null);
+    setPassword("");
+    setEmail("");
+    setLoginError("");
+  }
   const connected = connection === "connected";
   return (
     <div className="flex min-h-screen flex-col bg-stone-950 text-stone-100">
@@ -38,10 +77,51 @@ export default function TrackingPage() {
             className="w-fit rounded-full border border-stone-700 bg-stone-900 px-4 py-2 text-sm"
           >
             <span className={connected ? "text-emerald-400" : "text-amber-300"}>
-              {connection === "unconfigured" ? "Not configured" : connection}
+              {connection === "unconfigured" ? "Not configured" : connection === "signed-out" ? "Sign in required" : connection}
             </span>
           </div>
         </header>
+        <section className="rounded-xl border border-stone-800 bg-stone-900 p-4">
+          {accessToken ? (
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="text-sm text-stone-300">
+                Access-token session is held in memory only. Closing this tab or
+                signing out discards it.
+              </p>
+              <button data-testid="tracking-sign-out" type="button" onClick={signOut}
+                className="rounded-lg border border-stone-700 px-3 py-2 text-sm hover:border-amber-400">
+                Sign out
+              </button>
+            </div>
+          ) : (
+            <form data-testid="tracking-login" onSubmit={login}
+              className="flex flex-col gap-3 sm:flex-row sm:items-end">
+              <label className="flex-1 text-xs text-stone-300">
+                Local account email
+                <input data-testid="tracking-email" type="email" autoComplete="username" required
+                  value={email} onChange={event => setEmail(event.target.value)}
+                  className="mt-1 w-full rounded-lg border border-stone-700 bg-stone-950 p-2 text-sm text-white" />
+              </label>
+              <label className="flex-1 text-xs text-stone-300">
+                Password
+                <input data-testid="tracking-password" type="password" autoComplete="current-password" required
+                  value={password} onChange={event => setPassword(event.target.value)}
+                  className="mt-1 w-full rounded-lg border border-stone-700 bg-stone-950 p-2 text-sm text-white" />
+              </label>
+              <button data-testid="tracking-log-in" type="submit" disabled={loggingIn}
+                className="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-stone-950 disabled:opacity-50">
+                {loggingIn ? "Signing in…" : "Connect securely"}
+              </button>
+              {loginError && <p role="alert" className="text-sm text-amber-400">{loginError}</p>}
+            </form>
+          )}
+          {connection === "unauthorized" && (
+            <p role="alert" data-testid="tracking-denied" className="mt-3 text-sm text-amber-300">
+              GPS access expired, was revoked or has insufficient permissions.
+              Sign out and authenticate again.
+            </p>
+          )}
+        </section>
         <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
           <div className="rounded-xl border border-stone-800 bg-stone-900 p-4">
             <Truck className="mb-2 text-emerald-400" size={18} />
@@ -96,8 +176,9 @@ export default function TrackingPage() {
         </div>
         <p className="flex items-start gap-2 rounded-xl border border-amber-800/40 bg-amber-950/20 p-4 text-xs text-amber-200">
           <AlertTriangle className="shrink-0" size={16} />
-          Local-only P1 test surface. Production WebSocket access is deliberately disabled
-          until authenticated, permission-scoped streaming is implemented. No simulated live metrics.
+          Authenticated local-development GPS streaming only. Viewer roles and unassigned
+          dispatchers/drivers are denied. Production TLS termination, scale-out fanout and
+          external security review remain pending. No simulated live metrics.
         </p>
       </main>
       <SiteFooter />
