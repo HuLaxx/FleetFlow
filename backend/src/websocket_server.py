@@ -302,7 +302,7 @@ async def websocket_endpoint(websocket: WebSocket, client_id: str | None = None)
         if authenticated is None:
             raise ValueError("Invalid credentials or missing GPS scope")
         user, expires = authenticated
-    except (asyncio.TimeoutError, WebSocketDisconnect, ValueError, TypeError, json.JSONDecodeError):
+    except (TimeoutError, WebSocketDisconnect, ValueError, TypeError, json.JSONDecodeError):
         await websocket.close(code=1008)
         return
     except SQLAlchemyError:
@@ -329,7 +329,7 @@ async def websocket_endpoint(websocket: WebSocket, client_id: str | None = None)
                 raw = await asyncio.wait_for(
                     websocket.receive_text(), timeout=min(30, seconds)
                 )
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 continue
             if len(raw) > 4096:
                 await websocket.close(code=1009)
