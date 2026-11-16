@@ -83,8 +83,12 @@ export function useLiveTracking(accessToken: string | null) {
         try {
           const message = JSON.parse(event.data) as { type?: string; data?: unknown };
           if (message.type === "authenticated") {
-            setConnection("connected");
             socket?.send(JSON.stringify({ action: "subscribe", channel: "vehicles" }));
+          } else if (message.type === "subscribed") {
+            const accepted = z.object({
+              channel: z.literal("vehicles"), success: z.literal(true),
+            }).safeParse(message.data);
+            if (accepted.success) setConnection("connected");
           } else if (message.type === "vehicle_update") {
             setPositions(previous => mergeLivePosition(previous, message.data));
           } else if (message.type === "vehicle_snapshot") {
