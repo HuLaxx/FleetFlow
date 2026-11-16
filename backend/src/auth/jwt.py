@@ -82,10 +82,12 @@ def create_refresh_token(data: dict) -> str:
     return encoded_jwt
 
 
-def decode_token(token: str) -> TokenData | None:
-    """Decode and validate a JWT token."""
+def decode_token(token: str, *, expected_type: str = "access") -> TokenData | None:
+    """Decode a valid, unexpired JWT of the requested token type."""
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        if payload.get("type") != expected_type:
+            return None
         email: str = payload.get("sub")
         role: str = payload.get("role")
         exp = payload.get("exp")
