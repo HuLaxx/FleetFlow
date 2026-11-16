@@ -180,7 +180,6 @@ async def test_outgoing_gps_is_scoped_and_revoked_accounts_are_closed(
     d2 = await sample_depot()
     driver = await sample_driver(depot_id=d1.id)
     vehicle = await sample_vehicle(depot_id=d1.id, driver_id=driver.id)
-    another = await sample_vehicle(depot_id=d2.id)
     user_driver, _ = await make_user(db_session, UserRole.DRIVER, driver_id=driver.id)
     user_dispatcher, _ = await make_user(db_session, UserRole.DISPATCHER, depot_id=d2.id)
     user_admin, _ = await make_user(db_session, UserRole.ADMIN)
@@ -221,12 +220,10 @@ async def test_outgoing_gps_is_scoped_and_revoked_accounts_are_closed(
         vehicle.depot_id = d2.id
         vehicle.current_driver_id = None
         await db_session.flush()
-        assert await manager.broadcast(message, channel="vehicles") == 1
-        assert len(sockets["other_depot"].sent) == 0
+        assert await manager.broadcast(message, channel="vehicles") == 2
+        assert len(sockets["other_depot"].sent) == 1
         assert len(sockets["admin"].sent) == 3
-        # The dispatcher was scoped to d2 but cannot see any *previous*
-        # location update. A future GPS broadcast will use current vehicle
-        # assignment; the depot scope itself has not been revoked.
+        # Access is based on current scope, never a historical assignment.
     finally:
         for socket in sockets.values():
             manager.disconnect(socket)
