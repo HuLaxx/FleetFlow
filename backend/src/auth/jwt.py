@@ -5,11 +5,11 @@ Authentication utilities: JWT tokens and password hashing.
 import os
 from datetime import UTC, datetime, timedelta
 
-from dotenv import load_dotenv
-from jose import JWTError, jwt
 import bcrypt
 from argon2 import PasswordHasher
 from argon2.exceptions import InvalidHashError, VerificationError
+from dotenv import load_dotenv
+from jose import JWTError, jwt
 from pydantic import BaseModel
 
 # Configuration
