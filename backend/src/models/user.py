@@ -44,7 +44,9 @@ class User(Base):
     driver_id = Column(UUID(as_uuid=True), nullable=True)
     # Explicit, revocable depot scope for dispatcher GPS subscriptions.
     # Null means no dispatcher GPS access (never an implicit full-fleet grant).
-    depot_id = Column(UUID(as_uuid=True), ForeignKey("depots.id", ondelete="SET NULL"), nullable=True)
+    depot_id = Column(
+        UUID(as_uuid=True), ForeignKey("depots.id", ondelete="SET NULL"), nullable=True
+    )
 
     def __repr__(self):
         return f"<User {self.email} ({self.role})>"
