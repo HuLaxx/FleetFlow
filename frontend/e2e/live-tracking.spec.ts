@@ -1,4 +1,4 @@
-import { expect, test, type WebSocketRoute } from "@playwright/test";
+import { expect, test, type Page, type WebSocketRoute } from "@playwright/test";
 
 const vehicleId = "11111111-1111-4111-8111-111111111111";
 const driverId = "22222222-2222-4222-8222-222222222222";
@@ -15,24 +15,46 @@ function gpsPosition(latitude: number, observedAt: string, source: "postgres" | 
   };
 }
 
+async function signIn(page: Page) {
+  // Browser tests use a controlled HTTP login response, never a real password.
+  // Actual API/Kafka/PostGIS acceptance is exercised separately.
+  await page.route("http://localhost:8000/api/v1/auth/login", async route => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      headers: { "Access-Control-Allow-Origin": "http://localhost:3000" },
+      body: JSON.stringify({ access_token: "test-access-token" }),
+    });
+  });
+  await page.goto("/tracking");
+  await expect(page.getByTestId("tracking-connection")).toContainText("Sign in required");
+  await expect(page.getByTestId("tracking-vehicle-count")).toHaveText("0");
+  await page.getByTestId("tracking-email").fill("local@example.test");
+  await page.getByTestId("tracking-password").fill("test-password-not-sent-to-network");
+  await page.getByTestId("tracking-log-in").click();
+}
+
+function handleAuth(socket: WebSocketRoute, message: string | Buffer, snapshot: object) {
+  const packet = JSON.parse(String(message)) as { action: string };
+  if (packet.action === "authenticate") {
+    socket.send(JSON.stringify({ type: "authenticated", data: { channel: "vehicles" } }));
+  } else if (packet.action === "subscribe") {
+    socket.send(JSON.stringify({ type: "vehicle_snapshot", data: snapshot }));
+  }
+}
+
 test("shows real GPS updates, ignores older positions and reconnects", async ({ page }) => {
   let activeSocket: WebSocketRoute | undefined;
   const startingTime = new Date(Date.now() - 10_000).toISOString();
   await page.routeWebSocket("ws://localhost:8000/ws", socket => {
     socket.onMessage(message => {
-      if (JSON.parse(String(message)).action === "subscribe") {
-        // React Strict Mode can create/close a throwaway socket before the
-        // actual active subscription. Only send updates to the newest one.
-        activeSocket = socket;
-        socket.send(JSON.stringify({
-          type: "vehicle_snapshot",
-          data: { vehicles: [gpsPosition(55.86, startingTime, "postgres")] },
-        }));
-      }
+      const packet = JSON.parse(String(message)) as { action: string };
+      if (packet.action === "subscribe") activeSocket = socket;
+      handleAuth(socket, message, { vehicles: [gpsPosition(55.86, startingTime, "postgres")] });
     });
   });
 
-  await page.goto("/tracking");
+  await signIn(page);
   await expect(page.getByTestId("tracking-connection")).toContainText("connected");
   await expect(page.getByTestId("tracking-vehicle-count")).toHaveText("1");
   await expect(page.getByTestId("tracking-fresh-count")).toHaveText("1");
@@ -70,20 +92,15 @@ test("shows real GPS updates, ignores older positions and reconnects", async ({ 
 
 test("marks a connected but old GPS snapshot as stale, never live", async ({ page }) => {
   await page.routeWebSocket("ws://localhost:8000/ws", socket => {
-    socket.onMessage(message => {
-      if (JSON.parse(String(message)).action === "subscribe") {
-        socket.send(JSON.stringify({
-          type: "vehicle_snapshot",
-          data: {
-            vehicles: [
-              gpsPosition(55.86, new Date(Date.now() - 5 * 60_000).toISOString(), "postgres"),
-            ],
-          },
-        }));
-      }
-    });
+    socket.onMessage(message =>
+      handleAuth(socket, message, {
+        vehicles: [
+          gpsPosition(55.86, new Date(Date.now() - 5 * 60_000).toISOString(), "postgres"),
+        ],
+      }),
+    );
   });
-  await page.goto("/tracking");
+  await signIn(page);
   await expect(page.getByTestId("tracking-connection")).toContainText("connected");
   await expect(page.getByTestId("tracking-vehicle-count")).toHaveText("1");
   await expect(page.getByTestId("tracking-fresh-count")).toHaveText("0");
@@ -92,14 +109,28 @@ test("marks a connected but old GPS snapshot as stale, never live", async ({ pag
 
 test("never displays seeded vehicles when the live stream has no data", async ({ page }) => {
   await page.routeWebSocket("ws://localhost:8000/ws", socket => {
-    socket.onMessage(message => {
-      if (JSON.parse(String(message)).action === "subscribe") {
-        socket.send(JSON.stringify({ type: "vehicle_snapshot", data: { vehicles: [] } }));
-      }
-    });
+    socket.onMessage(message => handleAuth(socket, message, { vehicles: [] }));
   });
-  await page.goto("/tracking");
+  await signIn(page);
   await expect(page.getByTestId("tracking-connection")).toContainText("connected");
   await expect(page.getByTestId("tracking-vehicle-count")).toHaveText("0");
   await expect(page.getByTestId("no-live-vehicles")).toBeVisible();
+});
+
+test("rejects an expired or revoked scope and clears visible location", async ({ page }) => {
+  let socketRef: WebSocketRoute | undefined;
+  await page.routeWebSocket("ws://localhost:8000/ws", socket => {
+    socket.onMessage(message => {
+      if (JSON.parse(String(message)).action === "subscribe") socketRef = socket;
+      handleAuth(socket, message, { vehicles: [gpsPosition(55.872, new Date().toISOString(), "postgres")] });
+    });
+  });
+  await signIn(page);
+  await expect(page.getByTestId("tracking-vehicle-count")).toHaveText("1");
+  if (!socketRef) throw new Error("Authenticated socket was not subscribed");
+  socketRef.close({ code: 1008, reason: "scope revoked" });
+  await expect(page.getByTestId("tracking-denied")).toBeVisible();
+  await expect(page.getByTestId("tracking-vehicle-count")).toHaveText("0");
+  await page.getByTestId("tracking-sign-out").click();
+  await expect(page.getByTestId("tracking-connection")).toContainText("Sign in required");
 });
