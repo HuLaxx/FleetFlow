@@ -95,7 +95,9 @@ def decode_token(token: str, *, expected_type: str = "access") -> TokenData | No
         if email is None:
             return None
 
-        return TokenData(email=email, role=role, exp=datetime.fromtimestamp(exp, UTC) if exp else None)
+        return TokenData(
+            email=email, role=role, exp=datetime.fromtimestamp(exp, UTC) if exp else None
+        )
     except JWTError:
         return None
 
