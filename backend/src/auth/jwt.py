@@ -64,9 +64,7 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
             return False
     if hashed_password.startswith(("$2a$", "$2b$", "$2y$")):
         try:
-            return bcrypt.checkpw(
-                plain_password.encode("utf-8"), hashed_password.encode("utf-8")
-            )
+            return bcrypt.checkpw(plain_password.encode("utf-8"), hashed_password.encode("utf-8"))
         except (ValueError, TypeError):
             return False
     return False
