@@ -102,7 +102,13 @@ async def list_drivers(
             "vehicle": None,
         }
 
-        if vehicle and current_user and may_view_vehicle(current_user, vehicle) and vehicle.latitude is not None and vehicle.longitude is not None:
+        if (
+            vehicle
+            and current_user
+            and may_view_vehicle(current_user, vehicle)
+            and vehicle.latitude is not None
+            and vehicle.longitude is not None
+        ):
             driver_data["current_location"] = {
                 "latitude": float(vehicle.latitude),
                 "longitude": float(vehicle.longitude),
@@ -179,7 +185,12 @@ async def get_driver(
             "type": vehicle.type,
             "capacity_kg": float(vehicle.capacity_kg),
         }
-        if current_user and may_view_vehicle(current_user, vehicle) and vehicle.latitude is not None and vehicle.longitude is not None:
+        if (
+            current_user
+            and may_view_vehicle(current_user, vehicle)
+            and vehicle.latitude is not None
+            and vehicle.longitude is not None
+        ):
             response["current_location"] = {
                 "latitude": float(vehicle.latitude),
                 "longitude": float(vehicle.longitude),
