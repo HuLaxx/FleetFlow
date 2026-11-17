@@ -30,7 +30,7 @@ jobs:
         with:
           terraform_version: '1.10.5'
       - name: Check format
-        run: terraform fmt -check -recursive infra/terraform/analytics
+        run: terraform fmt -diff -check -recursive infra/terraform/analytics
       - name: Install provider schemas WITHOUT remote state or credentials
         run: terraform -chdir=infra/terraform/analytics init -backend=false -input=false
       - name: Validate module without contacting an AWS account
