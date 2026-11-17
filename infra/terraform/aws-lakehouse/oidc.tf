@@ -34,9 +34,9 @@ resource "aws_iam_role_policy" "github_audit" {
     Version = "2012-10-17"
     Statement = [
       {
-        Sid      = "ReadOnlyLakeMetadata"
-        Effect   = "Allow"
-        Action   = [
+        Sid    = "ReadOnlyLakeMetadata"
+        Effect = "Allow"
+        Action = [
           "s3:GetBucketLocation",
           "s3:GetBucketPolicy",
           "s3:GetBucketPublicAccessBlock",
