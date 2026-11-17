@@ -32,8 +32,7 @@ jobs:
           cache: pip
       - name: Install actual OR-Tools runtime and test tooling
         run: |
-          python -m pip install -e ./backend
-          python -m pip install pytest
+          python -m pip install -e './backend[dev]'
       - name: Execute real constrained OR-Tools and two named baseline heuristics
         run: |
           python -m src.optimization.benchmark \
