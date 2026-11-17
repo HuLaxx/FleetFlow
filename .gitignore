@@ -18,3 +18,12 @@ backend/.venv/
 data-engineering/airflow/input/
 data-engineering/dbt/target/
 data-engineering/dbt/logs/
+
+# Terraform state, local variables and plans can contain AWS identifiers/secrets.
+**/.terraform/
+**/*.tfstate
+**/*.tfstate.*
+**/*.tfplan
+**/*.tfvars
+!**/*.tfvars.example
+crash.log
