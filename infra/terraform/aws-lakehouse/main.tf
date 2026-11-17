@@ -179,7 +179,7 @@ resource "aws_athena_workgroup" "review" {
   configuration {
     enforce_workgroup_configuration    = true
     publish_cloudwatch_metrics_enabled = true
-    bytes_scanned_cutoff_per_query      = var.athena_scan_bytes_per_query
+    bytes_scanned_cutoff_per_query     = var.athena_scan_bytes_per_query
     result_configuration {
       output_location = "s3://${aws_s3_bucket.query_results.id}/results/"
       encryption_configuration {
