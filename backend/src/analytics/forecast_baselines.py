@@ -68,12 +68,10 @@ def read_hourly_csv(path: Path) -> list[tuple[datetime, int]]:
         for row in reader:
             if not row["timestamp_utc"] or not row["count"]:
                 raise ValueError("Blank timestamps/counts not permitted")
-            rows.append(
-                (
-                    datetime.fromisoformat(row["timestamp_utc"].replace("Z", "+00:00")),
-                    int(row["count"]),
-                )
-            )
+            timestamp = row["timestamp_utc"]
+            if timestamp.endswith("Z"):
+                timestamp = timestamp[:-1] + "+00:00"
+            rows.append((datetime.fromisoformat(timestamp), int(row["count"])))
     validate_hourly(rows)
     return rows
 
