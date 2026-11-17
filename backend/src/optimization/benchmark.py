@@ -189,11 +189,13 @@ def _nearest_neighbour(depot, orders, vehicles):
                 depot,
             )
             candidates = sorted(
-                remaining.values(), key=lambda order: (_distance(last, order.customer), str(order.id))
+                remaining.values(),
+                key=lambda order: (_distance(last, order.customer), str(order.id)),
             )
             selected = next(
                 (
-                    order for order in candidates
+                    order
+                    for order in candidates
                     if _append_if_feasible(depot, orders, vehicles, plan, vehicle.id, order.id)
                 ),
                 None,
@@ -212,21 +214,26 @@ def benchmark_scenario(name: str, *, solver_seconds: int = 1) -> list[dict]:
     for label, run in (
         ("input_order", lambda: _input_order(depot, orders, vehicles)),
         ("nearest_neighbour", lambda: _nearest_neighbour(depot, orders, vehicles)),
-        ("ortools_cvrptw", lambda: {
-            route["vehicle_id"]: [stop["order_id"] for stop in route["stops"]]
-            for route in optimizer.optimize(orders, vehicles, depot, TEST_DATE)
-        }),
+        (
+            "ortools_cvrptw",
+            lambda: {
+                route["vehicle_id"]: [stop["order_id"] for stop in route["stops"]]
+                for route in optimizer.optimize(orders, vehicles, depot, TEST_DATE)
+            },
+        ),
     ):
         started = time.perf_counter()
         assignments = run()
         duration_ms = round((time.perf_counter() - started) * 1000, 3)
         metrics = _simulate(depot, orders, vehicles, assignments)
-        results.append({
-            "scenario": name,
-            "method": label,
-            "solve_time_ms": duration_ms,
-            **metrics,
-        })
+        results.append(
+            {
+                "scenario": name,
+                "method": label,
+                "solve_time_ms": duration_ms,
+                **metrics,
+            }
+        )
     return results
 
 
@@ -257,13 +264,18 @@ def main() -> None:
     result = run_all(solver_seconds=args.solver_seconds)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(result, sort_keys=True, indent=2) + "\n", encoding="utf-8")
-    print(json.dumps({
-        "dataset": result["dataset"],
-        "scenarios": 3,
-        "methods": 3,
-        "results_file": str(args.output),
-        "full_feasible": sum(row["is_feasible"] for row in result["results"]),
-    }, sort_keys=True))
+    print(
+        json.dumps(
+            {
+                "dataset": result["dataset"],
+                "scenarios": 3,
+                "methods": 3,
+                "results_file": str(args.output),
+                "full_feasible": sum(row["is_feasible"] for row in result["results"]),
+            },
+            sort_keys=True,
+        )
+    )
 
 
 if __name__ == "__main__":
