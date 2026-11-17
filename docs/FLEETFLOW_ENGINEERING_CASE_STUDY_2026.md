@@ -55,7 +55,7 @@ exist.
 | Immutable Parquet and reconciliation | [PR #14](https://github.com/HuLaxx/FleetFlow/pull/14), [backend CI 44146640193](https://github.com/HuLaxx/FleetFlow/actions/runs/44146640193) | 112 backend tests passed (2 broker skips, 67% coverage); adversarial artifacts, keys, late events and curated aggregates checked |
 | Actual dbt and SQL | [PR #15](https://github.com/HuLaxx/FleetFlow/pull/15), [dbt CI 44148239684](https://github.com/HuLaxx/FleetFlow/actions/runs/44148239684) | Actual PostgreSQL loader/dbt build after two idempotent imports: synthetic 3 accepted events, 1 late, 1 duplicate, 2 curated vehicle-hour rows; **12 dbt data tests passed** |
 | Airflow DAG | [PR #16](https://github.com/HuLaxx/FleetFlow/pull/16), [Airflow DAG CI 44149282147](https://github.com/HuLaxx/FleetFlow/actions/runs/44149282147) | Verified DAG imports and four dependency edges; **actual scheduled full DAG execution not proven** |
-| Chronological demand baselines | [PR #17](https://github.com/HuLaxx/FleetFlow/pull/17) | Synthetic one-step holdout and no-future-feature checks; wait for matching successful CI before claiming metrics |
+| Chronological demand baselines | [PR #17](https://github.com/HuLaxx/FleetFlow/pull/17), [baseline CI 44150088642](https://github.com/HuLaxx/FleetFlow/actions/runs/44150088642) | **11 baseline tests passed**, deterministic synthetic one-step holdout, no-future-feature checks and a reproducible JSON report; not actual customer forecasting accuracy |
 | AWS deployment definitions | [PR #18](https://github.com/HuLaxx/FleetFlow/pull/18) | Terraform review only, no AWS apply or paid resources; check exact-head offline CI separately |
 
 ## Design decisions and failure cases
