@@ -49,8 +49,11 @@ async def load(run_dir: Path, database_url: str) -> dict[str, int | str]:
     mart = Path(run_dir) / "curated/hourly_vehicle_telemetry.parquet"
     rows = pq.ParquetFile(mart).read().to_pylist()
     conn = await asyncpg.connect(
-        user=url.username, password=url.password, host=url.host,
-        port=url.port or 5432, database=url.database,
+        user=url.username,
+        password=url.password,
+        host=url.host,
+        port=url.port or 5432,
+        database=url.database,
     )
     inserted = 0
     reused = 0
@@ -70,9 +73,16 @@ async def load(run_dir: Path, database_url: str) -> dict[str, int | str]:
                     ) ON CONFLICT (run_key,vehicle_id,hour_utc)
                     DO NOTHING RETURNING row_sha256
                     """,
-                    results["run_key"], manifest["source_sha256"], key[1], key[2],
-                    row["event_count"], row["late_event_count"], row["avg_speed_kmh"],
-                    row["last_event_time"], row["last_latitude"], row["last_longitude"],
+                    results["run_key"],
+                    manifest["source_sha256"],
+                    key[1],
+                    key[2],
+                    row["event_count"],
+                    row["late_event_count"],
+                    row["avg_speed_kmh"],
+                    row["last_event_time"],
+                    row["last_latitude"],
+                    row["last_longitude"],
                     fingerprint,
                 )
                 if created is not None:
