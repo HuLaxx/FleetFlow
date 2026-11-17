@@ -21,7 +21,8 @@ def synthetic_counts(seed: int = 42, *, weeks: int = 12) -> list[tuple[datetime,
     if weeks < 3:
         raise ValueError("At least 3 weeks required")
     rng = random.Random(seed)
-    start = datetime(2026, 1, 5, tzinfo=timezone.utc)
+    # Airflow 2.8 runs Python 3.8: datetime.UTC is not available there.
+    start = datetime(2026, 1, 5, tzinfo=timezone.utc)  # noqa: UP017
     data = []
     for hour in range(weeks * 7 * 24):
         at = start + timedelta(hours=hour)
