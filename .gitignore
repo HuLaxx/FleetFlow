@@ -13,3 +13,8 @@ mlflow-artifacts/
 backend/.venv/
 **/__pycache__/
 *.pyc
+
+# Local Airflow operator-supplied data and generated evidence; never commit GPS/customer CSV.
+data-engineering/airflow/input/
+data-engineering/dbt/target/
+data-engineering/dbt/logs/
