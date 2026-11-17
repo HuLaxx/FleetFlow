@@ -2,11 +2,28 @@
 
 import json
 from datetime import UTC, datetime, timedelta
+from importlib.util import module_from_spec, spec_from_file_location
+from pathlib import Path
 
 import pytest
 
-from ml.data.generate_demand_fixture import create
-from ml.evaluation.demand_baselines import evaluate, load_counts, predict_at
+
+def _isolated_source(name: str, relative: str):
+    # The old ml/__init__.py imports optional Prophet/Torch/MLflow modules
+    # at package import time. A pure stdlib baseline does not need them.
+    spec = spec_from_file_location(name, Path(__file__).resolve().parents[1] / relative)
+    assert spec and spec.loader
+    module = module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+_fixture = _isolated_source("fleetflow_demand_fixture", "data/generate_demand_fixture.py")
+_baselines = _isolated_source("fleetflow_demand_baselines", "evaluation/demand_baselines.py")
+create = _fixture.create
+evaluate = _baselines.evaluate
+load_counts = _baselines.load_counts
+predict_at = _baselines.predict_at
 
 
 def test_rolling_evaluation_has_explicit_chronological_holdout(tmp_path):
