@@ -1,7 +1,6 @@
 """Adversarial GPS lake reconciliation: tests detect forged/consistent manifests too."""
 
 import json
-from datetime import timedelta
 
 import pyarrow as pa
 import pyarrow.parquet as pq
