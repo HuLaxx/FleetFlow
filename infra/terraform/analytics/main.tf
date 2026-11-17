@@ -62,7 +62,7 @@ resource "aws_athena_workgroup" "analytics" {
   configuration {
     enforce_workgroup_configuration    = true
     publish_cloudwatch_metrics_enabled = true
-    bytes_scanned_cutoff_per_query      = 1073741824 # 1 GiB/query, NOT a monthly cap.
+    bytes_scanned_cutoff_per_query     = 1073741824 # 1 GiB/query, NOT a monthly cap.
     result_configuration {
       output_location = format("s3://%s/athena-results/", aws_s3_bucket.lake.id)
       encryption_configuration {
