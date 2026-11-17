@@ -8,7 +8,7 @@ and artifact directory, using code mounted into the Airflow container.
 import os
 import subprocess
 import sys
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 from airflow import DAG
@@ -40,7 +40,7 @@ def evaluate_historical_demand(**context):
 with DAG(
     dag_id="hourly_demand_forecast",
     description="Manual chronological evaluation of supplied hourly observations only",
-    start_date=datetime(2026, 1, 1, tzinfo=UTC),
+    start_date=datetime(2026, 1, 1, tzinfo=timezone.utc),
     schedule_interval=None,
     catchup=False,
     max_active_runs=1,
