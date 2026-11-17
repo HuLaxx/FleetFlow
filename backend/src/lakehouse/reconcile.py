@@ -87,7 +87,8 @@ def reconcile(run_dir: Path) -> dict[str, Any]:
     if sha256_file(run_dir / "raw/events.jsonl") != manifest.get("source_sha256"):
         raise ReconciliationError("Raw input differs from manifest source")
     clean_files = sorted(
-        relative for relative in artifacts
+        relative
+        for relative in artifacts
         if relative.startswith("clean/") and relative.endswith(".parquet")
     )
     if not clean_files:
@@ -168,7 +169,9 @@ def reconcile(run_dir: Path) -> dict[str, Any]:
             raise ReconciliationError("Curated late count does not match clean data")
         if item["last_event_time"] != latest["event_time"]:
             raise ReconciliationError("Curated latest event time does not match clean data")
-        _close(item["avg_speed_kmh"], sum(speeds) / len(speeds) if speeds else None, "avg_speed_kmh")
+        _close(
+            item["avg_speed_kmh"], sum(speeds) / len(speeds) if speeds else None, "avg_speed_kmh"
+        )
         _close(item["last_latitude"], latest["latitude"], "last_latitude")
         _close(item["last_longitude"], latest["longitude"], "last_longitude")
 
