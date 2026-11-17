@@ -31,10 +31,7 @@ def synthetic_counts(seed: int = 42, *, weeks: int = 12) -> list[tuple[datetime,
         # Deterministic, bounded integer demand; no hidden evaluation leakage.
         demand = max(
             0,
-            round(
-                (peak + 2 * math.sin(at.hour / 24 * 2 * math.pi)) * weekend
-                + rng.gauss(0, 2.0)
-            ),
+            round((peak + 2 * math.sin(at.hour / 24 * 2 * math.pi)) * weekend + rng.gauss(0, 2.0)),
         )
         data.append((at, int(demand)))
     return data
@@ -92,9 +89,7 @@ def prediction(history: list[int], method: str) -> float:
     raise ValueError("Unknown baseline method")
 
 
-def evaluate(
-    rows: list[tuple[datetime, int]], *, holdout_hours: int = 7 * 24
-) -> dict:
+def evaluate(rows: list[tuple[datetime, int]], *, holdout_hours: int = 7 * 24) -> dict:
     """Walk-forward test; never uses a target observation or future feature."""
     validate_hourly(rows)
     if holdout_hours < 24 or len(rows) - holdout_hours < 2 * 7 * 24:
@@ -105,10 +100,7 @@ def evaluate(
     results = []
     truth = counts[split:]
     for method in methods:
-        forecast = [
-            prediction(counts[:index], method)
-            for index in range(split, len(rows))
-        ]
+        forecast = [prediction(counts[:index], method) for index in range(split, len(rows))]
         errors = [pred - actual for pred, actual in zip(forecast, truth)]
         mae = sum(abs(e) for e in errors) / len(errors)
         rmse = math.sqrt(sum(e * e for e in errors) / len(errors))
@@ -148,9 +140,7 @@ def main() -> None:
     parser.add_argument("--holdout-hours", type=int, default=168)
     args = parser.parse_args()
     rows = (
-        read_hourly_csv(args.input)
-        if args.input
-        else synthetic_counts(args.seed, weeks=args.weeks)
+        read_hourly_csv(args.input) if args.input else synthetic_counts(args.seed, weeks=args.weeks)
     )
     result = evaluate(rows, holdout_hours=args.holdout_hours)
     result["data_source"] = "validated-user-csv" if args.input else "seeded-synthetic-only"
