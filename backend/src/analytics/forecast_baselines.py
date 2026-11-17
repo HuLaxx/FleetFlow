@@ -26,8 +26,13 @@ def synthetic_counts(seed: int = 42, *, weeks: int = 12) -> list[tuple[datetime,
         peak = 16 if 11 <= at.hour <= 14 or 18 <= at.hour <= 21 else 4
         weekend = 1.25 if at.weekday() >= 5 else 1.0
         # Deterministic, bounded integer demand; no hidden evaluation leakage.
-        demand = max(0, round((peak + 2 * math.sin(at.hour / 24 * 2 * math.pi)) * weekend
-                              + rng.gauss(0, 2.0)))
+        demand = max(
+            0,
+            round(
+                (peak + 2 * math.sin(at.hour / 24 * 2 * math.pi)) * weekend
+                + rng.gauss(0, 2.0)
+            ),
+        )
         data.append((at, int(demand)))
     return data
 
@@ -63,8 +68,12 @@ def read_hourly_csv(path: Path) -> list[tuple[datetime, int]]:
         for row in reader:
             if not row["timestamp_utc"] or not row["count"]:
                 raise ValueError("Blank timestamps/counts not permitted")
-            rows.append((datetime.fromisoformat(row["timestamp_utc"].replace("Z", "+00:00")),
-                         int(row["count"])))
+            rows.append(
+                (
+                    datetime.fromisoformat(row["timestamp_utc"].replace("Z", "+00:00")),
+                    int(row["count"]),
+                )
+            )
     validate_hourly(rows)
     return rows
 
@@ -119,8 +128,6 @@ def evaluate(
         )
     return {
         "contract": "fleetflow.chronological.hourly-demand.baselines.v1",
-        "origin": "explicit-csv" if rows and rows[0][0] != datetime(2026, 1, 5, tzinfo=UTC)
-                  else "synthetic-or-same-origin-input",
         "train_hours": split,
         "holdout_hours": holdout_hours,
         "train_end_utc": rows[split - 1][0].isoformat(),
@@ -139,15 +146,27 @@ def main() -> None:
     parser.add_argument("--weeks", type=int, default=12)
     parser.add_argument("--holdout-hours", type=int, default=168)
     args = parser.parse_args()
-    rows = read_hourly_csv(args.input) if args.input else synthetic_counts(args.seed, weeks=args.weeks)
+    rows = (
+        read_hourly_csv(args.input)
+        if args.input
+        else synthetic_counts(args.seed, weeks=args.weeks)
+    )
     result = evaluate(rows, holdout_hours=args.holdout_hours)
     result["data_source"] = "validated-user-csv" if args.input else "seeded-synthetic-only"
     if not args.input:
         result["random_seed"] = args.seed
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(result, sort_keys=True, indent=2) + "\n", encoding="utf-8")
-    print(json.dumps({"source": result["data_source"], "test_hours": args.holdout_hours,
-                      "models": len(result["baselines"]), "artifact": str(args.output)}))
+    print(
+        json.dumps(
+            {
+                "source": result["data_source"],
+                "test_hours": args.holdout_hours,
+                "models": len(result["baselines"]),
+                "artifact": str(args.output),
+            }
+        )
+    )
 
 
 if __name__ == "__main__":
