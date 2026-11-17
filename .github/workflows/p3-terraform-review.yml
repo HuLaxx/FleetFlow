@@ -1,0 +1,47 @@
+name: FleetFlow P3 Terraform Review Only
+
+on:
+  push:
+    branches: [main, 'feature/**', 'fix/**']
+    paths:
+      - 'infra/terraform/**'
+      - '.github/workflows/p3-terraform-review.yml'
+  pull_request:
+    branches: [main, 'feature/**']
+    paths:
+      - 'infra/terraform/**'
+      - '.github/workflows/p3-terraform-review.yml'
+
+concurrency:
+  group: p3-terraform-${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  terraform-syntax:
+    name: Terraform formatting, init without backend, provider validation
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: infra/terraform/aws-lakehouse
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.10.5
+          terraform_wrapper: false
+      - name: Verify formatting without changing tracked files
+        run: terraform fmt -check -diff -recursive
+      - name: Initialize provider without a state backend or AWS credentials
+        run: terraform init -backend=false -input=false -no-color
+      - name: Validate resource contracts without AWS access
+        run: terraform validate -no-color
+      - name: Verify the state and apply are prohibited by CI
+        run: |
+          test ! -f terraform.tfstate
+          test ! -f terraform.tfvars
+          ! grep -R -E 'terraform[[:space:]]+(apply|destroy)' ../../..//.github/workflows/p3-terraform-review.yml
+          echo "CI performed only fmt/init/validate. No plan, apply, AWS credentials or expense."
