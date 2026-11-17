@@ -1,0 +1,67 @@
+name: FleetFlow P2 Airflow DAG Parse
+
+on:
+  push:
+    branches: ['feature/**']
+    paths:
+      - 'data-engineering/airflow/dags/gps_lake_pipeline.py'
+      - '.github/workflows/p2-airflow-dag.yml'
+  pull_request:
+    branches: [main, 'feature/**']
+    paths:
+      - 'data-engineering/airflow/dags/gps_lake_pipeline.py'
+      - '.github/workflows/p2-airflow-dag.yml'
+
+concurrency:
+  group: p2-airflow-${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  dag-parse:
+    name: Real Airflow DAG import, graph and opt-in schedule checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    env:
+      AIRFLOW_HOME: /tmp/fleetflow-airflow
+      AIRFLOW__CORE__LOAD_EXAMPLES: 'False'
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: sqlite:////tmp/fleetflow-airflow/airflow.db
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+      - name: Install tested Airflow release using upstream constraint lock
+        run: |
+          python -m pip install 'apache-airflow==2.10.5' \
+            --constraint 'https://raw.githubusercontent.com/apache/airflow/constraints-2.10.5/constraints-3.11.txt'
+      - name: Import real DAG and assert explicit task graph
+        run: |
+          mkdir -p "$AIRFLOW_HOME"
+          python - <<'PY'
+          from airflow.models import DagBag
+          path = "data-engineering/airflow/dags/gps_lake_pipeline.py"
+          bag = DagBag(dag_folder=path, include_examples=False)
+          assert not bag.import_errors, bag.import_errors
+          dag = bag.get_dag("fleetflow_gps_analytics_replay")
+          assert dag is not None
+          assert dag.schedule_interval is None
+          assert dag.catchup is False
+          assert dag.max_active_runs == 1
+          names = {task.task_id for task in dag.tasks}
+          assert names == {
+              "replay_snapshot", "reconcile_snapshot",
+              "import_analytics", "build_dbt_mart"
+          }, names
+          expected_edges = {
+              ("replay_snapshot", "reconcile_snapshot"),
+              ("reconcile_snapshot", "import_analytics"),
+              ("import_analytics", "build_dbt_mart"),
+          }
+          actual_edges = {
+              (source.task_id, dest.task_id)
+              for source in dag.tasks for dest in source.downstream_list
+          }
+          assert actual_edges == expected_edges, actual_edges
+          print("Real Airflow DAG imported: 4 tasks, explicit order, no schedule")
+          PY
