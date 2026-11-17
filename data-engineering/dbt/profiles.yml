@@ -1,0 +1,14 @@
+fleetflow:
+  target: ci
+  outputs:
+    ci:
+      type: postgres
+      host: "{{ env_var('DBT_HOST') }}"
+      user: "{{ env_var('DBT_USER') }}"
+      password: "{{ env_var('DBT_PASSWORD') }}"
+      port: "{{ env_var('DBT_PORT', '5432') | int }}"
+      dbname: "{{ env_var('DBT_DATABASE') }}"
+      schema: "{{ env_var('DBT_SCHEMA', 'public') }}"
+      threads: 2
+      connect_timeout: 10
+      keepalives_idle: 0
