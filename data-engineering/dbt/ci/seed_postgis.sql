@@ -16,12 +16,12 @@ VALUES
 
 INSERT INTO orders
 (id, order_number, items, total_weight_kg, total_value, delivery_date,
- time_window_start, time_window_end, service_time_minutes, status, priority)
+ time_window_start, time_window_end, service_time_minutes, status, priority, source)
 VALUES
 ('22222222-2222-4222-8222-222222222221','DBT-ORD-001','[]'::jsonb,4.50,25.00,
- '2026-11-12','2026-11-12 10:00:00','2026-11-12 12:00:00',5,'delivered',4),
+ '2026-11-12','2026-11-12 10:00:00','2026-11-12 12:00:00',5,'delivered',4,'synthetic-ci-only'),
 ('22222222-2222-4222-8222-222222222222','DBT-ORD-002','[]'::jsonb,2.00,NULL,
- '2026-11-12','2026-11-12 13:00:00','2026-11-12 15:00:00',5,'pending',2);
+ '2026-11-12','2026-11-12 13:00:00','2026-11-12 15:00:00',5,'pending',2,'synthetic-ci-only');
 
 INSERT INTO routes
 (id, route_date, driver_id, planned_distance_km,
