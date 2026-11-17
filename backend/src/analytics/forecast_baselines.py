@@ -5,12 +5,14 @@ No claimed predictive ML model: last-hour, last-day, last-week and trailing
 a fixed seed, no customer information, and a fixed UTC time grid.
 """
 
+from __future__ import annotations
+
 import argparse
 import csv
 import json
 import math
 import random
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 
@@ -19,7 +21,7 @@ def synthetic_counts(seed: int = 42, *, weeks: int = 12) -> list[tuple[datetime,
     if weeks < 3:
         raise ValueError("At least 3 weeks required")
     rng = random.Random(seed)
-    start = datetime(2026, 1, 5, tzinfo=UTC)
+    start = datetime(2026, 1, 5, tzinfo=timezone.utc)
     data = []
     for hour in range(weeks * 7 * 24):
         at = start + timedelta(hours=hour)
