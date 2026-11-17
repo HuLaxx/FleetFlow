@@ -38,6 +38,7 @@ jobs:
       - name: Import real DAG and assert explicit task graph
         run: |
           mkdir -p "$AIRFLOW_HOME"
+          airflow db migrate
           python - <<'PY'
           from airflow.models import DagBag
           path = "data-engineering/airflow/dags/gps_lake_pipeline.py"
