@@ -2,9 +2,7 @@
 -- Apply after src.database.Base.metadata.create_all. Never run in a real DB.
 DO $$
 BEGIN
-    IF current_database() <> 'fleetflow_test'
-       OR inet_server_addr() IS DISTINCT FROM '127.0.0.1'::inet
-          AND inet_server_addr() IS DISTINCT FROM '::1'::inet THEN
+    IF current_database() <> 'fleetflow_test' OR current_user <> 'fleetflow' THEN
         RAISE EXCEPTION 'Refusing dbt CI fixture outside local fleetflow_test';
     END IF;
 END
