@@ -9,10 +9,10 @@ END
 $$;
 
 INSERT INTO drivers (id, employee_id, first_name, last_name, email,
-                     status, rating, total_deliveries)
+                     status, rating, total_deliveries, max_working_hours_per_day)
 VALUES
 ('11111111-1111-4111-8111-111111111111','DBT-001','Synthetic','Driver',
- 'dbt-fixture@example.test','available',4.50,1);
+ 'dbt-fixture@example.test','available',4.50,1,8.00);
 
 INSERT INTO orders
 (id, order_number, items, total_weight_kg, total_value, delivery_date,
