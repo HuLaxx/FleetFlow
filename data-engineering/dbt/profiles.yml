@@ -1,0 +1,12 @@
+fleetflow:
+  target: local
+  outputs:
+    local:
+      type: postgres
+      host: "{{ env_var('DBT_HOST', 'localhost') }}"
+      user: "{{ env_var('DBT_USER', 'fleetflow') }}"
+      password: "{{ env_var('DBT_PASSWORD') }}"
+      port: 5432
+      dbname: "{{ env_var('DBT_DATABASE', 'fleetflow_test') }}"
+      schema: public
+      threads: 1
