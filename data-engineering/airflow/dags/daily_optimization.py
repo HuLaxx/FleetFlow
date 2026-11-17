@@ -7,7 +7,7 @@ off until role-appropriate operational review and real Airflow deployment.
 """
 
 import os
-from datetime import UTC, date, datetime
+from datetime import date, datetime, timezone
 
 from airflow import DAG
 from airflow.operators.python import PythonOperator
@@ -76,7 +76,7 @@ def inspect_dispatch_readiness(**context):
 with DAG(
     dag_id="daily_route_optimization",
     description="Manual read-only dispatch readiness; route plan/approve stays in authenticated API",
-    start_date=datetime(2026, 1, 1, tzinfo=UTC),
+    start_date=datetime(2026, 1, 1, tzinfo=timezone.utc),
     schedule_interval=None,
     catchup=False,
     max_active_runs=1,
