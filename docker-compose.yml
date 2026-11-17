@@ -229,7 +229,7 @@ services:
       - ./data-engineering/airflow/input:/opt/fleetflow/input:ro
       - airflow_logs:/opt/airflow/logs
     ports:
-      - "${AIRFLOW_PORT:-8081}:8080"
+      - "127.0.0.1:${AIRFLOW_PORT:-8081}:8080"
     command: airflow standalone
     profiles:
       - data
