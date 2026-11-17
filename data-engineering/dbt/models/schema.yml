@@ -18,6 +18,18 @@ sources:
         description: Raw depot/warehouse data
       - name: customers
         description: Raw customer data
+      - name: gps_hourly_curated
+        description: Reconciled hourly GPS events loaded from immutable local Parquet
+        columns:
+          - name: run_key
+            tests:
+              - not_null
+          - name: vehicle_id
+            tests:
+              - not_null
+          - name: hour_utc
+            tests:
+              - not_null
 
 models:
   - name: stg_orders
@@ -67,3 +79,38 @@ models:
         tests:
           - accepted_values:
               values: ['planned', 'in_progress', 'completed', 'cancelled']
+
+  - name: stg_gps_hourly
+    description: >-
+      Staged, lineage-preserving vehicle/hour GPS observations from immutable
+      content-addressed local Parquet runs (not production fleet telemetry).
+    columns:
+      - name: gps_hour_key
+        tests:
+          - unique
+          - not_null
+      - name: run_key
+        tests:
+          - not_null
+      - name: vehicle_id
+        tests:
+          - not_null
+      - name: event_count
+        tests:
+          - not_null
+
+  - name: fct_gps_hourly
+    description: >-
+      Reconciled GPS hours with observed late-event rates; no invented
+      availability or delivery efficiency figures.
+    columns:
+      - name: gps_hour_key
+        tests:
+          - unique
+          - not_null
+      - name: event_count
+        tests:
+          - not_null
+      - name: last_event_time
+        tests:
+          - not_null
