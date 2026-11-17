@@ -38,7 +38,7 @@ def audit_run(run_dir: Path) -> dict[str, Any]:
         raise ValueError("GPS replay manifest artifact mismatch")
     for relative in artifacts:
         if not isinstance(relative, str):
-            raise ValueError("Invalid artifact path")
+            raise TypeError("Invalid artifact path")
         path = (root / relative).resolve()
         if not path.is_relative_to(root) or not path.is_file():
             raise ValueError("Unsafe or missing replay artifact")
@@ -52,7 +52,7 @@ def audit_run(run_dir: Path) -> dict[str, Any]:
 
     counts = manifest.get("counts")
     if not isinstance(counts, dict):
-        raise ValueError("Missing manifest counts")
+        raise TypeError("Missing manifest counts")
     if set(counts) != {"accepted", "duplicates", "late", "quarantined"}:
         raise ValueError("Unexpected manifest count keys")
     if any(not isinstance(x, int) or x < 0 for x in counts.values()):
