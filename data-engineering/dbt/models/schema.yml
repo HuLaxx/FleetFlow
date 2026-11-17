@@ -2,68 +2,73 @@ version: 2
 
 sources:
   - name: raw
+    description: Transactional PostGIS (not the GPS Parquet replay). No customer PII is promoted to marts.
     schema: public
     tables:
       - name: orders
-        description: Raw order data from the transactional database
       - name: drivers
-        description: Raw driver data
-      - name: vehicles
-        description: Raw vehicle data
       - name: routes
-        description: Raw route data
-      - name: route_stops
-        description: Raw route stop data
-      - name: depots
-        description: Raw depot/warehouse data
-      - name: customers
-        description: Raw customer data
 
 models:
   - name: stg_orders
-    description: Cleaned and standardized order data
+    description: One current transactional row per order. Not an append-only event fact.
     columns:
       - name: order_id
-        tests:
-          - unique
-          - not_null
+        data_tests: [unique, not_null]
       - name: order_number
-        tests:
-          - unique
-          - not_null
+        data_tests: [unique, not_null]
+      - name: delivery_date
+        data_tests: [not_null]
       - name: status
-        tests:
+        data_tests:
           - accepted_values:
-              values: ['pending', 'assigned', 'in_transit', 'arrived', 'delivered', 'failed', 'cancelled', 'rescheduled']
+              arguments:
+                values: ['pending', 'assigned', 'in_transit', 'arrived', 'delivered', 'failed', 'cancelled', 'rescheduled']
       - name: priority
-        tests:
+        data_tests:
           - accepted_values:
-              values: [1, 2, 3, 4, 5]
-              
+              arguments:
+                values: [1, 2, 3, 4, 5]
+                quote: false
+
   - name: stg_drivers
-    description: Cleaned driver data with derived fields
+    description: Privacy-reduced driver staging. No names or contact columns.
     columns:
       - name: driver_id
-        tests:
-          - unique
-          - not_null
+        data_tests: [unique, not_null]
       - name: employee_id
-        tests:
-          - unique
-          - not_null
+        data_tests: [unique, not_null]
       - name: status
-        tests:
+        data_tests:
           - accepted_values:
-              values: ['available', 'on_route', 'on_break', 'offline']
-              
+              arguments:
+                values: ['available', 'on_route', 'on_break', 'offline']
+
   - name: stg_routes
-    description: Cleaned route data with variance calculations
+    description: Planned and observed route facts remain separate; zero is not used for missing telemetry.
     columns:
       - name: route_id
-        tests:
-          - unique
-          - not_null
+        data_tests: [unique, not_null]
+      - name: route_date
+        data_tests: [not_null]
       - name: status
-        tests:
+        data_tests:
           - accepted_values:
-              values: ['planned', 'in_progress', 'completed', 'cancelled']
+              arguments:
+                values: ['planned', 'approved', 'in_progress', 'completed', 'cancelled']
+
+  - name: fct_daily_performance
+    description: One record per date present in orders or routes, measured metrics nullable when unknown.
+    columns:
+      - name: date
+        data_tests: [unique, not_null]
+      - name: total_orders
+        data_tests: [not_null]
+      - name: total_routes
+        data_tests: [not_null]
+
+  - name: dim_driver_performance
+    description: Internal non-contact dimension; aggregate only measured performance, no fabricated speed.
+    columns:
+      - name: driver_id
+        data_tests: [unique, not_null]
