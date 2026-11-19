@@ -36,7 +36,7 @@ FleetFlow investigates both sides of that problem: a *planning path* for route o
 | **The fleet starts moving** | Can location events reach the tracking interface? | [GPS consumer](backend/src/consumers/gps_consumer.py) · [WebSocket server](backend/src/websocket_server.py) |
 | **Conditions change** | How might deviations, late arrivals or hotspots be detected? | [Event processing module](data-engineering/flink/stream_processor.py) |
 
-**Status note:** these paths exist in the repository, but their combined behaviour has not been freshly verified in a running full-stack environment. The event-processing module describes itself as a simplified Python approach, *not* a production Flink deployment.
+**Verification note:** draft [PR #9](https://github.com/HuLaxx/FleetFlow/pull/9) passed a real local authenticated browser → API → PostgreSQL outbox → Redpanda → GPS consumer → PostGIS → WebSocket journey ([exact CI evidence](https://github.com/HuLaxx/FleetFlow/actions/runs/43927262403)). That is **not** proof that the hosted site uses a live backend or that these unmerged changes are deployed. The event-processing module remains a simplified Python implementation, *not* a production Apache Flink job.
 
 ## The dispatch decision
 
@@ -44,7 +44,7 @@ FleetFlow investigates both sides of that problem: a *planning path* for route o
 
 <img src="docs/dispatch-decision-sheet.svg" alt="Original dispatch run-sheet: an order manifest flows into vehicle-capacity and service-window constraints, then to an OR-Tools route preview" width="100%" />
 
-<sub>An architectural worksheet, not a screenshot or measured route. The current optimization API returns route proposals rather than persisting an approved dispatch.</sub>
+<sub>An architectural worksheet, not a screenshot or measured route. The preview endpoint remains read-only; the separately implemented plan endpoint persists unapproved routes, and dispatch requires explicit approval in stacked draft PRs.</sub>
 
 </div>
 
@@ -53,7 +53,7 @@ The route engine has a concrete implementation path:
 1. **Choose a depot and date.** Load the available vehicles and pending orders.
 2. **Apply constraints.** Model capacity, depot location, route duration and service windows with OR-Tools.
 3. **Solve for a candidate.** Compute and return routes when the dependencies and input data permit it.
-4. **Inspect before applying.** The optimization endpoint returns route proposals and summary fields; it does not automatically commit the resulting dispatch to the database.
+4. **Inspect before applying.** The `/optimize` preview remains read-only; the explicit `/plan` path persists a `planned` route, and `/approve` is a separate, authorised dispatcher decision. These are demonstrated in stacked draft PRs, not deployed on the public site.
 
 The optimizer uses an approximate distance/time calculation in the current source; OSRM has a **separate optional local routing profile**, not a verified dependency of every solver run. See [route optimizer](ml/route_optimizer.py), [optimization route](backend/src/api/routes/optimization.py) and [local-stack notes](docs/local-stack.md).
 
@@ -112,6 +112,21 @@ Data warehouse models, batch workflow definitions, forecasting code and monitori
 | **Quality/readiness standard** | [Strict local readiness gates](docs/local-readiness.md) describe what would need to pass before the full environment should be called validated. |
 
 The frontend's demo banner checks a health endpoint, but a positive health response **does not on its own prove that Kafka, routing and WebSocket streams are all connected**.
+
+## Verification ledger — local evidence, not a hosted release
+
+The current engineering implementation is in **unmerged, stacked draft pull requests**. Its locally tested capabilities should not be confused with the hosted, fixture-backed public demo.
+
+| Milestone | Concrete evidence | Boundary |
+| :--- | :--- | :--- |
+| Authenticated GPS and real Kafka → browser | [PR #9](https://github.com/HuLaxx/FleetFlow/pull/9) · [non-mocked Chromium CI](https://github.com/HuLaxx/FleetFlow/actions/runs/43927262403) | Proven with synthetic input on disposable PostGIS/Redpanda, not hosted production GPS |
+| Immutable Parquet and clean/curated reconciliation | [PR #14](https://github.com/HuLaxx/FleetFlow/pull/14) · [backend CI](https://github.com/HuLaxx/FleetFlow/actions/runs/44146640193) | Historical local GPS JSONL replay, not an always-on Kafka-to-S3 sink |
+| Verified PostgreSQL analytics and dbt | [PR #15](https://github.com/HuLaxx/FleetFlow/pull/15) · [actual dbt build](https://github.com/HuLaxx/FleetFlow/actions/runs/44148239684) | 12 dbt data tests passed on synthetic, content-addressed GPS facts |
+| Opt-in Airflow DAG parsing | [PR #16](https://github.com/HuLaxx/FleetFlow/pull/16) · [Airflow import CI](https://github.com/HuLaxx/FleetFlow/actions/runs/44149282147) | Imported and dependency-validated; actual scheduler/worker execution still outstanding |
+| Forecast baseline evaluation | [PR #17](https://github.com/HuLaxx/FleetFlow/pull/17) | Synthetic chronological holdout; verify current CI before citing measured values |
+| Optional AWS infrastructure | [PR #18](https://github.com/HuLaxx/FleetFlow/pull/18) | Terraform definitions for review **only**; zero AWS resources provisioned |
+
+Read the [engineering case study](docs/FLEETFLOW_ENGINEERING_CASE_STUDY_2026.md) for exact architecture, failure modes, reproduction, and evidence limitations.
 
 ## Under the hood
 
