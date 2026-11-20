@@ -141,7 +141,7 @@ def nearest_neighbour(case: Scenario) -> list[dict]:
                 )
                 if (
                     arrival > _arrival_seconds(order.time_window_end)
-                    or arrival + 4 * 60 + return_seconds > finish
+                    or arrival + int(order.service_time_minutes or 0) * 60 + return_seconds > finish
                 ):
                     continue
                 feasible.append((distance, str(order.id), order, arrival))
