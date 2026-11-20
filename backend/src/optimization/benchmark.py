@@ -218,9 +218,7 @@ def measure(case: Scenario, routes: list[dict], solve_ms: float) -> dict:
         "capacity_or_window_or_duplicate_violations": violations,
         "distance_km_haversine": round(total_metres / 1000, 3),
         "route_duration_minutes_sum": round(duration_minutes, 2),
-        "illustrative_route_cost_gbp": round(
-            total_metres / 1000 * ASSUMED_GBP_PER_KM, 2
-        ),
+        "illustrative_route_cost_gbp": round(total_metres / 1000 * ASSUMED_GBP_PER_KM, 2),
         "solve_ms_single_run": round(solve_ms, 3),
     }
 

@@ -24,7 +24,10 @@ def test_scenarios_are_deterministic_and_synthetic():
 def test_real_ortools_serves_feasible_orders_without_violations():
     for case in synthetic_cases()[:2]:
         routes = VehicleRoutingOptimizer(planning_time_limit_sec=1).optimize(
-            case.orders, case.vehicles, case.depot, case.orders[0].time_window_start.date()
+            case.orders,
+            case.vehicles,
+            case.depot,
+            case.orders[0].time_window_start.date(),
         )
         result = measure(case, routes, 0.0)
         assert result["assigned_orders"] == len(case.orders)
@@ -45,7 +48,10 @@ def test_explicit_infeasible_case_is_never_claimed_delivered():
     result = measure(
         case,
         VehicleRoutingOptimizer(planning_time_limit_sec=1).optimize(
-            case.orders, case.vehicles, case.depot, case.orders[0].time_window_start.date()
+            case.orders,
+            case.vehicles,
+            case.depot,
+            case.orders[0].time_window_start.date(),
         ),
         0,
     )
