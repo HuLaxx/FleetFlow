@@ -209,10 +209,10 @@ async def get_driver(
 
     # TODO: Calculate stats from database
     response["stats"] = {
-        "on_time_rate": 0.96,
-        "avg_delivery_time_minutes": 22,
-        "deliveries_today": 0,
-        "distance_today_km": 0.0,
+        "on_time_rate": None,
+        "avg_delivery_time_minutes": None,
+        "deliveries_today": None,
+        "distance_today_km": None,
     }
 
     return response
@@ -390,6 +390,6 @@ async def get_driver_stats(db: AsyncSession = Depends(get_db)):
         },
         "active_today": by_status.get("on_route", 0) + by_status.get("available", 0),
         "avg_rating": float(avg_rating) if avg_rating else 0.0,
-        "avg_deliveries_per_driver": 0,  # TODO: Calculate from routes
-        "fleet_utilization": 0.0,  # TODO: Calculate
+        "avg_deliveries_per_driver": None,  # No verified historical delivery aggregation.
+        "fleet_utilization": None,  # No measured driver-hour denominator.
     }

@@ -13,3 +13,10 @@ mlflow-artifacts/
 backend/.venv/
 **/__pycache__/
 *.pyc
+
+# Generated Python files must never enter the Git index.
+*.pyo
+*.pyd
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/

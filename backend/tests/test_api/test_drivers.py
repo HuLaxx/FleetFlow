@@ -47,6 +47,13 @@ async def test_get_driver_by_id(client: AsyncClient, sample_depot, sample_driver
     assert data["id"] == str(driver.id)
     assert data["name"] == driver.full_name
     assert data["email"] == driver.email
+    # Do not invent perfect on-time or delivery-speed metrics on an empty ledger.
+    assert data["stats"] == {
+        "on_time_rate": None,
+        "avg_delivery_time_minutes": None,
+        "deliveries_today": None,
+        "distance_today_km": None,
+    }
 
 
 @pytest.mark.asyncio
@@ -122,3 +129,22 @@ async def test_driver_workflow(client: AsyncClient, db_session, sample_depot, sa
     # Verify driver still exists
     response = await client.get(f"/api/v1/drivers/{driver.id}")
     assert response.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_unmeasured_fleet_analytics_remain_unknown_not_fabricated(
+    client, sample_depot, sample_driver, sample_vehicle
+):
+    depot = await sample_depot()
+    driver = await sample_driver(depot_id=depot.id)
+    await sample_vehicle(driver_id=driver.id, depot_id=depot.id)
+    vehicles = await client.get("/api/v1/vehicles/stats/summary")
+    assert vehicles.status_code == 200, vehicles.text
+    assert vehicles.json()["total_vehicles"] == 1
+    assert vehicles.json()["avg_utilization_rate"] is None
+    assert vehicles.json()["total_distance_today_km"] is None
+    drivers = await client.get("/api/v1/drivers/stats/summary")
+    assert drivers.status_code == 200, drivers.text
+    assert drivers.json()["total_drivers"] == 1
+    assert drivers.json()["avg_deliveries_per_driver"] is None
+    assert drivers.json()["fleet_utilization"] is None

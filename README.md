@@ -34,9 +34,9 @@ FleetFlow investigates both sides of that problem: a *planning path* for route o
 | **Constraints become real** | Which loads and time windows must the solution respect? | [OR-Tools route solver](ml/route_optimizer.py) |
 | **A route is proposed** | Can a request produce a feasible candidate plan? | [Optimization API](backend/src/api/routes/optimization.py) |
 | **The fleet starts moving** | Can location events reach the tracking interface? | [GPS consumer](backend/src/consumers/gps_consumer.py) · [WebSocket server](backend/src/websocket_server.py) |
-| **Conditions change** | How might deviations, late arrivals or hotspots be detected? | [Event processing module](data-engineering/flink/stream_processor.py) |
+| **Conditions change** | How might deviations, late arrivals or hotspots be detected? | [Event processing module](data-engineering/python_stream_processor/stream_processor.py) |
 
-**Verification note:** draft [PR #9](https://github.com/HuLaxx/FleetFlow/pull/9) passed a real local authenticated browser → API → PostgreSQL outbox → Redpanda → GPS consumer → PostGIS → WebSocket journey ([exact CI evidence](https://github.com/HuLaxx/FleetFlow/actions/runs/43927262403)). That is **not** proof that the hosted site uses a live backend or that these unmerged changes are deployed. The event-processing module remains a simplified Python implementation, *not* a production Apache Flink job.
+**Verification note:** draft [PR #9](https://github.com/HuLaxx/FleetFlow/pull/9) passed a real local authenticated browser → API → PostgreSQL outbox → Redpanda → GPS consumer → PostGIS → WebSocket journey ([exact CI evidence](https://github.com/HuLaxx/FleetFlow/actions/runs/43927262403)). That is **not** proof that the hosted site uses a live backend or that these unmerged changes are deployed. The event-processing module is explicitly filed under **python_stream_processor**, not Flink. It remains a simplified Python example, not an Apache Flink job, a production event-time engine or a verified component of the dispatch golden path.
 
 ## The dispatch decision
 
@@ -87,7 +87,7 @@ Python's OR-Tools models investigate vehicle routing with capacity and time cons
 
 The repository contains Kafka event models, producers/consumers, a dedicated WebSocket server, and a simplified Python event processor for alerts and deviations.
 
-**Code:** [Event producer](backend/src/events/producer.py) · [WebSocket server](backend/src/websocket_server.py) · [Stream processor](data-engineering/flink/stream_processor.py)
+**Code:** [Event producer](backend/src/events/producer.py) · [WebSocket server](backend/src/websocket_server.py) · [Stream processor](data-engineering/python_stream_processor/stream_processor.py)
 
 </td>
 <td width="50%" valign="top">
@@ -140,7 +140,7 @@ Rather than advertising unsupported numbers, here's the source evidence for what
 | Event backbone | [Event models](backend/src/events/models.py) · [Kafka consumers](backend/src/consumers/) |
 | Telemetry | [WebSocket server](backend/src/websocket_server.py) · [Tracking hook](frontend/src/hooks/useWebSocket.ts) |
 | Geospatial and time-series schemas | [PostGIS schema](db/init/01_postgis_schema.sql) · [TimescaleDB schema](db/init/02_timescale_schema.sql) |
-| Data engineering | [Airflow](data-engineering/airflow/dags/) · [dbt](data-engineering/dbt/models/) · [Stream-processing code](data-engineering/flink/) |
+| Data engineering | [Airflow](data-engineering/airflow/dags/) · [dbt](data-engineering/dbt/models/) · [Prototype Python stream processor](data-engineering/python_stream_processor/) |
 | Observability and validation | [Monitoring](monitoring/) · [Backend tests](backend/tests/) · [Validation script](scripts/validate-local.sh) |
 
 ### Technology set

@@ -65,6 +65,11 @@ async def test_public_list_and_detail_redact_gps_coordinates(
     vehicle_detail = await client.get(f"/api/v1/vehicles/{vehicle.id}")
     assert vehicle_detail.status_code == 200
     assert "current_location" not in vehicle_detail.json()
+    assert vehicle_detail.json()["stats"] == {
+        "total_distance_km": None,
+        "deliveries_completed": None,
+        "utilization_rate": None,
+    }
 
     listed_drivers = await client.get("/api/v1/drivers")
     assert listed_drivers.status_code == 200
