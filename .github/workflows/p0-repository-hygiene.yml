@@ -1,0 +1,29 @@
+name: FleetFlow P0 Repository Hygiene
+on:
+  push:
+    branches: [main, 'feature/**']
+  pull_request:
+    branches: [main, 'feature/**']
+permissions:
+  contents: read
+jobs:
+  tracked-artifact-guard:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - name: Reject tracked Python bytecode
+        run: |
+          python - <<'PY'
+          import subprocess
+          paths = subprocess.check_output(["git", "ls-files", "-z"]).decode().split("\0")
+          offenders = [
+              p for p in paths if p and (
+                  "__pycache__" in p.split("/")
+                  or p.endswith((".pyc", ".pyo", ".pyd"))
+              )
+          ]
+          if offenders:
+              raise SystemExit("Tracked generated Python artifacts:\n" + "\n".join(offenders))
+          print("PASS: no tracked Python bytecode or cache files")
+          PY
