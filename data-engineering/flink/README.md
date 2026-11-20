@@ -1,0 +1,1 @@
+This directory formerly contained a simplified Python example; it was not Apache Flink. The example was moved to ../python_stream_processor/stream_processor.py. This repository has no verified Flink job.\n

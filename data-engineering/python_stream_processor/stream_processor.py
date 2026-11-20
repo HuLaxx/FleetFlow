@@ -7,7 +7,7 @@ Real-time event detection using Complex Event Processing (CEP) patterns:
 - Traffic jam alerts
 - Route deviation detection
 
-This is a simplified Python implementation. Production would use Apache Flink.
+This is a simplified, standalone Python+Kafka example, NOT Apache Flink.\nIt is not part of the verified GPS production/event-time golden path.
 """
 
 import asyncio
