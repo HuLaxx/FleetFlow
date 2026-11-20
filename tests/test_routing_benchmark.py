@@ -2,8 +2,12 @@
 
 from datetime import datetime
 
-from src.optimization.benchmark import measure, nearest_neighbour, run_benchmark
-from src.optimization.benchmark import synthetic_cases
+from src.optimization.benchmark import (
+    measure,
+    nearest_neighbour,
+    run_benchmark,
+    synthetic_cases,
+)
 from src.optimization.route_optimizer import VehicleRoutingOptimizer
 
 
@@ -73,5 +77,8 @@ def test_report_declares_same_inputs_and_no_extrapolated_savings():
     assert report["version"] == "fleetflow_synthetic_cvrptw_benchmark_v1"
     assert "not road network" in report["assumptions"]["model"]
     assert len(report["results"]) == 3
-    assert all(row["ortools"]["capacity_or_window_or_duplicate_violations"] == 0 for row in report["results"])
+    assert all(
+        row["ortools"]["capacity_or_window_or_duplicate_violations"] == 0
+        for row in report["results"]
+    )
     assert all("solve_ms_single_run" in row["ortools"] for row in report["results"])
