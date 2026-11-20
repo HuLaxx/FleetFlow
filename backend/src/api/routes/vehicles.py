@@ -180,9 +180,9 @@ async def get_vehicle(
 
     # TODO: Calculate stats from routes/deliveries
     response["stats"] = {
-        "total_distance_km": 0,
-        "deliveries_completed": 0,
-        "utilization_rate": 0.0,
+        "total_distance_km": None,
+        "deliveries_completed": None,
+        "utilization_rate": None,
     }
 
     return response
@@ -282,7 +282,7 @@ async def get_vehicle_stats(db: AsyncSession = Depends(get_db)):
             "hybrid": by_fuel.get("hybrid", 0),
             "petrol": by_fuel.get("petrol", 0),
         },
-        "avg_utilization_rate": 0.78,  # TODO: Calculate from route data
-        "total_distance_today_km": 0.0,  # TODO: Calculate from today's routes
+        "avg_utilization_rate": None,  # No observed operating-hour denominator.
+        "total_distance_today_km": None,  # No complete distance history.
         "vehicles_needing_maintenance": needing_maintenance,
     }
