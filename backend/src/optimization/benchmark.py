@@ -198,9 +198,7 @@ def measure(case: Scenario, routes: list[dict], solve_ms: float) -> dict:
             continue
         weight = 0.0
         position = case.depot
-        earliest_clock = VehicleRoutingOptimizer._time_to_seconds(
-            case.depot.operating_hours_start
-        )
+        earliest_clock = VehicleRoutingOptimizer._time_to_seconds(case.depot.operating_hours_start)
         last_service = 0
         for stop in route["stops"]:
             key = stop["order_id"]
@@ -213,8 +211,8 @@ def measure(case: Scenario, routes: list[dict], solve_ms: float) -> dict:
             if not order.time_window_start <= stop["planned_arrival"] <= order.time_window_end:
                 violations += 1
             distance = _metres(position, order.customer)
-            required_clock = earliest_clock + last_service + math.ceil(
-                distance / SPEED_METRES_PER_SECOND
+            required_clock = (
+                earliest_clock + last_service + math.ceil(distance / SPEED_METRES_PER_SECOND)
             )
             arrival_clock = _arrival_seconds(stop["planned_arrival"])
             if arrival_clock < required_clock:
@@ -225,12 +223,11 @@ def measure(case: Scenario, routes: list[dict], solve_ms: float) -> dict:
             position = order.customer
         return_distance = _metres(position, case.depot)
         total_metres += return_distance
-        operating_end = VehicleRoutingOptimizer._time_to_seconds(
-            case.depot.operating_hours_end
-        )
-        if earliest_clock + last_service + math.ceil(
-            return_distance / SPEED_METRES_PER_SECOND
-        ) > operating_end:
+        operating_end = VehicleRoutingOptimizer._time_to_seconds(case.depot.operating_hours_end)
+        if (
+            earliest_clock + last_service + math.ceil(return_distance / SPEED_METRES_PER_SECOND)
+            > operating_end
+        ):
             violations += 1
         if weight > float(vehicle.capacity_kg):
             violations += 1
@@ -300,11 +297,17 @@ def main() -> None:
     with args.output.open("x", encoding="utf-8") as handle:
         json.dump(report, handle, sort_keys=True, indent=2)
         handle.write("\n")
-    print(json.dumps({
-        "scenarios": len(report["results"]),
-        "scenario_metrics": report["results"],
-        "output": str(args.output),
-    }, sort_keys=True, default=str))
+    print(
+        json.dumps(
+            {
+                "scenarios": len(report["results"]),
+                "scenario_metrics": report["results"],
+                "output": str(args.output),
+            },
+            sort_keys=True,
+            default=str,
+        )
+    )
 
 
 if __name__ == "__main__":
