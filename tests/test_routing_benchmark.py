@@ -78,6 +78,13 @@ def test_invalid_duplicate_assignment_is_detected():
     assert result["assigned_orders"] == 1
 
 
+def test_greedy_respects_long_service_times():
+    case = synthetic_cases()[0]
+    for order in case.orders:
+        order.service_time_minutes = 600
+    assert measure(case, nearest_neighbour(case), 0)["assigned_orders"] == 0
+
+
 def test_report_declares_same_inputs_and_no_extrapolated_savings():
     report = run_benchmark()
     assert report["version"] == "fleetflow_synthetic_cvrptw_benchmark_v1"

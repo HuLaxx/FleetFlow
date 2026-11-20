@@ -122,6 +122,7 @@ def nearest_neighbour(case: Scenario) -> list[dict]:
         clock = start
         used = 0.0
         travelled = 0
+        previous_service_seconds = 0
         stops = []
         while pending:
             feasible = []
@@ -132,7 +133,7 @@ def nearest_neighbour(case: Scenario) -> list[dict]:
                 distance = _metres(position, order.customer)
                 travel_seconds = math.ceil(distance / SPEED_METRES_PER_SECOND)
                 arrival = max(
-                    clock + (4 * 60 if stops else 0) + travel_seconds,
+                    clock + previous_service_seconds + travel_seconds,
                     _arrival_seconds(order.time_window_start),
                 )
                 return_seconds = math.ceil(
@@ -158,13 +159,14 @@ def nearest_neighbour(case: Scenario) -> list[dict]:
             travelled += distance
             used += float(order.total_weight_kg)
             clock = arrival
+            previous_service_seconds = int(order.service_time_minutes or 0) * 60
             position = order.customer
             del pending[order.id]
         if stops:
             travelled += _metres(position, case.depot)
             duration = (
                 clock
-                + 4 * 60
+                + previous_service_seconds
                 + math.ceil(_metres(position, case.depot) / SPEED_METRES_PER_SECOND)
                 - start
             )
@@ -196,6 +198,10 @@ def measure(case: Scenario, routes: list[dict], solve_ms: float) -> dict:
             continue
         weight = 0.0
         position = case.depot
+        earliest_clock = VehicleRoutingOptimizer._time_to_seconds(
+            case.depot.operating_hours_start
+        )
+        last_service = 0
         for stop in route["stops"]:
             key = stop["order_id"]
             order = expected.get(key)
@@ -206,9 +212,26 @@ def measure(case: Scenario, routes: list[dict], solve_ms: float) -> dict:
             weight += float(order.total_weight_kg)
             if not order.time_window_start <= stop["planned_arrival"] <= order.time_window_end:
                 violations += 1
-            total_metres += _metres(position, order.customer)
+            distance = _metres(position, order.customer)
+            required_clock = earliest_clock + last_service + math.ceil(
+                distance / SPEED_METRES_PER_SECOND
+            )
+            arrival_clock = _arrival_seconds(stop["planned_arrival"])
+            if arrival_clock < required_clock:
+                violations += 1
+            earliest_clock = arrival_clock
+            last_service = int(order.service_time_minutes or 0) * 60
+            total_metres += distance
             position = order.customer
-        total_metres += _metres(position, case.depot)
+        return_distance = _metres(position, case.depot)
+        total_metres += return_distance
+        operating_end = VehicleRoutingOptimizer._time_to_seconds(
+            case.depot.operating_hours_end
+        )
+        if earliest_clock + last_service + math.ceil(
+            return_distance / SPEED_METRES_PER_SECOND
+        ) > operating_end:
+            violations += 1
         if weight > float(vehicle.capacity_kg):
             violations += 1
         duration_minutes += float(route["metrics"]["total_duration_minutes"])
@@ -277,7 +300,11 @@ def main() -> None:
     with args.output.open("x", encoding="utf-8") as handle:
         json.dump(report, handle, sort_keys=True, indent=2)
         handle.write("\n")
-    print(json.dumps({"scenarios": len(report["results"]), "output": str(args.output)}))
+    print(json.dumps({
+        "scenarios": len(report["results"]),
+        "scenario_metrics": report["results"],
+        "output": str(args.output),
+    }, sort_keys=True, default=str))
 
 
 if __name__ == "__main__":

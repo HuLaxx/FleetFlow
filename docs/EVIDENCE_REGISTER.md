@@ -1,3 +1,15 @@
+## FleetFlow 20 November 2026 — scoped P0 + P2 milestone
+
+- [x] **P0 source hygiene:** 21 tracked Python 3.10 bytecode blobs deleted in [draft PR #20](https://github.com/HuLaxx/FleetFlow/pull/20), with repository-index guard [CI 44829989969](https://github.com/HuLaxx/FleetFlow/actions/runs/44829989969) passed. A later commit moved the non-Flink Python alert processor out of the misleading `flink/` path; confirm the latest hygiene workflow before claiming final verification.
+- [x] **P2 real optimiser comparison at previous SHA `c05009f`:** [dedicated six-test OR-Tools benchmark 44829989910](https://github.com/HuLaxx/FleetFlow/actions/runs/44829989910) passed and uploaded JSON artifact `14674939379`. This compares 8-stop/1-van, 12-stop/2-van and 1-infeasible-stop synthetic cases with a constraint-aware greedy baseline. The latest change additionally verifies variable service time and physical travel-time feasibility; exact-head CI for that additional test is required.
+- [ ] **P0 production readiness:** verify newly named Python prototype boundaries, realistic environment boot and clean migration, source-to-API cross-service diagnostics. No real Apache Flink job.
+- [ ] **P1 single-command golden path:** prior independent dispatch + PostGIS/Redpanda/Chromium and Parquet/Airflow/dbt paths have passing CI; one seamless clean-checkout command and fully unified lineage remain to demonstrate.
+- [ ] **P2 real operational performance:** held-out customer/vehicle datasets, road-network timing, fuel/route cost inputs, variance under multi-worker load and rerun distributions still open.
+- [ ] **P3/P4 AWS + published deployment:** offline Terraform only; budget, approval, live hosting, teardown and linked portfolio case study pending.
+**No main merge or paid AWS action.** This PR is stacked on draft #19 and only changes source hygiene, honest nomenclature, constrained synthetic routing evaluation and documentation. 
+
+---
+
 ## Current verified five-job CI — 12 November 2026
 
 - **PASS:** [Backend Tests workflow 43270546627](https://github.com/HuLaxx/FleetFlow/actions/runs/43270546627), commit `c5d706926859620d62f2d3ff5f483921fa1fd4d1`, checked against the PR head at the time of verification.
