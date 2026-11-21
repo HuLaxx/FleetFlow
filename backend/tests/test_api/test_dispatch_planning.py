@@ -161,9 +161,14 @@ async def test_real_solver_persists_plan_then_requires_existing_explicit_approva
     assert detail.status_code == 200, detail.text
     assert detail.json()["stops"][0]["customer_name"] == "Test Recipient"
 
-    # A second planning request must not silently duplicate approved assignments.
+    # The source order is already assigned, so no eligible pending orders remain.
+    # Planning must fail closed without fabricating a second route. The API
+    # reports infeasible/no eligible work as 422, not an approval conflict (409).
     duplicate = await client.post(path, json=_request(depot), headers=headers)
-    assert duplicate.status_code == 409
+    assert duplicate.status_code == 422, duplicate.text
+    routes = (await db_session.scalars(select(Route))).all()
+    assert len(routes) == 1
+    assert routes[0].id == saved.id
 
 
 @pytest.mark.asyncio
