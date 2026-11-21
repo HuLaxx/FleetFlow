@@ -147,7 +147,9 @@ def _check_candidate_integrity(routes, vehicles, orders):
             distance = Decimal(str(metrics["total_distance_km"]))
             duration = Decimal(str(metrics["total_duration_minutes"]))
         except (KeyError, TypeError, ValueError, InvalidOperation) as exc:
-            raise HTTPException(status_code=422, detail="Solver returned invalid route metrics") from exc
+            raise HTTPException(
+                status_code=422, detail="Solver returned invalid route metrics"
+            ) from exc
         if not distance.is_finite() or not duration.is_finite() or distance < 0 or duration < 0:
             raise HTTPException(status_code=422, detail="Solver returned invalid route metrics")
 
