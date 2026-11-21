@@ -260,7 +260,7 @@ async def approve_route(
             status_code=422, detail="Assigned vehicle is not stationed at route depot"
         )
 
-    stops = sorted(route.stops, key=lambda stop: stop.stop_sequence)
+    # A route may become stale between candidate creation and human approval.\n    # Never approve dispatch to a driver no longer assigned to this vehicle.\n    if route.vehicle.current_driver_id != route.driver_id:\n        raise HTTPException(\n            status_code=409, detail="Vehicle driver assignment changed since planning"\n        )\n\n    stops = sorted(route.stops, key=lambda stop: stop.stop_sequence)
     if not stops or route.planned_stops != len(stops):
         raise HTTPException(status_code=422, detail="Route stop count does not match the plan")
     if [stop.stop_sequence for stop in stops] != list(range(1, len(stops) + 1)):
