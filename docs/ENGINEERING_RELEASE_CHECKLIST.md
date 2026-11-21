@@ -1,5 +1,14 @@
 # FleetFlow — Engineering Release Checklist (evidence-gated)
 
+## 21 November 2026 — exact-head verification (PR #21)
+
+- **Draft PR head:** `88e63eb057f750d05170cf64371bde084110f4d3`, stacked on `feature/p2-fleetflow-routing-benchmark-2026-11-20`; no merge or production deployment.
+- **Five GitHub Actions workflow runs completed successfully on this exact head:** [P0 hygiene](https://github.com/HuLaxx/FleetFlow/actions/runs/44857085623), [backend tests](https://github.com/HuLaxx/FleetFlow/actions/runs/44857085646), [GPS full stack](https://github.com/HuLaxx/FleetFlow/actions/runs/44857085680), [Kafka replay](https://github.com/HuLaxx/FleetFlow/actions/runs/44857085720), and [P1 GPS-to-dbt golden path](https://github.com/HuLaxx/FleetFlow/actions/runs/44857085642). These are **PR-head checks**, not proof of a merged or deployed release.
+- **P1 solver boundary:** the latest code rejects absent, non-finite or negative candidate route distance/duration metrics before persistence. The previous failing Black format gate was repaired; backend CI on this head passed. The solver remains a Haversine straight-line estimator, not road-network routing.
+- **Still open:** one independently traceable *same source order* across real OR-Tools candidate persistence → explicit authorised approval → dispatched GPS → Parquet/dbt, with immutable approval audit and failure/replay assertions. The existing same-GPS-event golden path does **not** prove this full order-to-dispatch chain.
+- **Release score:** retain 68/100 until the missing integrated gate has reproducible, exact-head evidence. Do not confuse five green CI workflows with 100% readiness.
+
+
 **Updated:** 2026-11-13 | **Target:** credible UK Data Engineering / Cloud Data Platform flagship | **Status:** DRAFT, NOT 10/10
 
 Check an item only after a reviewer can reproduce the behaviour and inspect tests, logs, commit and proof. **[x] here means verified on a review branch, not deployed, merged, or production ready.** Link each substantive claim in [EVIDENCE_REGISTER.md](EVIDENCE_REGISTER.md). All synthetic/sample map data must remain labelled. No AWS provisioning or production changes without explicit approval.
