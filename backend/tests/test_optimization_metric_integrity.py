@@ -136,3 +136,45 @@ def test_solver_rejects_malformed_or_timezone_incompatible_arrivals(arrival):
         _check_candidate_integrity([candidate], [vehicle], [order])
     assert error.value.status_code == 422
     assert error.value.detail == "Solver returned invalid stop arrival"
+
+
+@pytest.mark.parametrize(
+    ("field", "bad_value", "detail"),
+    [
+        ("vehicle_id", [], "Solver returned invalid vehicle assignment"),
+        ("vehicle_id", {"id": "not-hashable"}, "Solver returned invalid vehicle assignment"),
+        ("driver_id", [], "Solver returned invalid vehicle assignment"),
+        ("order_id", [], "Solver returned invalid stop order"),
+        ("order_id", {"id": "not-hashable"}, "Solver returned invalid stop order"),
+        ("sequence", True, "Solver returned invalid stop order"),
+        ("sequence", 1.0, "Solver returned invalid stop order"),
+    ],
+)
+def test_solver_rejects_invalid_identifiers_and_stop_sequences(field, bad_value, detail):
+    """Invalid solver identifiers must fail with 422, not TypeError/500."""
+    vehicle_id, driver_id, order_id = uuid4(), uuid4(), uuid4()
+    vehicle = SimpleNamespace(
+        id=vehicle_id, current_driver_id=driver_id, capacity_kg=Decimal("100")
+    )
+    order = SimpleNamespace(
+        id=order_id,
+        total_weight_kg=Decimal("1"),
+        time_window_start=datetime(2026, 11, 21, 9),
+        time_window_end=datetime(2026, 11, 21, 17),
+    )
+    candidate = {
+        "vehicle_id": vehicle_id,
+        "driver_id": driver_id,
+        "metrics": {"total_distance_km": 1, "total_duration_minutes": 10},
+        "stops": [
+            {\n                "order_id": order_id,\n                "sequence": 1,\n                "planned_arrival": datetime(2026, 11, 21, 12),\n            }
+        ],
+    }
+    if field in ("order_id", "sequence"):
+        candidate["stops"][0][field] = bad_value
+    else:
+        candidate[field] = bad_value
+    with pytest.raises(HTTPException) as error:
+        _check_candidate_integrity([candidate], [vehicle], [order])
+    assert error.value.status_code == 422
+    assert error.value.detail == detail
