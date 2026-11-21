@@ -150,7 +150,8 @@ async def test_approval_rejects_stale_vehicle_driver_assignment(
         db_session, sample_depot, sample_driver, sample_vehicle, sample_order
     )
     vehicle = await db_session.get(Vehicle, route.vehicle_id)
-    vehicle.current_driver_id = uuid4()
+    replacement_driver = await sample_driver(depot_id=route.depot_id)
+    vehicle.current_driver_id = replacement_driver.id
     await db_session.flush()
 
     headers = await token_for(db_session, UserRole.DISPATCHER)
