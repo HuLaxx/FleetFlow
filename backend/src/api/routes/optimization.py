@@ -146,9 +146,7 @@ def _check_candidate_integrity(routes, vehicles, orders):
             raise HTTPException(status_code=422, detail="Solver returned malformed route")
         if not isinstance(candidate["stops"], list) or any(
             not isinstance(stop, dict)
-            or not all(
-                key in stop for key in ("order_id", "sequence", "planned_arrival")
-            )
+            or not all(key in stop for key in ("order_id", "sequence", "planned_arrival"))
             for stop in candidate["stops"]
         ):
             raise HTTPException(status_code=422, detail="Solver returned malformed stops")
