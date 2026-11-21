@@ -167,7 +167,9 @@ def _check_candidate_integrity(routes, vehicles, orders):
 
         vehicle_id = candidate["vehicle_id"]
         if not isinstance(vehicle_id, UUID) or not isinstance(candidate["driver_id"], UUID):
-            raise HTTPException(status_code=422, detail="Solver returned invalid vehicle assignment")
+            raise HTTPException(
+                status_code=422, detail="Solver returned invalid vehicle assignment"
+            )
         vehicle = available.get(vehicle_id)
         if vehicle is None or vehicle_id in vehicles_used:
             raise HTTPException(
