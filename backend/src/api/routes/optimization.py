@@ -138,6 +138,20 @@ def _check_candidate_integrity(routes, vehicles, orders):
     vehicles_used = set()
 
     for candidate in routes:
+        # Never let a malformed solver payload become an unhandled 500 or
+        # partially persisted plan. Validate structure before indexing keys.
+        if not isinstance(candidate, dict) or not all(
+            key in candidate for key in ("vehicle_id", "driver_id", "metrics", "stops")
+        ):
+            raise HTTPException(status_code=422, detail="Solver returned malformed route")
+        if not isinstance(candidate["stops"], list) or any(
+            not isinstance(stop, dict)
+            or not all(
+                key in stop for key in ("order_id", "sequence", "planned_arrival")
+            )
+            for stop in candidate["stops"]
+        ):
+            raise HTTPException(status_code=422, detail="Solver returned malformed stops")
         # A solver result is untrusted at the persistence boundary. Reject
         # NaN/Infinity, negative or absent metrics before writing Route rows.
         metrics = candidate.get("metrics")
