@@ -6,9 +6,10 @@ from uuid import uuid4
 
 import pytest
 from geoalchemy2.elements import WKTElement
+from sqlalchemy import select
 
 from src.auth.jwt import create_access_token
-from src.models import Route, RouteStop, Vehicle
+from src.models import DispatchOutboxEvent, Route, RouteStop, Vehicle
 from src.models.user import User, UserRole
 
 
@@ -115,7 +116,33 @@ async def test_route_can_start_only_after_explicit_approval_and_correct_driver(
     started = await client.post(start, headers=dispatcher_headers, json=payload)
     assert started.status_code == 200
     assert started.json()["status"] == "in_progress"
+    assert started.json()["delivery_status"] == "pending"
     assert route.status == "in_progress"
+    events = (
+        await db_session.scalars(
+            select(DispatchOutboxEvent).where(
+                DispatchOutboxEvent.topic == "routes.started",
+                DispatchOutboxEvent.message_key == str(route.id),
+            )
+        )
+    ).all()
+    assert len(events) == 1
+    assert str(events[0].id) == started.json()["start_event_id"]
+    assert events[0].status == "pending"
+    assert events[0].payload["route_id"] == str(route.id)
+    assert events[0].payload["driver_id"] == str(driver.id)
+    assert events[0].payload["event_id"] == str(events[0].id)
+
+    repeated_start = await client.post(start, headers=dispatcher_headers, json=payload)
+    assert repeated_start.status_code == 409
+    assert (
+        await db_session.scalars(
+            select(DispatchOutboxEvent).where(
+                DispatchOutboxEvent.topic == "routes.started",
+                DispatchOutboxEvent.message_key == str(route.id),
+            )
+        )
+    ).all() == events
 
 
 @pytest.mark.asyncio
