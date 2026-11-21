@@ -159,7 +159,10 @@ async def test_approval_rejects_stale_vehicle_driver_assignment(
         f"/api/v1/routes/{route.id}/approve", headers=headers
     )
     assert response.status_code == 409
-    assert response.json()["detail"] == "Vehicle driver assignment changed since planning"
+    assert (
+        response.json()["detail"]
+        == "Vehicle driver assignment changed since planning"
+    )
     assert route.status == "planned"
 
 
