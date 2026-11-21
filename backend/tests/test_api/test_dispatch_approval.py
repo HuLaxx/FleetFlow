@@ -281,3 +281,63 @@ async def test_stats_do_not_invent_on_time_or_efficiency_numbers(
     assert after["on_time_sample_size"] == 1
     assert after["avg_route_duration_minutes"] == 40.0
     assert after["fleet_efficiency"] is None
+
+
+@pytest.mark.asyncio
+async def test_stop_completion_rejects_unauthenticated_and_inactive_routes(
+    client, db_session, sample_depot, sample_driver, sample_vehicle, sample_order
+):
+    """A planned or approved route cannot have its delivery marked complete."""
+    route, stop, driver, order = await seed_dispatch(
+        db_session, sample_depot, sample_driver, sample_vehicle, sample_order
+    )
+    endpoint = f"/api/v1/routes/{route.id}/stops/{stop.id}/complete"
+    anonymous = await client.post(endpoint, json={})
+    assert anonymous.status_code == 401
+
+    driver_headers = await token_for(db_session, UserRole.DRIVER, driver_id=driver.id)
+    planned = await client.post(endpoint, headers=driver_headers, json={})
+    assert planned.status_code == 409
+    assert stop.status == "pending"
+    assert order.status == "pending"
+
+    dispatcher_headers = await token_for(db_session, UserRole.DISPATCHER)
+    approved = await client.post(
+        f"/api/v1/routes/{route.id}/approve", headers=dispatcher_headers
+    )
+    assert approved.status_code == 200
+    before_start = await client.post(endpoint, headers=driver_headers, json={})
+    assert before_start.status_code == 409
+    assert stop.status == "pending"
+
+
+@pytest.mark.asyncio
+async def test_stop_completion_rejects_wrong_driver_on_active_route(
+    client, db_session, sample_depot, sample_driver, sample_vehicle, sample_order
+):
+    """A different signed driver cannot complete another driver's stop."""
+    route, stop, driver, order = await seed_dispatch(
+        db_session, sample_depot, sample_driver, sample_vehicle, sample_order
+    )
+    dispatcher_headers = await token_for(db_session, UserRole.DISPATCHER)
+    approved = await client.post(
+        f"/api/v1/routes/{route.id}/approve", headers=dispatcher_headers
+    )
+    assert approved.status_code == 200
+    started = await client.post(
+        f"/api/v1/routes/{route.id}/start",
+        headers=dispatcher_headers,
+        json={"driver_id": str(driver.id)},
+    )
+    assert started.status_code == 200
+
+    wrong_headers = await token_for(db_session, UserRole.DRIVER, driver_id=uuid4())
+    denied = await client.post(
+        f"/api/v1/routes/{route.id}/stops/{stop.id}/complete",
+        headers=wrong_headers,
+        json={"recipient_name": "Not authorized"},
+    )
+    assert denied.status_code == 403
+    assert stop.status == "pending"
+    assert order.status == "pending"
+    assert route.completed_stops == 0
