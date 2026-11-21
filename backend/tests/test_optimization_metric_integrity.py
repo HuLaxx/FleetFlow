@@ -77,3 +77,26 @@ def test_solver_accepts_finite_nonnegative_route_metrics():
         ],
     }
     _check_candidate_integrity([candidate], [vehicle], [order])
+
+
+@pytest.mark.parametrize(
+    "malformed",
+    [
+        None,
+        {},
+        {"vehicle_id": "not-enough-fields"},
+        {"vehicle_id": "x", "driver_id": "y", "metrics": {}, "stops": None},
+        {"vehicle_id": "x", "driver_id": "y", "metrics": {}, "stops": [None]},
+        {"vehicle_id": "x", "driver_id": "y", "metrics": {}, "stops": [{}]},
+        {"vehicle_id": "x", "driver_id": "y", "metrics": {}, "stops": [{"order_id": "x"}]},
+    ],
+)
+def test_solver_rejects_malformed_candidate_structure(malformed):
+    """Malformed solver results fail closed rather than causing an internal error."""
+    with pytest.raises(HTTPException) as error:
+        _check_candidate_integrity([malformed], [], [])
+    assert error.value.status_code == 422
+    assert error.value.detail in (
+        "Solver returned malformed route",
+        "Solver returned malformed stops",
+    )
