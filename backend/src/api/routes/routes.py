@@ -359,7 +359,7 @@ async def start_route(
     """Start an explicitly approved route using the assigned driver identity."""
     stmt = (
         select(Route)
-        .options(selectinload(Route.driver))
+        .options(selectinload(Route.driver), selectinload(Route.vehicle))
         .where(Route.id == route_id)
         .with_for_update(of=Route)
     )
@@ -378,6 +378,13 @@ async def start_route(
     if current_user.role == UserRole.DRIVER and current_user.driver_id != route.driver_id:
         raise HTTPException(
             status_code=403, detail="Drivers may only start their own assigned routes"
+        )
+
+    # Recheck assignment at dispatch start: approval does not reserve a driver
+    # forever, and an intervening reassignment must never start stale work.
+    if route.vehicle is None or route.vehicle.current_driver_id != route.driver_id:
+        raise HTTPException(
+            status_code=409, detail="Vehicle driver assignment changed since approval"
         )
 
     # Update route
