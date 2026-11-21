@@ -166,6 +166,8 @@ def _check_candidate_integrity(routes, vehicles, orders):
             raise HTTPException(status_code=422, detail="Solver returned invalid route metrics")
 
         vehicle_id = candidate["vehicle_id"]
+        if not isinstance(vehicle_id, UUID) or not isinstance(candidate["driver_id"], UUID):
+            raise HTTPException(status_code=422, detail="Solver returned invalid vehicle assignment")
         vehicle = available.get(vehicle_id)
         if vehicle is None or vehicle_id in vehicles_used:
             raise HTTPException(
@@ -179,6 +181,8 @@ def _check_candidate_integrity(routes, vehicles, orders):
 
         for sequence, stop in enumerate(candidate["stops"], start=1):
             order_id = stop["order_id"]
+            if not isinstance(order_id, UUID) or type(stop["sequence"]) is not int:
+                raise HTTPException(status_code=422, detail="Solver returned invalid stop order")
             order = expected.get(order_id)
             if order is None or stop["sequence"] != sequence:
                 raise HTTPException(status_code=422, detail="Solver returned invalid stop order")
