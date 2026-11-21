@@ -258,6 +258,39 @@ async def test_real_solver_persists_plan_then_requires_existing_explicit_approva
     ).all()
     assert len(completion_events) == 1
 
+    # The three durable operational facts must reconcile to the same solver
+    # route in the correct lifecycle order, without duplicate event IDs.
+    # This is deliberately database-only: Kafka delivery and GPS-to-dbt
+    # reconciliation remain separate, unverified acceptance gates.
+    lifecycle_events = (
+        await db_session.scalars(
+            select(DispatchOutboxEvent).where(
+                DispatchOutboxEvent.message_key == route_id,
+                DispatchOutboxEvent.topic.in_(
+                    ["routes.approved", "routes.started", "routes.stops"]
+                ),
+            )
+        )
+    ).all()
+    assert len(lifecycle_events) == 3
+    assert {event.id for event in lifecycle_events} == {
+        approval_event_id,
+        start_event_id,
+        completion_event_id,
+    }
+    assert {event.topic for event in lifecycle_events} == {
+        "routes.approved",
+        "routes.started",
+        "routes.stops",
+    }
+    for event in lifecycle_events:
+        assert event.status == "pending"
+        assert event.payload["event_id"] == str(event.id)
+        assert event.payload["route_id"] == route_id
+        assert event.payload["schema_version"] == 1
+        assert "recipient_name" not in event.payload
+        assert "email" not in event.payload
+
     detail = await client.get(f"/api/v1/routes/{route_id}")
     assert detail.status_code == 200, detail.text
     assert detail.json()["stops"][0]["customer_name"] == "Test Recipient"
