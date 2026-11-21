@@ -13,7 +13,6 @@ from sqlalchemy.orm import joinedload, selectinload
 from src.auth.dependencies import require_dispatcher, require_driver
 from src.database import get_db
 from src.events import (
-    RouteStartedEvent,
     StopCompletedEvent,
     get_kafka_producer,
 )
@@ -352,7 +351,6 @@ async def approve_route(
 async def start_route(
     route_id: UUID,
     request: StartRouteRequest,
-    background_tasks: BackgroundTasks,
     current_user: User = Depends(require_driver),
     db: AsyncSession = Depends(get_db),
 ):
@@ -396,30 +394,36 @@ async def start_route(
     if route.driver:
         route.driver.status = "on_route"
 
-    await db.commit()
-
-    # Publish event
-    event = RouteStartedEvent(
-        route_id=route_id,
-        driver_id=request.driver_id,
-        started_at=datetime.now(UTC),
-        first_stop_eta=datetime.now(UTC),
-    )
-
-    async def publish_event():
-        producer = get_kafka_producer()
-        await producer.publish_async(
+    # Persist the dispatch event in the same transaction as the route state.
+    # A transient broker failure must not silently lose a started route event.
+    started_at = route.started_at.replace(tzinfo=UTC)
+    event_id = uuid4()
+    db.add(
+        DispatchOutboxEvent(
+            id=event_id,
             topic="routes.started",
-            event=event,
-            key=str(route_id),
+            message_key=str(route_id),
+            payload={
+                "event_id": str(event_id),
+                "schema_version": 1,
+                "event_type": "route.started",
+                "route_id": str(route_id),
+                "driver_id": str(route.driver_id),
+                "vehicle_id": str(route.vehicle_id),
+                "timestamp": started_at.isoformat(),
+            },
+            status="pending",
+            next_attempt_at=started_at,
         )
-
-    background_tasks.add_task(publish_event)
+    )
+    await db.commit()
 
     return {
         "route_id": str(route_id),
         "status": "in_progress",
         "started_at": route.started_at.isoformat(),
+        "start_event_id": str(event_id),
+        "delivery_status": "pending",
     }
 
 
