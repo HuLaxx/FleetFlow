@@ -199,6 +199,45 @@ async def test_real_solver_persists_plan_then_requires_existing_explicit_approva
     ).all()
     assert len(start_events) == 1
 
+    # Continue the exact solver-assigned source order through delivery completion.
+    # The outbox fact must be durable, keyed to this route, and contain no PII.
+    completed = await client.post(
+        f"/api/v1/routes/{route_id}/stops/{stops[0].id}/complete",
+        json={"recipient_name": "Synthetic Recipient"},
+        headers=headers,
+    )
+    assert completed.status_code == 200, completed.text
+    assert completed.json()["delivery_status"] == "pending"
+    completion_event_id = UUID(completed.json()["completion_event_id"])
+    completion_event = await db_session.get(DispatchOutboxEvent, completion_event_id)
+    assert completion_event is not None
+    assert completion_event.topic == "routes.stops"
+    assert completion_event.status == "pending"
+    assert completion_event.message_key == route_id
+    assert completion_event.payload["event_id"] == str(completion_event_id)
+    assert completion_event.payload["route_id"] == route_id
+    assert completion_event.payload["stop_id"] == str(stops[0].id)
+    assert completion_event.payload["order_id"] == str(order.id)
+    assert completion_event.payload["driver_id"] == str(driver.id)
+    assert completion_event.payload["schema_version"] == 1
+    assert "recipient_name" not in completion_event.payload
+    assert "email" not in completion_event.payload
+
+    duplicate_completion = await client.post(
+        f"/api/v1/routes/{route_id}/stops/{stops[0].id}/complete",
+        json={"recipient_name": "Synthetic Recipient"},
+        headers=headers,
+    )
+    assert duplicate_completion.status_code == 409
+    completion_events = (
+        await db_session.scalars(
+            select(DispatchOutboxEvent).where(
+                DispatchOutboxEvent.topic == "routes.stops",
+                DispatchOutboxEvent.message_key == route_id)
+        )
+    ).all()
+    assert len(completion_events) == 1
+
     detail = await client.get(f"/api/v1/routes/{route_id}")
     assert detail.status_code == 200, detail.text
     assert detail.json()["stops"][0]["customer_name"] == "Test Recipient"
