@@ -6,8 +6,8 @@ approval step before a driver may start them. No live GPS or dispatch events are
 implied by generating a candidate.
 """
 
-from datetime import date
-from decimal import Decimal
+from datetime import date, datetime
+from decimal import Decimal, InvalidOperation
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -138,7 +138,38 @@ def _check_candidate_integrity(routes, vehicles, orders):
     vehicles_used = set()
 
     for candidate in routes:
+        # Never let a malformed solver payload become an unhandled 500 or
+        # partially persisted plan. Validate structure before indexing keys.
+        if not isinstance(candidate, dict) or not all(
+            key in candidate for key in ("vehicle_id", "driver_id", "metrics", "stops")
+        ):
+            raise HTTPException(status_code=422, detail="Solver returned malformed route")
+        if not isinstance(candidate["stops"], list) or any(
+            not isinstance(stop, dict)
+            or not all(key in stop for key in ("order_id", "sequence", "planned_arrival"))
+            for stop in candidate["stops"]
+        ):
+            raise HTTPException(status_code=422, detail="Solver returned malformed stops")
+        # A solver result is untrusted at the persistence boundary. Reject
+        # NaN/Infinity, negative or absent metrics before writing Route rows.
+        metrics = candidate.get("metrics")
+        if not isinstance(metrics, dict):
+            raise HTTPException(status_code=422, detail="Solver returned invalid route metrics")
+        try:
+            distance = Decimal(str(metrics["total_distance_km"]))
+            duration = Decimal(str(metrics["total_duration_minutes"]))
+        except (KeyError, TypeError, ValueError, InvalidOperation) as exc:
+            raise HTTPException(
+                status_code=422, detail="Solver returned invalid route metrics"
+            ) from exc
+        if not distance.is_finite() or not duration.is_finite() or distance < 0 or duration < 0:
+            raise HTTPException(status_code=422, detail="Solver returned invalid route metrics")
+
         vehicle_id = candidate["vehicle_id"]
+        if not isinstance(vehicle_id, UUID) or not isinstance(candidate["driver_id"], UUID):
+            raise HTTPException(
+                status_code=422, detail="Solver returned invalid vehicle assignment"
+            )
         vehicle = available.get(vehicle_id)
         if vehicle is None or vehicle_id in vehicles_used:
             raise HTTPException(
@@ -152,11 +183,23 @@ def _check_candidate_integrity(routes, vehicles, orders):
 
         for sequence, stop in enumerate(candidate["stops"], start=1):
             order_id = stop["order_id"]
+            if not isinstance(order_id, UUID) or type(stop["sequence"]) is not int:
+                raise HTTPException(status_code=422, detail="Solver returned invalid stop order")
             order = expected.get(order_id)
             if order is None or stop["sequence"] != sequence:
                 raise HTTPException(status_code=422, detail="Solver returned invalid stop order")
             arrival = stop["planned_arrival"]
-            if not order.time_window_start <= arrival <= order.time_window_end:
+            # A malformed or timezone-incompatible solver timestamp must not
+            # turn an invalid candidate into a 500 during persistence.
+            if not isinstance(arrival, datetime):
+                raise HTTPException(status_code=422, detail="Solver returned invalid stop arrival")
+            try:
+                within_window = order.time_window_start <= arrival <= order.time_window_end
+            except TypeError as exc:
+                raise HTTPException(
+                    status_code=422, detail="Solver returned invalid stop arrival"
+                ) from exc
+            if not within_window:
                 raise HTTPException(status_code=422, detail="Solver stop violates delivery window")
             visited.append(order_id)
 

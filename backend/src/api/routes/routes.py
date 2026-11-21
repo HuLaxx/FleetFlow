@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 from datetime import date as calendar_date
 from uuid import UUID, uuid4
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy import and_, case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -12,11 +12,6 @@ from sqlalchemy.orm import joinedload, selectinload
 
 from src.auth.dependencies import require_dispatcher, require_driver
 from src.database import get_db
-from src.events import (
-    RouteStartedEvent,
-    StopCompletedEvent,
-    get_kafka_producer,
-)
 from src.models import DispatchOutboxEvent, Order, Route, RouteApprovalAudit, RouteStop
 from src.models.user import User, UserRole
 
@@ -260,6 +255,13 @@ async def approve_route(
             status_code=422, detail="Assigned vehicle is not stationed at route depot"
         )
 
+    # A route may become stale between candidate creation and human approval.
+    # Never approve dispatch to a driver no longer assigned to this vehicle.
+    if route.vehicle.current_driver_id != route.driver_id:
+        raise HTTPException(
+            status_code=409, detail="Vehicle driver assignment changed since planning"
+        )
+
     stops = sorted(route.stops, key=lambda stop: stop.stop_sequence)
     if not stops or route.planned_stops != len(stops):
         raise HTTPException(status_code=422, detail="Route stop count does not match the plan")
@@ -345,14 +347,13 @@ async def approve_route(
 async def start_route(
     route_id: UUID,
     request: StartRouteRequest,
-    background_tasks: BackgroundTasks,
     current_user: User = Depends(require_driver),
     db: AsyncSession = Depends(get_db),
 ):
     """Start an explicitly approved route using the assigned driver identity."""
     stmt = (
         select(Route)
-        .options(selectinload(Route.driver))
+        .options(selectinload(Route.driver), selectinload(Route.vehicle))
         .where(Route.id == route_id)
         .with_for_update(of=Route)
     )
@@ -373,6 +374,13 @@ async def start_route(
             status_code=403, detail="Drivers may only start their own assigned routes"
         )
 
+    # Recheck assignment at dispatch start: approval does not reserve a driver
+    # forever, and an intervening reassignment must never start stale work.
+    if route.vehicle is None or route.vehicle.current_driver_id != route.driver_id:
+        raise HTTPException(
+            status_code=409, detail="Vehicle driver assignment changed since approval"
+        )
+
     # Update route
     route.status = "in_progress"
     route.started_at = datetime.now(UTC).replace(tzinfo=None)
@@ -382,30 +390,36 @@ async def start_route(
     if route.driver:
         route.driver.status = "on_route"
 
-    await db.commit()
-
-    # Publish event
-    event = RouteStartedEvent(
-        route_id=route_id,
-        driver_id=request.driver_id,
-        started_at=datetime.now(UTC),
-        first_stop_eta=datetime.now(UTC),
-    )
-
-    async def publish_event():
-        producer = get_kafka_producer()
-        await producer.publish_async(
+    # Persist the dispatch event in the same transaction as the route state.
+    # A transient broker failure must not silently lose a started route event.
+    started_at = route.started_at.replace(tzinfo=UTC)
+    event_id = uuid4()
+    db.add(
+        DispatchOutboxEvent(
+            id=event_id,
             topic="routes.started",
-            event=event,
-            key=str(route_id),
+            message_key=str(route_id),
+            payload={
+                "event_id": str(event_id),
+                "schema_version": 1,
+                "event_type": "route.started",
+                "route_id": str(route_id),
+                "driver_id": str(route.driver_id),
+                "vehicle_id": str(route.vehicle_id),
+                "timestamp": started_at.isoformat(),
+            },
+            status="pending",
+            next_attempt_at=started_at,
         )
-
-    background_tasks.add_task(publish_event)
+    )
+    await db.commit()
 
     return {
         "route_id": str(route_id),
         "status": "in_progress",
         "started_at": route.started_at.isoformat(),
+        "start_event_id": str(event_id),
+        "delivery_status": "pending",
     }
 
 
@@ -414,10 +428,10 @@ async def complete_stop(
     route_id: UUID,
     stop_id: UUID,
     request: CompleteStopRequest,
-    background_tasks: BackgroundTasks,
+    current_user: User = Depends(require_driver),
     db: AsyncSession = Depends(get_db),
 ):
-    """Mark a stop as completed."""
+    """Complete a stop only on an active route assigned to the caller."""
     # Get stop
     stmt = (
         select(RouteStop)
@@ -431,8 +445,16 @@ async def complete_stop(
     if not stop:
         raise HTTPException(status_code=404, detail="Stop not found")
 
+    # Fail closed before mutating any stop, order, route, or audit state.
+    # Driver identity comes from the authenticated principal, not the payload.
+    if stop.route is None or stop.route.status != "in_progress":
+        raise HTTPException(status_code=409, detail="Route must be in progress")
+    if current_user.role == UserRole.DRIVER and current_user.driver_id != stop.route.driver_id:
+        raise HTTPException(status_code=403, detail="Drivers may only complete their own stops")
     if stop.status == "completed":
-        raise HTTPException(status_code=400, detail="Stop already completed")
+        raise HTTPException(status_code=409, detail="Stop already completed")
+    if stop.status not in ("pending", "en_route"):
+        raise HTTPException(status_code=409, detail="Stop is not eligible for completion")
 
     # Update stop
     stop.status = "completed"
@@ -452,35 +474,40 @@ async def complete_stop(
     if stop.route:
         stop.route.completed_stops = (stop.route.completed_stops or 0) + 1
 
-    await db.commit()
-
-    # Publish event
-    event = StopCompletedEvent(
-        route_id=route_id,
-        stop_id=stop_id,
-        order_id=stop.order_id,
-        driver_id=stop.route.driver_id if stop.route else None,
-        completed_at=datetime.now(UTC),
-        actual_service_time_minutes=5,  # TODO: Calculate from timestamps
-        next_stop_eta=datetime.now(UTC),
-    )
-
-    async def publish_event():
-        producer = get_kafka_producer()
-        await producer.publish_async(
+    # Store the completion event atomically with stop/order/route changes.
+    # Broker publication is handled by the existing retryable outbox worker.
+    completed_at = stop.actual_arrival.replace(tzinfo=UTC)
+    event_id = uuid4()
+    db.add(
+        DispatchOutboxEvent(
+            id=event_id,
             topic="routes.stops",
-            event=event,
-            key=str(route_id),
+            message_key=str(route_id),
+            payload={
+                "event_id": str(event_id),
+                "schema_version": 1,
+                "event_type": "route.stop.completed",
+                "route_id": str(route_id),
+                "stop_id": str(stop_id),
+                "order_id": str(stop.order_id),
+                "driver_id": str(stop.route.driver_id),
+                "completed_at": completed_at.isoformat(),
+                "timestamp": completed_at.isoformat(),
+            },
+            status="pending",
+            next_attempt_at=completed_at,
         )
-
-    background_tasks.add_task(publish_event)
+    )
+    await db.commit()
 
     return {
         "route_id": str(route_id),
         "stop_id": str(stop_id),
         "status": "completed",
-        "completed_at": datetime.now(UTC).isoformat(),
+        "completed_at": completed_at.isoformat(),
         "recipient_name": request.recipient_name,
+        "completion_event_id": str(event_id),
+        "delivery_status": "pending",
     }
 
 
