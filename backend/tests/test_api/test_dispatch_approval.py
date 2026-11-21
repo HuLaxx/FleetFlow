@@ -167,6 +167,37 @@ async def test_approval_rejects_stale_vehicle_driver_assignment(
 
 
 @pytest.mark.asyncio
+async def test_start_rejects_vehicle_reassigned_after_approval(
+    client, db_session, sample_depot, sample_driver, sample_vehicle, sample_order
+):
+    """An approved route cannot start after its vehicle changes drivers."""
+    route, _, driver, _ = await seed_dispatch(
+        db_session, sample_depot, sample_driver, sample_vehicle, sample_order
+    )
+    dispatcher_headers = await token_for(db_session, UserRole.DISPATCHER)
+    approved = await client.post(
+        f"/api/v1/routes/{route.id}/approve", headers=dispatcher_headers
+    )
+    assert approved.status_code == 200
+    assert route.status == "approved"
+
+    vehicle = await db_session.get(Vehicle, route.vehicle_id)
+    replacement_driver = await sample_driver(depot_id=route.depot_id)
+    vehicle.current_driver_id = replacement_driver.id
+    await db_session.flush()
+
+    response = await client.post(
+        f"/api/v1/routes/{route.id}/start",
+        headers=dispatcher_headers,
+        json={"driver_id": str(driver.id)},
+    )
+    assert response.status_code == 409
+    assert response.json()["detail"] == "Vehicle driver assignment changed since approval"
+    assert route.status == "approved"
+    assert route.started_at is None
+
+
+@pytest.mark.asyncio
 async def test_approval_rejects_capacity_and_time_window_violations(
     client, db_session, sample_depot, sample_driver, sample_vehicle, sample_order
 ):
