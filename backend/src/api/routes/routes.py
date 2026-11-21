@@ -454,10 +454,7 @@ async def complete_stop(
     # Driver identity comes from the authenticated principal, not the payload.
     if stop.route is None or stop.route.status != "in_progress":
         raise HTTPException(status_code=409, detail="Route must be in progress")
-    if (
-        current_user.role == UserRole.DRIVER
-        and current_user.driver_id != stop.route.driver_id
-    ):
+    if current_user.role == UserRole.DRIVER and current_user.driver_id != stop.route.driver_id:
         raise HTTPException(status_code=403, detail="Drivers may only complete their own stops")
     if stop.status == "completed":
         raise HTTPException(status_code=409, detail="Stop already completed")
