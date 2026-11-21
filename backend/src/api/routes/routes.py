@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 from datetime import date as calendar_date
 from uuid import UUID, uuid4
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy import and_, case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -12,10 +12,6 @@ from sqlalchemy.orm import joinedload, selectinload
 
 from src.auth.dependencies import require_dispatcher, require_driver
 from src.database import get_db
-from src.events import (
-    StopCompletedEvent,
-    get_kafka_producer,
-)
 from src.models import DispatchOutboxEvent, Order, Route, RouteApprovalAudit, RouteStop
 from src.models.user import User, UserRole
 
@@ -432,7 +428,6 @@ async def complete_stop(
     route_id: UUID,
     stop_id: UUID,
     request: CompleteStopRequest,
-    background_tasks: BackgroundTasks,
     current_user: User = Depends(require_driver),
     db: AsyncSession = Depends(get_db),
 ):
@@ -479,35 +474,40 @@ async def complete_stop(
     if stop.route:
         stop.route.completed_stops = (stop.route.completed_stops or 0) + 1
 
-    await db.commit()
-
-    # Publish event
-    event = StopCompletedEvent(
-        route_id=route_id,
-        stop_id=stop_id,
-        order_id=stop.order_id,
-        driver_id=stop.route.driver_id if stop.route else None,
-        completed_at=datetime.now(UTC),
-        actual_service_time_minutes=5,  # TODO: Calculate from timestamps
-        next_stop_eta=datetime.now(UTC),
-    )
-
-    async def publish_event():
-        producer = get_kafka_producer()
-        await producer.publish_async(
+    # Store the completion event atomically with stop/order/route changes.
+    # Broker publication is handled by the existing retryable outbox worker.
+    completed_at = stop.actual_arrival.replace(tzinfo=UTC)
+    event_id = uuid4()
+    db.add(
+        DispatchOutboxEvent(
+            id=event_id,
             topic="routes.stops",
-            event=event,
-            key=str(route_id),
+            message_key=str(route_id),
+            payload={
+                "event_id": str(event_id),
+                "schema_version": 1,
+                "event_type": "route.stop.completed",
+                "route_id": str(route_id),
+                "stop_id": str(stop_id),
+                "order_id": str(stop.order_id),
+                "driver_id": str(stop.route.driver_id),
+                "completed_at": completed_at.isoformat(),
+                "timestamp": completed_at.isoformat(),
+            },
+            status="pending",
+            next_attempt_at=completed_at,
         )
-
-    background_tasks.add_task(publish_event)
+    )
+    await db.commit()
 
     return {
         "route_id": str(route_id),
         "stop_id": str(stop_id),
         "status": "completed",
-        "completed_at": datetime.now(UTC).isoformat(),
+        "completed_at": completed_at.isoformat(),
         "recipient_name": request.recipient_name,
+        "completion_event_id": str(event_id),
+        "delivery_status": "pending",
     }
 
 
