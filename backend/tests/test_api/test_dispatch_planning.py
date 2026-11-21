@@ -13,7 +13,7 @@ from geoalchemy2.elements import WKTElement
 from sqlalchemy import select
 
 from src.auth.jwt import create_access_token
-from src.models import Customer, DispatchOutboxEvent, Route, RouteStop
+from src.models import Customer, DispatchOutboxEvent, Route, RouteApprovalAudit, RouteStop
 from src.models.user import User, UserRole
 
 
@@ -113,9 +113,51 @@ async def test_real_solver_persists_plan_then_requires_existing_explicit_approva
     )
     assert blocked.status_code == 409
 
+    # An unauthenticated or read-only principal cannot approve the solver plan.
+    # Rejected requests must leave both the route and approval ledger untouched.
+    anonymous_approval = await client.post(f"/api/v1/routes/{route_id}/approve")
+    assert anonymous_approval.status_code == 401
+    viewer_approval = await client.post(
+        f"/api/v1/routes/{route_id}/approve",
+        headers=await _headers(db_session, UserRole.VIEWER),
+    )
+    assert viewer_approval.status_code == 403
+    await db_session.refresh(saved)
+    assert saved.status == "planned"
+    assert (
+        await db_session.scalars(
+            select(RouteApprovalAudit).where(RouteApprovalAudit.route_id == saved.id)
+        )
+    ).all() == []
+
     approved = await client.post(f"/api/v1/routes/{route_id}/approve", headers=headers)
     assert approved.status_code == 200, approved.text
     assert approved.json()["status"] == "approved"
+
+    # Approval is a durable, attributable fact, linked to exactly one pending
+    # outbox event and to the same route containing the original solver order.
+    approval_event_id = UUID(approved.json()["approval_event_id"])
+    approvals = (
+        await db_session.scalars(
+            select(RouteApprovalAudit).where(RouteApprovalAudit.route_id == saved.id)
+        )
+    ).all()
+    assert len(approvals) == 1
+    assert approvals[0].event_id == approval_event_id
+    assert approvals[0].previous_status == "planned"
+    assert approvals[0].new_status == "approved"
+    approval_event = await db_session.get(DispatchOutboxEvent, approval_event_id)
+    assert approval_event is not None
+    assert approval_event.topic == "routes.approved"
+    assert approval_event.message_key == route_id
+    assert approval_event.status == "pending"
+    assert approval_event.payload["event_id"] == str(approval_event_id)
+    assert approval_event.payload["route_id"] == route_id
+    assert approval_event.payload["approved_by_user_id"] == str(
+        approvals[0].approved_by_user_id
+    )
+    assert approval_event.payload["schema_version"] == 1
+    assert stops[0].order_id == order.id
 
     # Follow the *same real OR-Tools source order* through the approval
     # boundary and durable dispatch outbox. This is a DB-backed integration
