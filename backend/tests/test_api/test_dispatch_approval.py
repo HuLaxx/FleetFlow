@@ -192,7 +192,10 @@ async def test_start_rejects_vehicle_reassigned_after_approval(
         json={"driver_id": str(driver.id)},
     )
     assert response.status_code == 409
-    assert response.json()["detail"] == "Vehicle driver assignment changed since approval"
+    assert (
+        response.json()["detail"]
+        == "Vehicle driver assignment changed since approval"
+    )
     assert route.status == "approved"
     assert route.started_at is None
 
