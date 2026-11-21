@@ -219,6 +219,25 @@ async def test_real_solver_persists_plan_then_requires_existing_explicit_approva
     ).all()
     assert len(start_events) == 1
 
+    # A read-only principal must not complete the same solver-assigned stop
+    # after dispatch. Rejection must preserve both the stop and durable outbox.
+    viewer_completion = await client.post(
+        f"/api/v1/routes/{route_id}/stops/{stops[0].id}/complete",
+        json={"recipient_name": "Synthetic Recipient"},
+        headers=await _headers(db_session, UserRole.VIEWER),
+    )
+    assert viewer_completion.status_code == 403, viewer_completion.text
+    await db_session.refresh(stops[0])
+    assert stops[0].status != "completed"
+    assert (
+        await db_session.scalars(
+            select(DispatchOutboxEvent).where(
+                DispatchOutboxEvent.topic == "routes.stops",
+                DispatchOutboxEvent.message_key == route_id,
+            )
+        )
+    ).all() == []
+
     # Continue the exact solver-assigned source order through delivery completion.
     # The outbox fact must be durable, keyed to this route, and contain no PII.
     completed = await client.post(
