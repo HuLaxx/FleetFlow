@@ -13,7 +13,7 @@ from geoalchemy2.elements import WKTElement
 from sqlalchemy import select
 
 from src.auth.jwt import create_access_token
-from src.models import Customer, Route, RouteStop
+from src.models import Customer, DispatchOutboxEvent, Route, RouteStop
 from src.models.user import User, UserRole
 
 
@@ -116,6 +116,46 @@ async def test_real_solver_persists_plan_then_requires_existing_explicit_approva
     approved = await client.post(f"/api/v1/routes/{route_id}/approve", headers=headers)
     assert approved.status_code == 200, approved.text
     assert approved.json()["status"] == "approved"
+
+    # Follow the *same real OR-Tools source order* through the approval
+    # boundary and durable dispatch outbox. This is a DB-backed integration
+    # slice, not yet a broker/GPS/Parquet/dbt golden-path claim.
+    started = await client.post(
+        f"/api/v1/routes/{route_id}/start",
+        json={"driver_id": str(driver.id)},
+        headers=headers,
+    )
+    assert started.status_code == 200, started.text
+    assert started.json()["status"] == "in_progress"
+    assert started.json()["delivery_status"] == "pending"
+    start_event_id = UUID(started.json()["start_event_id"])
+    start_event = await db_session.get(DispatchOutboxEvent, start_event_id)
+    assert start_event is not None
+    assert start_event.topic == "routes.started"
+    assert start_event.status == "pending"
+    assert start_event.message_key == route_id
+    assert start_event.payload["event_id"] == str(start_event_id)
+    assert start_event.payload["route_id"] == route_id
+    assert start_event.payload["driver_id"] == str(driver.id)
+    assert start_event.payload["vehicle_id"] == str(vehicle.id)
+    assert start_event.payload["schema_version"] == 1
+    assert "email" not in start_event.payload
+
+    repeated_start = await client.post(
+        f"/api/v1/routes/{route_id}/start",
+        json={"driver_id": str(driver.id)},
+        headers=headers,
+    )
+    assert repeated_start.status_code == 409
+    start_events = (
+        await db_session.scalars(
+            select(DispatchOutboxEvent).where(
+                DispatchOutboxEvent.topic == "routes.started",
+                DispatchOutboxEvent.message_key == route_id,
+            )
+        )
+    ).all()
+    assert len(start_events) == 1
 
     detail = await client.get(f"/api/v1/routes/{route_id}")
     assert detail.status_code == 200, detail.text
