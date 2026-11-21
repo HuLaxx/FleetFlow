@@ -167,7 +167,11 @@ def test_solver_rejects_invalid_identifiers_and_stop_sequences(field, bad_value,
         "driver_id": driver_id,
         "metrics": {"total_distance_km": 1, "total_duration_minutes": 10},
         "stops": [
-            {\n                "order_id": order_id,\n                "sequence": 1,\n                "planned_arrival": datetime(2026, 11, 21, 12),\n            }
+            {
+                "order_id": order_id,
+                "sequence": 1,
+                "planned_arrival": datetime(2026, 11, 21, 12),
+            }
         ],
     }
     if field in ("order_id", "sequence"):
