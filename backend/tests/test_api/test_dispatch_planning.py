@@ -113,6 +113,26 @@ async def test_real_solver_persists_plan_then_requires_existing_explicit_approva
     )
     assert blocked.status_code == 409
 
+    # An unapproved solver route must not permit a delivery-completion
+    # shortcut. Verify the rejected request leaves the source order's stop
+    # untouched and emits no completion event before explicit approval.
+    premature_completion = await client.post(
+        f"/api/v1/routes/{route_id}/stops/{stops[0].id}/complete",
+        json={"recipient_name": "Synthetic Recipient"},
+        headers=headers,
+    )
+    assert premature_completion.status_code == 409, premature_completion.text
+    await db_session.refresh(stops[0])
+    assert stops[0].status != "completed"
+    assert (
+        await db_session.scalars(
+            select(DispatchOutboxEvent).where(
+                DispatchOutboxEvent.topic == "routes.stops",
+                DispatchOutboxEvent.message_key == route_id,
+            )
+        )
+    ).all() == []
+
     # An unauthenticated or read-only principal cannot approve the solver plan.
     # Rejected requests must leave both the route and approval ledger untouched.
     anonymous_approval = await client.post(f"/api/v1/routes/{route_id}/approve")
