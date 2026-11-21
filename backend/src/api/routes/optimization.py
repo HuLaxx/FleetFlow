@@ -7,7 +7,7 @@ implied by generating a candidate.
 """
 
 from datetime import date
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -138,6 +138,19 @@ def _check_candidate_integrity(routes, vehicles, orders):
     vehicles_used = set()
 
     for candidate in routes:
+        # A solver result is untrusted at the persistence boundary. Reject
+        # NaN/Infinity, negative or absent metrics before writing Route rows.
+        metrics = candidate.get("metrics")
+        if not isinstance(metrics, dict):
+            raise HTTPException(status_code=422, detail="Solver returned invalid route metrics")
+        try:
+            distance = Decimal(str(metrics["total_distance_km"]))
+            duration = Decimal(str(metrics["total_duration_minutes"]))
+        except (KeyError, TypeError, ValueError, InvalidOperation) as exc:
+            raise HTTPException(status_code=422, detail="Solver returned invalid route metrics") from exc
+        if not distance.is_finite() or not duration.is_finite() or distance < 0 or duration < 0:
+            raise HTTPException(status_code=422, detail="Solver returned invalid route metrics")
+
         vehicle_id = candidate["vehicle_id"]
         vehicle = available.get(vehicle_id)
         if vehicle is None or vehicle_id in vehicles_used:
