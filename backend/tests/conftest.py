@@ -133,14 +133,15 @@ async def db_session(integration_engine):
 @pytest_asyncio.fixture
 async def client(db_session, monkeypatch):
     from src.main import app
-    from src.api.routes import orders, drivers, routes
+    from src.api.routes import orders, drivers
 
     async def override_get_db():
         yield db_session
 
     mock_kafka = MagicMock()
     mock_kafka.publish_async = AsyncMock()
-    for module in (orders, drivers, routes):
+    # Routes use transactional outbox persistence; only legacy publishers need a Kafka stub.
+    for module in (orders, drivers):
         monkeypatch.setattr(module, "get_kafka_producer", lambda: mock_kafka)
     app.dependency_overrides[get_db] = override_get_db
     try:
