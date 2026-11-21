@@ -433,9 +433,10 @@ async def complete_stop(
     stop_id: UUID,
     request: CompleteStopRequest,
     background_tasks: BackgroundTasks,
+    current_user: User = Depends(require_driver),
     db: AsyncSession = Depends(get_db),
 ):
-    """Mark a stop as completed."""
+    """Complete a stop only on an active route assigned to the caller."""
     # Get stop
     stmt = (
         select(RouteStop)
@@ -449,8 +450,19 @@ async def complete_stop(
     if not stop:
         raise HTTPException(status_code=404, detail="Stop not found")
 
+    # Fail closed before mutating any stop, order, route, or audit state.
+    # Driver identity comes from the authenticated principal, not the payload.
+    if stop.route is None or stop.route.status != "in_progress":
+        raise HTTPException(status_code=409, detail="Route must be in progress")
+    if (
+        current_user.role == UserRole.DRIVER
+        and current_user.driver_id != stop.route.driver_id
+    ):
+        raise HTTPException(status_code=403, detail="Drivers may only complete their own stops")
     if stop.status == "completed":
-        raise HTTPException(status_code=400, detail="Stop already completed")
+        raise HTTPException(status_code=409, detail="Stop already completed")
+    if stop.status not in ("pending", "en_route"):
+        raise HTTPException(status_code=409, detail="Stop is not eligible for completion")
 
     # Update stop
     stop.status = "completed"
