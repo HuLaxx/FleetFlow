@@ -341,3 +341,68 @@ async def test_stop_completion_rejects_wrong_driver_on_active_route(
     assert stop.status == "pending"
     assert order.status == "pending"
     assert route.completed_stops == 0
+
+
+@pytest.mark.asyncio
+async def test_stop_completion_persists_single_durable_event_and_rejects_replay(
+    client, db_session, sample_depot, sample_driver, sample_vehicle, sample_order
+):
+    """Completion and its retryable outbox record commit as one unit."""
+    route, stop, driver, order = await seed_dispatch(
+        db_session, sample_depot, sample_driver, sample_vehicle, sample_order
+    )
+    dispatcher = await token_for(db_session, UserRole.DISPATCHER)
+    driver_headers = await token_for(db_session, UserRole.DRIVER, driver_id=driver.id)
+    approved = await client.post(
+        f"/api/v1/routes/{route.id}/approve", headers=dispatcher
+    )
+    assert approved.status_code == 200
+    started = await client.post(
+        f"/api/v1/routes/{route.id}/start",
+        headers=driver_headers,
+        json={"driver_id": str(driver.id)},
+    )
+    assert started.status_code == 200
+
+    endpoint = f"/api/v1/routes/{route.id}/stops/{stop.id}/complete"
+    completed = await client.post(
+        endpoint, headers=driver_headers, json={"recipient_name": "Synthetic recipient"}
+    )
+    assert completed.status_code == 200
+    body = completed.json()
+    assert body["delivery_status"] == "pending"
+    assert stop.status == "completed"
+    assert order.status == "delivered"
+    assert route.completed_stops == 1
+
+    events = (
+        await db_session.scalars(
+            select(DispatchOutboxEvent).where(
+                DispatchOutboxEvent.topic == "routes.stops",
+                DispatchOutboxEvent.message_key == str(route.id),
+            )
+        )
+    ).all()
+    assert len(events) == 1
+    event = events[0]
+    assert event.status == "pending"
+    assert str(event.id) == body["completion_event_id"]
+    assert event.payload["event_id"] == str(event.id)
+    assert event.payload["route_id"] == str(route.id)
+    assert event.payload["stop_id"] == str(stop.id)
+    assert event.payload["order_id"] == str(order.id)
+    assert event.payload["driver_id"] == str(driver.id)
+    assert event.payload["schema_version"] == 1
+    assert "recipient_name" not in event.payload
+
+    replay = await client.post(endpoint, headers=driver_headers, json={})
+    assert replay.status_code == 409
+    assert route.completed_stops == 1
+    assert (
+        await db_session.scalars(
+            select(DispatchOutboxEvent).where(
+                DispatchOutboxEvent.topic == "routes.stops",
+                DispatchOutboxEvent.message_key == str(route.id),
+            )
+        )
+    ).all() == events
