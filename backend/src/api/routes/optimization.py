@@ -6,7 +6,7 @@ approval step before a driver may start them. No live GPS or dispatch events are
 implied by generating a candidate.
 """
 
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
 from uuid import UUID
 
@@ -183,7 +183,17 @@ def _check_candidate_integrity(routes, vehicles, orders):
             if order is None or stop["sequence"] != sequence:
                 raise HTTPException(status_code=422, detail="Solver returned invalid stop order")
             arrival = stop["planned_arrival"]
-            if not order.time_window_start <= arrival <= order.time_window_end:
+            # A malformed or timezone-incompatible solver timestamp must not
+            # turn an invalid candidate into a 500 during persistence.
+            if not isinstance(arrival, datetime):
+                raise HTTPException(status_code=422, detail="Solver returned invalid stop arrival")
+            try:
+                within_window = order.time_window_start <= arrival <= order.time_window_end
+            except TypeError as exc:
+                raise HTTPException(
+                    status_code=422, detail="Solver returned invalid stop arrival"
+                ) from exc
+            if not within_window:
                 raise HTTPException(status_code=422, detail="Solver stop violates delivery window")
             visited.append(order_id)
 
