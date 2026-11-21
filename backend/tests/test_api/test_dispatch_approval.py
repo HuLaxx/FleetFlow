@@ -8,7 +8,7 @@ import pytest
 from geoalchemy2.elements import WKTElement
 
 from src.auth.jwt import create_access_token
-from src.models import Route, RouteStop
+from src.models import Route, RouteStop, Vehicle
 from src.models.user import User, UserRole
 
 
@@ -139,6 +139,27 @@ async def test_driver_cannot_start_another_driver_route(
     )
     assert forbidden.status_code == 403
     assert route.status == "approved"
+
+
+@pytest.mark.asyncio
+async def test_approval_rejects_stale_vehicle_driver_assignment(
+    client, db_session, sample_depot, sample_driver, sample_vehicle, sample_order
+):
+    """Human approval must recheck the live assignment after planning."""
+    route, _, _, _ = await seed_dispatch(
+        db_session, sample_depot, sample_driver, sample_vehicle, sample_order
+    )
+    vehicle = await db_session.get(Vehicle, route.vehicle_id)
+    vehicle.current_driver_id = uuid4()
+    await db_session.flush()
+
+    headers = await token_for(db_session, UserRole.DISPATCHER)
+    response = await client.post(
+        f"/api/v1/routes/{route.id}/approve", headers=headers
+    )
+    assert response.status_code == 409
+    assert response.json()["detail"] == "Vehicle driver assignment changed since planning"
+    assert route.status == "planned"
 
 
 @pytest.mark.asyncio
