@@ -89,11 +89,14 @@ def main() -> None:
     parser.add_argument("--vehicle-id", type=UUID, required=True)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
-    try:
-        result = asyncio.run(export(args.vehicle_id, args.output))
-        print(json.dumps(result, sort_keys=True))
-    finally:
-        asyncio.run(engine.dispose())
+    async def execute():
+        try:
+            return await export(args.vehicle_id, args.output)
+        finally:
+            await engine.dispose()
+
+    result = asyncio.run(execute())
+    print(json.dumps(result, sort_keys=True))
 
 
 if __name__ == "__main__":

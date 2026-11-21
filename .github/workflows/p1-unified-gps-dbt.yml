@@ -231,7 +231,7 @@ jobs:
           assert second["idempotent_existing_vehicle_hours"] == 1
           paths = sorted((Path(os.environ["UNIFIED_LAKE_RUN"]) / "clean").rglob("*.parquet"))
           assert len(paths) == 1
-          clean = pq.read_table(paths[0]).to_pylist()
+          clean = pq.ParquetFile(paths[0]).read().to_pylist()
           assert len(clean) == 1
           assert clean[0]["event_id"] == event["event_id"] == origin["event_id"]
           assert clean[0]["vehicle_id"] == os.environ["GPS_E2E_VEHICLE_ID"]
