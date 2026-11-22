@@ -4,6 +4,7 @@ This verifier is intentionally NOT a replacement for a real broker/Parquet/dbt
 integration run. It refuses to infer an absent route-to-vehicle association.
 """
 import argparse
+import hashlib
 import json
 from pathlib import Path
 from uuid import UUID
@@ -22,7 +23,7 @@ def _uuid(value, field):
         raise LineageError(f"{field}: invalid UUID") from exc
 
 
-def verify(route, gps, analytics):
+def verify(route, gps, analytics, source_bytes=None):
     """Return sanitized, verified identifiers; reject missing or inconsistent joins.
 
     route: persisted solver/approval/dispatch receipt, not an invented fixture
@@ -58,6 +59,11 @@ def verify(route, gps, analytics):
     digest = analytics.get("source_sha256")
     if not isinstance(digest, str) or len(digest) != 64 or any(c not in "0123456789abcdef" for c in digest):
         raise LineageError("missing or malformed source digest")
+    if source_bytes is not None:
+        if not isinstance(source_bytes, bytes):
+            raise LineageError("source bytes must be bytes")
+        if hashlib.sha256(source_bytes).hexdigest() != digest:
+            raise LineageError("actual source bytes do not match analytics digest")
     return {"status": "verified", **ids, "gps_event_id": event_id, "source_sha256": digest}
 
 
@@ -66,10 +72,11 @@ def main():
     parser.add_argument("--route", required=True, type=Path)
     parser.add_argument("--gps", required=True, type=Path)
     parser.add_argument("--analytics", required=True, type=Path)
+    parser.add_argument("--source", required=True, type=Path, help="Original persisted synthetic source-event bytes")
     parser.add_argument("--output", required=True, type=Path)
     args = parser.parse_args()
     try:
-        receipt = verify(*(json.loads(p.read_text(encoding="utf-8")) for p in (args.route, args.gps, args.analytics)))
+        receipt = verify(*(json.loads(p.read_text(encoding="utf-8")) for p in (args.route, args.gps, args.analytics)), source_bytes=args.source.read_bytes())
     except (LineageError, OSError, json.JSONDecodeError) as exc:
         parser.exit(1, f"LINEAGE REJECTED: {exc}\n")
     args.output.write_text(json.dumps(receipt, sort_keys=True, indent=2) + "\n", encoding="utf-8")
