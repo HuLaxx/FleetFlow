@@ -7,6 +7,10 @@ transformation, not a Kafka streaming job or a replacement for source validation
 from __future__ import annotations
 
 import re
+import hashlib
+import json
+from pathlib import Path
+from typing import Any
 
 from pyspark.sql import DataFrame, Window
 from pyspark.sql import functions as F
@@ -77,3 +81,45 @@ def hourly_vehicle_facts(events: DataFrame, run_key: str) -> DataFrame:
             "last_latitude", "last_longitude",
         )
     )
+
+
+def verified_clean_parquet(manifest_path: Path) -> tuple[dict[str, Any], list[str]]:
+    """Verify the replay manifest and every referenced artifact before Spark reads.
+
+    Requires the original run directory layout with manifest.json at its root.
+    Verifies bytes (integrity), NOT the authenticity of the manifest's creator.
+    """
+    manifest_path = Path(manifest_path).resolve()
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    if manifest.get("contract") != "fleetflow.gps.v1":
+        raise ValueError("unrecognised replay manifest contract")
+    if not re.fullmatch(r"[0-9a-f]{64}", str(manifest.get("run_key", ""))):
+        raise ValueError("invalid replay run key")
+    artifacts = manifest.get("artifacts")
+    checksums = manifest.get("artifact_sha256")
+    if not isinstance(artifacts, list) or not artifacts or not isinstance(checksums, dict):
+        raise ValueError("incomplete source manifest")
+    if len(artifacts) != len(set(artifacts)) or set(artifacts) != set(checksums):
+        raise ValueError("duplicate or inconsistent manifest artifacts")
+    root = manifest_path.parent
+    clean = []
+    for relative in artifacts:
+        if not isinstance(relative, str) or Path(relative).is_absolute():
+            raise ValueError("unsafe artifact location")
+        target = (root / relative).resolve()
+        if not target.is_relative_to(root) or not target.is_file():
+            raise ValueError("missing or escaping replay artifact")
+        expected = checksums[relative]
+        if not isinstance(expected, str) or not re.fullmatch(r"[0-9a-f]{64}", expected):
+            raise ValueError("invalid artifact digest")
+        hasher = hashlib.sha256()
+        with target.open("rb") as stream:
+            for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+                hasher.update(chunk)
+        if hasher.hexdigest() != expected:
+            raise ValueError("replay artifact integrity failure")
+        if relative.startswith("clean/") and relative.endswith(".parquet"):
+            clean.append(str(target))
+    if not clean:
+        raise ValueError("manifest contains no validated clean Parquet files")
+    return manifest, clean
