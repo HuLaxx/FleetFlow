@@ -76,8 +76,14 @@ def verify(route, gps, analytics, source_bytes):
         raise LineageError("dbt order association mismatch")
     if _uuid(analytics.get("route_id"), "analytics.route_id") != ids["route_id"]:
         raise LineageError("dbt route association mismatch")
-    if analytics.get("dbt_row_count") != 1 or analytics.get("duplicate_count") != 0:
-        raise LineageError("missing or duplicate analytical fact")
+    # JSON booleans compare equal to integers in Python (True == 1 and
+    # False == 0). Do not let a malformed receipt masquerade as measured
+    # database row counts.
+    if (type(analytics.get("dbt_row_count")) is not int
+            or analytics["dbt_row_count"] != 1
+            or type(analytics.get("duplicate_count")) is not int
+            or analytics["duplicate_count"] != 0):
+        raise LineageError("analytical fact counts must be exact integers: one row, zero duplicates")
     digest = analytics.get("source_sha256")
     if not isinstance(digest, str) or len(digest) != 64 or any(c not in "0123456789abcdef" for c in digest):
         raise LineageError("missing or malformed source digest")
