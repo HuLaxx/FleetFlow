@@ -1,0 +1,41 @@
+name: FleetFlow P3 Build Real Container Images
+on:
+  push:
+    branches: ['feature/**', 'fix/**']
+    paths:
+      - 'backend/**'
+      - 'frontend/**'
+      - '.github/workflows/p3-container-build.yml'
+  pull_request:
+    branches: [main, 'feature/**']
+    paths:
+      - 'backend/**'
+      - 'frontend/**'
+      - '.github/workflows/p3-container-build.yml'
+permissions:
+  contents: read
+jobs:
+  build-images:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        component: [backend, frontend]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build actual application container without publishing
+        run: |
+          set -euo pipefail
+          docker build --file "${{ matrix.component }}/Dockerfile" \
+            --tag "fleetflow-${{ matrix.component }}:ci" \
+            "${{ matrix.component }}"
+      - name: Inspect non-root runtime user
+        run: |
+          set -euo pipefail
+          id=$(docker image inspect "fleetflow-${{ matrix.component }}:ci" --format '{{.Config.User}}')
+          if [ -z "$id" ] || [ "$id" = root ] || [ "$id" = 0 ]; then
+            echo "::error::Container must run as non-root"
+            exit 1
+          fi
+          echo "Runtime user: $id"
