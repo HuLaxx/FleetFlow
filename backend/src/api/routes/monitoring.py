@@ -53,5 +53,9 @@ async def readiness():
     """
     result = await probe_readiness()
     for component, status in result["components"].items():
-        system_health.labels(component=component).set(1 if status["status"] == "healthy" else 0)
-    return JSONResponse(status_code=200 if result["status"] == "ready" else 503, content=result)
+        system_health.labels(component=component).set(
+            1 if status["status"] == "healthy" else 0
+        )
+    return JSONResponse(
+        status_code=200 if result["status"] == "ready" else 503, content=result
+    )
