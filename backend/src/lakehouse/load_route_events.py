@@ -13,6 +13,19 @@ from sqlalchemy.engine import make_url
 from src.lakehouse.reconcile import reconcile
 
 
+def read_clean_rows(run_dir: Path) -> list[dict]:
+    """Read exact Parquet files without Hive partition discovery.
+
+    Clean Parquet already includes event_date as a physical string column,
+    while parent directories use event_date=... partition labels. PyArrow's
+    dataset reader infers a second dictionary-typed event_date column and
+    can fail merging these incompatible representations. ParquetFile reads
+    each verified file's physical schema only.
+    """
+    paths = sorted((run_dir / "clean").rglob("*.parquet"))
+    return [row for path in paths for row in pq.ParquetFile(path).read().to_pylist()]
+
+
 async def load(run_dir: Path, database_url: str) -> dict[str, int]:
     verified = reconcile(run_dir)
     url = make_url(database_url)
@@ -20,8 +33,7 @@ async def load(run_dir: Path, database_url: str) -> dict[str, int]:
             or url.database != "fleetflow_test"
             or url.host not in {"localhost", "127.0.0.1"}):
         raise ValueError("Only isolated local fleetflow_test may be modified")
-    paths = sorted((run_dir / "clean").rglob("*.parquet"))
-    rows = [row for path in paths for row in pq.read_table(path).to_pylist()]
+    rows = read_clean_rows(run_dir)
     if len(rows) != verified["accepted"]:
         raise ValueError("Reconciled clean-event count mismatch")
     conn = await asyncpg.connect(
