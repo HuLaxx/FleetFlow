@@ -30,6 +30,8 @@ async def reconcile(order_receipt: dict, gps_receipt: dict, analytics_receipt: d
     event_id = UUID(gps_receipt["event_id"])
     if gps_receipt.get("outbox_published") is not True or gps_receipt.get("postgis_consumer_accepted") is not True:
         raise AssertionError("GPS broker publication and consumer receipt required")
+    if gps_receipt.get("route_id") != str(route_id):
+        raise AssertionError("Native GPS route identity missing or inconsistent")
     if gps_receipt.get("driver_id") != str(driver_id) or gps_receipt.get("vehicle_id") != str(vehicle_id):
         raise AssertionError("GPS identity does not match dispatch")
     if analytics_receipt.get("event_id") != str(event_id):
@@ -91,9 +93,9 @@ async def reconcile(order_receipt: dict, gps_receipt: dict, analytics_receipt: d
         if len(gps_rows) != 1 or gps_rows[0].status != "published":
             raise AssertionError("Exact GPS source not broker published")
     return {
-        "status": "verified_synthetic_route_gps_association",
-        "association_method": "unique_active_route_driver_vehicle_and_persisted_source_order",
-        "limitation": "GPS event lacks native order_id and route_id; this is not native event-level foreign-key lineage",
+        "status": "verified_synthetic_native_route_gps_lineage",
+        "association_method": "native_route_id_plus_unique_active_route_and_persisted_source_order",
+        "limitation": "GPS carries native route_id; individual order_id is resolved via the persisted route stop, not embedded in the GPS event",
         "order_id": str(order_id), "route_id": str(route_id),
         "driver_id": str(driver_id), "vehicle_id": str(vehicle_id),
         "gps_event_id": str(event_id), "dbt_row_count": 1,
