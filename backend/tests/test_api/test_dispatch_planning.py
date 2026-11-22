@@ -323,7 +323,20 @@ async def test_real_solver_persists_plan_then_requires_existing_explicit_approva
         "routes.started",
         "routes.stops",
     }
+    # Scan nested payload structures as well as the outer event envelope.
+    forbidden_keys = {"recipient_name", "email", "customer_email", "phone", "phone_number"}
+
+    def assert_no_recipient_pii(value):
+        if isinstance(value, dict):
+            assert forbidden_keys.isdisjoint(value.keys())
+            for nested in value.values():
+                assert_no_recipient_pii(nested)
+        elif isinstance(value, list):
+            for nested in value:
+                assert_no_recipient_pii(nested)
+
     for event in lifecycle_events:
+        assert_no_recipient_pii(event.payload)
         assert event.status == "pending"
         assert event.payload["event_id"] == str(event.id)
         assert event.payload["route_id"] == route_id
