@@ -33,9 +33,7 @@ def _kafka_metadata_available() -> bool:
 async def check_kafka_readiness() -> bool:
     """A bounded, nonblocking broker metadata request, not a delivery guarantee."""
     try:
-        return await asyncio.wait_for(
-            asyncio.to_thread(_kafka_metadata_available), timeout=4
-        )
+        return await asyncio.wait_for(asyncio.to_thread(_kafka_metadata_available), timeout=4)
     except Exception:  # noqa: BLE001 - health probe must fail closed
         # Deliberately return no raw broker hostname, credentials or exception.
         return False
