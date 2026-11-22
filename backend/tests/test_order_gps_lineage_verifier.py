@@ -1,11 +1,13 @@
 """Offline negative cases for the source-order/GPS/dbt lineage verifier."""
 import hashlib
+import json
+import sys
 from copy import deepcopy
 from uuid import UUID
 
 import pytest
 
-from scripts.verify_order_gps_lineage import LineageError, verify
+from scripts.verify_order_gps_lineage import LineageError, main, verify
 
 
 def _id(number):
@@ -114,3 +116,32 @@ def test_missing_or_wrong_type_source_rejected():
 def test_missing_source_bytes_fail_closed():
     with pytest.raises(TypeError, match="source_bytes"):
         verify(*receipts())
+
+
+@pytest.mark.parametrize("valid_source", [False, True])
+def test_cli_never_reuses_stale_success_receipt(tmp_path, monkeypatch, valid_source):
+    route, gps, analytics = receipts()
+    for name, payload in (("route", route), ("gps", gps), ("analytics", analytics)):
+        (tmp_path / f"{name}.json").write_text(json.dumps(payload), encoding="utf-8")
+    source_path = tmp_path / "source.bin"
+    source_path.write_bytes(SOURCE_BYTES if valid_source else b"tampered source")
+    output = tmp_path / "verified.json"
+    output.write_text('{"status":"verified","stale":true}', encoding="utf-8")
+    monkeypatch.setattr(sys, "argv", [
+        "verify_order_gps_lineage",
+        "--route", str(tmp_path / "route.json"),
+        "--gps", str(tmp_path / "gps.json"),
+        "--analytics", str(tmp_path / "analytics.json"),
+        "--source", str(source_path),
+        "--output", str(output),
+    ])
+    if not valid_source:
+        with pytest.raises(SystemExit) as error:
+            main()
+        assert error.value.code == 1
+        assert not output.exists()
+    else:
+        main()
+        receipt = json.loads(output.read_text(encoding="utf-8"))
+        assert receipt["status"] == "verified"
+        assert "stale" not in receipt
