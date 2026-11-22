@@ -230,7 +230,7 @@ def _build_parquet(staging: Path, rows: list[dict[str, Any]]) -> list[str]:
     marts = []
     for (vehicle_id, hour), events in sorted(hourly.items()):
         speeds = [event["speed_kmh"] for event in events if event["speed_kmh"] is not None]
-        most_recent = max(events, key=lambda event: event["event_time"])
+        most_recent = max(events, key=lambda event: (event["event_time"], event["event_id"]))
         marts.append(
             {
                 "vehicle_id": vehicle_id,
