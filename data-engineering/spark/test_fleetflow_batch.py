@@ -1,5 +1,7 @@
 """Real local PySpark assertions; no mocked Spark or cloud credentials."""
 from datetime import UTC, datetime
+import hashlib
+import json
 
 import pytest
 from pyspark.sql import SparkSession
@@ -7,7 +9,7 @@ from pyspark.sql.types import (
     BooleanType, DoubleType, StringType, StructField, StructType, TimestampType,
 )
 
-from fleetflow_batch import hourly_vehicle_facts
+from fleetflow_batch import hourly_vehicle_facts, verified_clean_parquet
 
 KEY = "a" * 64
 SCHEMA = StructType([
@@ -93,3 +95,42 @@ def test_real_parquet_read_and_backfill_replay(spark, tmp_path):
     second = hourly_vehicle_facts(spark.read.parquet(source_path), KEY).orderBy("vehicle_id").collect()
     assert len(first) == 2
     assert first == second
+
+
+def test_manifest_verified_and_tampering_detected(tmp_path):
+    source = tmp_path / "clean" / "telemetry.parquet"
+    source.parent.mkdir()
+    source.write_bytes(b"synthetic parquet-placeholder for checksum contract")
+    digest = hashlib.sha256(source.read_bytes()).hexdigest()
+    manifest = {
+        "contract": "fleetflow.gps.v1", "run_key": KEY,
+        "artifacts": ["clean/telemetry.parquet"],
+        "artifact_sha256": {"clean/telemetry.parquet": digest},
+        "counts": {"accepted": 1, "late": 0},
+    }
+    path = tmp_path / "manifest.json"
+    path.write_text(json.dumps(manifest))
+    checked, files = verified_clean_parquet(path)
+    assert checked["run_key"] == KEY
+    assert files == [str(source.resolve())]
+    source.write_bytes(b"mutated")
+    with pytest.raises(ValueError, match="integrity"):
+        verified_clean_parquet(path)
+
+
+def test_manifest_blocks_path_escape_and_duplicate_artifacts(tmp_path):
+    manifest = {
+        "contract": "fleetflow.gps.v1", "run_key": KEY,
+        "artifacts": ["../other/telemetry.parquet"],
+        "artifact_sha256": {"../other/telemetry.parquet": "0" * 64},
+    }
+    path = tmp_path / "manifest.json"
+    path.write_text(json.dumps(manifest))
+    with pytest.raises(ValueError, match="escaping"):
+        verified_clean_parquet(path)
+
+    manifest["artifacts"] = ["clean/one.parquet", "clean/one.parquet"]
+    manifest["artifact_sha256"] = {"clean/one.parquet": "0" * 64}
+    path.write_text(json.dumps(manifest))
+    with pytest.raises(ValueError, match="duplicate"):
+        verified_clean_parquet(path)
