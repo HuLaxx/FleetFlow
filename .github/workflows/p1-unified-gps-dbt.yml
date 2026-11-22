@@ -125,6 +125,16 @@ jobs:
             PGPASSWORD=fleetpass psql -h localhost -U fleetflow -d fleetflow_test -v ON_ERROR_STOP=1 -1 -f "$file"
           done
 
+      # Same CI run now proves the real solver/approval/dispatch DB slice before
+      # the separate browser GPS-to-dbt slice. The pytest transaction rolls
+      # back: this does NOT yet establish same-order identity across slices.
+      - name: Verify real OR-Tools approval and dispatch slice in PostGIS
+        run: |
+          set -euo pipefail
+          python -m pytest backend/tests/test_api/test_dispatch_planning.py \
+            -k test_real_solver_persists_plan_then_requires_existing_explicit_approval \
+            -q --junitxml="$RUNNER_TEMP/solver-approval-slice.xml"
+
       - name: Create a synthetic driver, vehicle and scoped login
         run: |
           python backend/scripts/seed_gps_browser_ci.py > "$RUNNER_TEMP/gps-fixture.json"
@@ -255,6 +265,7 @@ jobs:
         with:
           name: fleetflow-same-event-gps-browser-dbt
           path: |
+            ${{ runner.temp }}/solver-approval-slice.xml
             ${{ runner.temp }}/browser-origin.json
             ${{ runner.temp }}/browser-gps.jsonl
             ${{ runner.temp }}/replay.json
