@@ -17,7 +17,7 @@ def _id(number):
 SOURCE_BYTES = (json.dumps({
     "event_id": _id(5), "driver_id": _id(3), "vehicle_id": _id(4),
     "order_id": _id(1), "route_id": _id(2),
-}, sort_keys=True) + "\\n").encode("utf-8")
+}, sort_keys=True) + "\n").encode("utf-8")
 
 
 def receipts():
@@ -105,7 +105,7 @@ def test_hashed_source_with_wrong_identity_rejected(field):
     route, gps, analytics = receipts()
     source = json.loads(SOURCE_BYTES)
     source[field] = _id(99)
-    altered = (json.dumps(source, sort_keys=True) + "\\n").encode("utf-8")
+    altered = (json.dumps(source, sort_keys=True) + "\n").encode("utf-8")
     analytics["source_sha256"] = hashlib.sha256(altered).hexdigest()
     with pytest.raises(LineageError, match=f"source {field}"):
         verify(route, gps, analytics, source_bytes=altered)
