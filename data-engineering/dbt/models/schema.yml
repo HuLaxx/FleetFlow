@@ -138,3 +138,15 @@ models:
       - name: last_event_time
         tests:
           - not_null
+      - name: vehicle_run_key
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_observed_vehicle')
+              field: vehicle_run_key
+      - name: utc_date_key
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_utc_date')
+              field: utc_date_key
