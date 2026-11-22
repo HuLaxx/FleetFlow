@@ -145,3 +145,33 @@ def test_cli_never_reuses_stale_success_receipt(tmp_path, monkeypatch, valid_sou
         receipt = json.loads(output.read_text(encoding="utf-8"))
         assert receipt["status"] == "verified"
         assert "stale" not in receipt
+
+def test_cli_atomic_publish_failure_leaves_no_success_or_temp(tmp_path, monkeypatch):
+    """A failed atomic rename must not leave either a stale or partial success."""
+    import scripts.verify_order_gps_lineage as module
+
+    route, gps, analytics = receipts()
+    for name, payload in (("route", route), ("gps", gps), ("analytics", analytics)):
+        (tmp_path / f"{name}.json").write_text(json.dumps(payload), encoding="utf-8")
+    source = tmp_path / "source.bin"
+    source.write_bytes(SOURCE_BYTES)
+    output = tmp_path / "verified.json"
+    output.write_text('{"status":"verified","stale":true}', encoding="utf-8")
+
+    def reject_replace(_source, _destination):
+        raise OSError("simulated atomic publication failure")
+
+    monkeypatch.setattr(module.os, "replace", reject_replace)
+    monkeypatch.setattr(sys, "argv", [
+        "verify_order_gps_lineage",
+        "--route", str(tmp_path / "route.json"),
+        "--gps", str(tmp_path / "gps.json"),
+        "--analytics", str(tmp_path / "analytics.json"),
+        "--source", str(source),
+        "--output", str(output),
+    ])
+    with pytest.raises(SystemExit) as error:
+        main()
+    assert error.value.code == 1
+    assert not output.exists()
+    assert not list(tmp_path.glob(".verified.json.*.tmp"))
