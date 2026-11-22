@@ -246,12 +246,16 @@ async def update_location(
     # Never trust a client-supplied route ID without checking the active,
     # authorised assignment against the same database used for the outbox.
     if request.route_id is not None:
-        matching = (await db.scalars(select(Route).where(
-            Route.id == request.route_id,
-            Route.driver_id == driver_id,
-            Route.vehicle_id == vehicle.id,
-            Route.status == "in_progress",
-        ))).all()
+        matching = (
+            await db.scalars(
+                select(Route).where(
+                    Route.id == request.route_id,
+                    Route.driver_id == driver_id,
+                    Route.vehicle_id == vehicle.id,
+                    Route.status == "in_progress",
+                )
+            )
+        ).all()
         if len(matching) != 1:
             raise HTTPException(status_code=409, detail="GPS route is not actively assigned")
     event = GPSLocationEvent(
