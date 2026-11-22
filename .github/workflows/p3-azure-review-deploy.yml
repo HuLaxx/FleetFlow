@@ -1,0 +1,127 @@
+name: FleetFlow P3 Approved Azure Plan or Deploy
+
+# Deliberately no push / PR trigger. Never use this workflow as a
+# substitute for Azure budget approval, a protected environment or
+# a working PostGIS/Kafka backend.
+on:
+  workflow_dispatch:
+    inputs:
+      operation:
+        description: 'plan (read only) or apply (billable provisioning)'
+        required: true
+        type: choice
+        default: plan
+        options:
+          - plan
+          - apply
+      deploy_api:
+        description: 'Opt in the actual backend Container App (requires real image + DB + Kafka)'
+        type: boolean
+        required: true
+        default: false
+      cost_acknowledgement:
+        description: 'For apply ONLY: type I_ACCEPT_AZURE_CHARGES'
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fleetflow-azure-reviewed
+  cancel-in-progress: false
+
+jobs:
+  guard:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Refuse unapproved or accidentally public deployments
+        env:
+          OPERATION: ${{ inputs.operation }}
+          COST_ACK: ${{ inputs.cost_acknowledgement }}
+          DEPLOY_API: ${{ inputs.deploy_api }}
+          STORAGE_NAME: ${{ vars.AZURE_FLEETFLOW_STORAGE_NAME }}
+          STATE_RG: ${{ vars.AZURE_TFSTATE_RG }}
+          STATE_ACCOUNT: ${{ vars.AZURE_TFSTATE_ACCOUNT }}
+          STATE_CONTAINER: ${{ vars.AZURE_TFSTATE_CONTAINER }}
+          IMAGE: ${{ vars.AZURE_FLEETFLOW_API_IMAGE }}
+          KAFKA: ${{ vars.AZURE_FLEETFLOW_KAFKA_SERVERS }}
+        run: |
+          set -euo pipefail
+          test -n "$STORAGE_NAME" && test -n "$STATE_RG" \
+            && test -n "$STATE_ACCOUNT" && test -n "$STATE_CONTAINER"
+          if [ "$OPERATION" = apply ]; then
+            test "$COST_ACK" = I_ACCEPT_AZURE_CHARGES
+            test "${{ vars.AZURE_FLEETFLOW_BUDGET_REVIEWED }}" = true
+          fi
+          if [ "$DEPLOY_API" = true ]; then
+            test -n "$IMAGE" && test -n "$KAFKA"
+          fi
+          echo "Preflight passed; this does not prove Azure costs, readiness or privacy."
+
+  terraform:
+    needs: guard
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    # Configure this as a protected GitHub environment with required
+    # human reviewers BEFORE using apply. GitHub alone does not create a rule.
+    environment: azure-review
+    permissions:
+      id-token: write
+      contents: read
+    env:
+      ARM_USE_OIDC: 'true'
+      ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      TF_VAR_storage_account_name: ${{ vars.AZURE_FLEETFLOW_STORAGE_NAME }}
+      TF_VAR_api_image: ${{ vars.AZURE_FLEETFLOW_API_IMAGE }}
+      TF_VAR_kafka_bootstrap_servers: ${{ vars.AZURE_FLEETFLOW_KAFKA_SERVERS }}
+      TF_VAR_deploy_api: ${{ inputs.deploy_api }}
+      TF_VAR_database_url: ${{ secrets.FLEETFLOW_DATABASE_URL }}
+      TF_VAR_jwt_secret_key: ${{ secrets.FLEETFLOW_JWT_SECRET_KEY }}
+      TF_VAR_public_api_ingress: 'false'
+      TF_IN_AUTOMATION: 'true'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: '1.9.8'
+      - name: Validate Azure connection and remote state configuration
+        env:
+          STATE_RG: ${{ vars.AZURE_TFSTATE_RG }}
+          STATE_ACCOUNT: ${{ vars.AZURE_TFSTATE_ACCOUNT }}
+          STATE_CONTAINER: ${{ vars.AZURE_TFSTATE_CONTAINER }}
+        run: |
+          set -euo pipefail
+          test -n "$ARM_CLIENT_ID" && test -n "$ARM_TENANT_ID" \
+            && test -n "$ARM_SUBSCRIPTION_ID"
+          az account show --query id -o tsv > /dev/null
+          terraform -chdir=infra/azure init -input=false \
+            -backend-config="resource_group_name=$STATE_RG" \
+            -backend-config="storage_account_name=$STATE_ACCOUNT" \
+            -backend-config="container_name=$STATE_CONTAINER" \
+            -backend-config="key=fleetflow/azure-review.tfstate" \
+            -backend-config="use_azuread_auth=true" \
+            -backend-config="use_oidc=true"
+          terraform -chdir=infra/azure validate -no-color
+      - name: Review current state and requested changes (never upload secret plan)
+        run: |
+          set -euo pipefail
+          terraform -chdir=infra/azure plan \
+            -input=false -lock-timeout=5m -out="${{ runner.temp }}/fleetflow.tfplan"
+          # The plan file contains sensitive data. It is never uploaded as an artifact.
+      - name: Apply only following explicit financial and GitHub approval
+        if: ${{ inputs.operation == 'apply' }}
+        run: |
+          set -euo pipefail
+          terraform -chdir=infra/azure apply -input=false \
+            "${{ runner.temp }}/fleetflow.tfplan"
+      - name: Show deployment identity; does not claim health
+        if: ${{ inputs.operation == 'apply' }}
+        run: terraform -chdir=infra/azure output -json | python -c 'import json,sys; d=json.load(sys.stdin); print("Provisioned RG:", d["resource_group_name"]["value"]); print("API hostname:", d.get("api_fqdn",{}).get("value"))'
