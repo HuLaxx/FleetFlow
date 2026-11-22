@@ -21,6 +21,10 @@ The runner must then start **that approved route**, publish the real transaction
 
 The evidence JSON must contain **only synthetic identifiers**, Git commit SHA, workflow/run URL, schema versions, source digest, observed stage counts, negative-case results and artifact paths. Do not upload signing keys, bearer tokens, private addresses, customer data or raw real GPS positions. The CI job must fail on missing IDs, mismatched joins, absent artifacts, duplicate records or an unverified broker ACK. Never manufacture missing stages from fixture defaults.
 
+## Approval receipt validation added on the review branch (22 November 2026)
+
+The offline `verify_order_gps_lineage.py` checker now rejects approval receipts without a UUID `approval_audit_id`, UUID `approver_id`, positive integer `candidate_version` (booleans rejected), or timezone-aware `approved_at`. Nine negative cases cover missing, malformed and naive timestamps/version values. **These fields are claims supplied by the receipt; the checker alone does not independently query the audit table, establish that the approver was authorised, or prove the solver and GPS stages ran on one order.** The integrated runner must fetch the approval audit and candidate version from the actual database and cross-check the authenticated principal, transactional outbox and route identity before the P1 gate can close. Exact-head CI for this addition must pass before treating its tests as verified.
+
 ## Mandatory negative cases
 
 1. Viewer/anonymous approval or completion: 401/403, unchanged route/stop, no audit/outbox mutation.
