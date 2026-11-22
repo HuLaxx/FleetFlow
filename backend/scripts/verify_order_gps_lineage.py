@@ -23,7 +23,7 @@ def _uuid(value, field):
         raise LineageError(f"{field}: invalid UUID") from exc
 
 
-def verify(route, gps, analytics, source_bytes=None):
+def verify(route, gps, analytics, source_bytes):
     """Return sanitized, verified identifiers; reject missing or inconsistent joins.
 
     route: persisted solver/approval/dispatch receipt, not an invented fixture
@@ -59,11 +59,10 @@ def verify(route, gps, analytics, source_bytes=None):
     digest = analytics.get("source_sha256")
     if not isinstance(digest, str) or len(digest) != 64 or any(c not in "0123456789abcdef" for c in digest):
         raise LineageError("missing or malformed source digest")
-    if source_bytes is not None:
-        if not isinstance(source_bytes, bytes):
-            raise LineageError("source bytes must be bytes")
-        if hashlib.sha256(source_bytes).hexdigest() != digest:
-            raise LineageError("actual source bytes do not match analytics digest")
+    if not isinstance(source_bytes, bytes):
+        raise LineageError("source bytes must be bytes")
+    if hashlib.sha256(source_bytes).hexdigest() != digest:
+        raise LineageError("actual source bytes do not match analytics digest")
     return {"status": "verified", **ids, "gps_event_id": event_id, "source_sha256": digest}
 
 
