@@ -267,8 +267,21 @@ jobs:
               )
               rows = cursor.fetchall()
           assert rows == [(os.environ["GPS_E2E_VEHICLE_ID"], 1, 1)], rows
+          (tmp / "analytics-observed.json").write_text(json.dumps({
+              "event_id": event["event_id"],
+              "vehicle_id": os.environ["GPS_E2E_VEHICLE_ID"],
+              "dbt_row_count": rows[0][2],
+          }, sort_keys=True))
           print("PASS: ONE SAME EVENT from Chromium/API→outbox→Kafka→PostGIS→Parquet→dbt; no duplicates")
           PY
+
+      - name: Independently reconcile source order, published route events and dbt GPS fact
+        run: |
+          python backend/scripts/reconcile_order_dispatch_gps_dbt_ci.py \
+            --order "$RUNNER_TEMP/order-dispatch.json" \
+            --gps "$RUNNER_TEMP/browser-origin.json" \
+            --analytics "$RUNNER_TEMP/analytics-observed.json" \
+            --output "$RUNNER_TEMP/order-gps-dbt-association.json"
 
       - name: Publish inspectable full-chain evidence
         if: success()
@@ -278,6 +291,8 @@ jobs:
           path: |
             ${{ runner.temp }}/solver-approval-slice.xml
             ${{ runner.temp }}/order-dispatch.json
+            ${{ runner.temp }}/analytics-observed.json
+            ${{ runner.temp }}/order-gps-dbt-association.json
             ${{ runner.temp }}/browser-origin.json
             ${{ runner.temp }}/browser-gps.jsonl
             ${{ runner.temp }}/replay.json
