@@ -38,6 +38,26 @@ def verify(route, gps, analytics, source_bytes):
         raise LineageError("actual OR-Tools persisted assignment required")
     if route.get("approval_status") != "approved" or route.get("dispatch_status") != "in_progress":
         raise LineageError("route must be explicitly approved and started")
+    # A status string is not evidence of an authorised, versioned decision.
+    # Require independently persisted approval-audit metadata before accepting
+    # any order-to-dispatch lineage receipt.
+    _uuid(route.get("approval_audit_id"), "route.approval_audit_id")
+    _uuid(route.get("approver_id"), "route.approver_id")
+    version = route.get("candidate_version")
+    if type(version) is not int or version < 1:
+        raise LineageError("route.candidate_version: positive integer required")
+    approved_at = route.get("approved_at")
+    if not isinstance(approved_at, str):
+        raise LineageError("route.approved_at: timezone-aware timestamp required")
+    try:
+        from datetime import datetime, timezone
+        approval_time = datetime.fromisoformat(approved_at.replace("Z", "+00:00"))
+        if approval_time.tzinfo is None or approval_time.utcoffset() is None:
+            raise ValueError("missing timezone")
+        if approval_time.astimezone(timezone.utc).year < 2020:
+            raise ValueError("implausible approval timestamp")
+    except ValueError as exc:
+        raise LineageError("route.approved_at: valid timezone-aware timestamp required") from exc
     if route.get("broker_ack") is not True or gps.get("broker_ack") is not True:
         raise LineageError("both dispatch and GPS broker acknowledgements required")
     if gps.get("database_accepted") is not True:
