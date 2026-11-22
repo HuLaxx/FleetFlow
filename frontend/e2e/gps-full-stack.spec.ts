@@ -11,6 +11,7 @@ test("authenticated browser receives API -> outbox -> Kafka -> PostGIS -> WebSoc
   const password = process.env.GPS_E2E_PASSWORD;
   const driverId = process.env.GPS_E2E_DRIVER_ID;
   const vehicleId = process.env.GPS_E2E_VEHICLE_ID;
+  const routeId = process.env.GPS_E2E_ROUTE_ID;
   if (!email || !password || !driverId || !vehicleId) {
     throw new Error("Missing isolated GPS E2E fixture credentials and IDs");
   }
@@ -36,11 +37,19 @@ test("authenticated browser receives API -> outbox -> Kafka -> PostGIS -> WebSoc
   const { access_token: token } = await login.json();
   expect(token).toBeTruthy();
 
+  if (routeId) {
+    const rejected = await request.post(`${api}/api/v1/drivers/${driverId}/location`, {
+      headers: { Authorization: `Bearer ${token}` },
+      data: { latitude: 55.8721, longitude: -4.2582, route_id: "00000000-0000-4000-8000-000000000001" },
+    });
+    expect(rejected.status()).toBe(409);
+  }
+
   const submitted = await request.post(
     `${api}/api/v1/drivers/${driverId}/location`,
     {
       headers: { Authorization: `Bearer ${token}` },
-      data: { latitude: 55.8721, longitude: -4.2582, speed_kmh: 18.5 },
+      data: { latitude: 55.8721, longitude: -4.2582, speed_kmh: 18.5, ...(routeId ? { route_id: routeId } : {}) },
     },
   );
   expect(submitted.status()).toBe(202);
