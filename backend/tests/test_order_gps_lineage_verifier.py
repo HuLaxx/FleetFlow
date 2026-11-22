@@ -111,6 +111,18 @@ def test_hashed_source_with_wrong_identity_rejected(field):
         verify(route, gps, analytics, source_bytes=altered)
 
 
+@pytest.mark.parametrize("field", ["order_id", "route_id"])
+def test_hashed_source_missing_order_lineage_rejected(field):
+    """A valid GPS hash cannot substitute for a source-order association."""
+    route, gps, analytics = receipts()
+    source = json.loads(SOURCE_BYTES)
+    del source[field]
+    altered = (json.dumps(source, sort_keys=True) + "\n").encode("utf-8")
+    analytics["source_sha256"] = hashlib.sha256(altered).hexdigest()
+    with pytest.raises(LineageError, match=f"source\\.{field}"):
+        verify(route, gps, analytics, source_bytes=altered)
+
+
 def test_matching_digest_for_non_json_source_rejected():
     route, gps, analytics = receipts()
     altered = b"not an event"
