@@ -76,8 +76,10 @@ def verify(route, gps, analytics, source_bytes):
     for field, expected in (("event_id", event_id), ("driver_id", ids["driver_id"]), ("vehicle_id", ids["vehicle_id"])):
         if _uuid(source.get(field), f"source.{field}") != expected:
             raise LineageError(f"source {field} differs from accepted GPS event")
+    # An order-linked acceptance must never treat missing source order/route
+    # identifiers as optional: a GPS-only event cannot prove order lineage.
     for field in ("order_id", "route_id"):
-        if field in source and _uuid(source[field], f"source.{field}") != ids[field]:
+        if _uuid(source.get(field), f"source.{field}") != ids[field]:
             raise LineageError(f"source {field} differs from dispatched route")
     return {"status": "verified", **ids, "gps_event_id": event_id, "source_sha256": digest}
 
