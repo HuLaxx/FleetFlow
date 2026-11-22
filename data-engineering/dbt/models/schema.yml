@@ -31,7 +31,31 @@ sources:
             tests:
               - not_null
 
+      - name: gps_route_events
+        description: Exact native-route GPS events from verified immutable local replay
+        columns:
+          - name: route_id
+            tests:
+              - not_null
+          - name: event_id
+            tests:
+              - not_null
+
 models:
+  - name: fct_gps_route_events
+    description: Event-level native route lineage from the authenticated GPS path
+    columns:
+      - name: gps_route_event_key
+        tests:
+          - unique
+          - not_null
+      - name: route_id
+        tests:
+          - not_null
+      - name: event_id
+        tests:
+          - not_null
+
   - name: stg_orders
     description: Cleaned and standardized order data
     columns:
