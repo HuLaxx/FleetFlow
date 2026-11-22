@@ -1,4 +1,5 @@
 """Load reconciled native-route GPS events into disposable PostGIS only."""
+
 import argparse
 import asyncio
 import json
@@ -16,17 +17,22 @@ from src.lakehouse.reconcile import reconcile
 async def load(run_dir: Path, database_url: str) -> dict[str, int]:
     verified = reconcile(run_dir)
     url = make_url(database_url)
-    if (url.drivername not in {"postgresql", "postgresql+asyncpg"}
-            or url.database != "fleetflow_test"
-            or url.host not in {"localhost", "127.0.0.1"}):
+    if (
+        url.drivername not in {"postgresql", "postgresql+asyncpg"}
+        or url.database != "fleetflow_test"
+        or url.host not in {"localhost", "127.0.0.1"}
+    ):
         raise ValueError("Only isolated local fleetflow_test may be modified")
     paths = sorted((run_dir / "clean").rglob("*.parquet"))
-    rows = [row for path in paths for row in pq.read_table(path).to_pylist()]
+    rows = [row for path in paths for row in pq.ParquetFile(path).read().to_pylist()]
     if len(rows) != verified["accepted"]:
         raise ValueError("Reconciled clean-event count mismatch")
     conn = await asyncpg.connect(
-        user=url.username, password=url.password,
-        host=url.host, port=url.port or 5432, database=url.database,
+        user=url.username,
+        password=url.password,
+        host=url.host,
+        port=url.port or 5432,
+        database=url.database,
     )
     inserted = reused = 0
     try:
@@ -35,14 +41,21 @@ async def load(run_dir: Path, database_url: str) -> dict[str, int]:
                 if not row.get("route_id"):
                     raise ValueError("Native route identity required for route mart")
                 key = (verified["run_key"], UUID(row["event_id"]))
-                values = (*key, UUID(row["route_id"]), UUID(row["driver_id"]),
-                          UUID(row["vehicle_id"]), row["event_time"],
-                          row["latitude"], row["longitude"])
+                values = (
+                    *key,
+                    UUID(row["route_id"]),
+                    UUID(row["driver_id"]),
+                    UUID(row["vehicle_id"]),
+                    row["event_time"],
+                    row["latitude"],
+                    row["longitude"],
+                )
                 result = await conn.fetchrow(
                     """INSERT INTO public.gps_route_events
                     (run_key,event_id,route_id,driver_id,vehicle_id,event_time,latitude,longitude)
                     VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
-                    ON CONFLICT (run_key,event_id) DO NOTHING RETURNING event_id""", *values,
+                    ON CONFLICT (run_key,event_id) DO NOTHING RETURNING event_id""",
+                    *values,
                 )
                 if result:
                     inserted += 1
@@ -50,7 +63,8 @@ async def load(run_dir: Path, database_url: str) -> dict[str, int]:
                     existing = await conn.fetchrow(
                         """SELECT route_id,driver_id,vehicle_id,event_time,latitude,longitude
                         FROM public.gps_route_events
-                        WHERE run_key=$1 AND event_id=$2 FOR UPDATE""", *key,
+                        WHERE run_key=$1 AND event_id=$2 FOR UPDATE""",
+                        *key,
                     )
                     if existing is None or tuple(existing) != values[2:]:
                         raise ValueError("Conflicting immutable route GPS event")
