@@ -12,7 +12,8 @@ def _id(number):
     return str(UUID(int=number))
 
 
-def receipts():
+SOURCE_BYTES = b"fleetflow-synthetic-source-order-gps-event-v1"
+\n\ndef receipts():
     route = dict(
         algorithm_used="ortools-cvrptw-haversine",
         approval_status="approved",
@@ -40,13 +41,13 @@ def receipts():
         dbt_event_id=_id(5),
         dbt_row_count=1,
         duplicate_count=0,
-        source_sha256="a" * 64,
+        source_sha256=hashlib.sha256(SOURCE_BYTES).hexdigest(),
     )
     return route, gps, analytics
 
 
 def test_complete_explicit_lineage():
-    assert verify(*receipts())["status"] == "verified"
+    assert verify(*receipts(), source_bytes=SOURCE_BYTES)["status"] == "verified"
 
 
 @pytest.mark.parametrize(
@@ -76,7 +77,7 @@ def test_mismatched_or_unverified_boundary_rejected(index, key, value):
     data = list(deepcopy(receipts()))
     data[index][key] = value
     with pytest.raises(LineageError):
-        verify(*data)
+        verify(*data, source_bytes=SOURCE_BYTES)
 
 
 @pytest.mark.parametrize("index,key", [(0, "order_id"), (0, "route_id"), (1, "event_id"), (2, "dbt_event_id")])
@@ -106,3 +107,8 @@ def test_missing_or_wrong_type_source_rejected():
     route, gps, analytics = receipts()
     with pytest.raises(LineageError, match="source bytes must be bytes"):
         verify(route, gps, analytics, source_bytes="not bytes")
+
+
+def test_missing_source_bytes_fail_closed():
+    with pytest.raises(TypeError, match="source_bytes"):
+        verify(*receipts())
