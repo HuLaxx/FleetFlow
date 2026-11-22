@@ -20,6 +20,8 @@ on:
       - 'frontend/**'
       - 'db/init/06_websocket_dispatch_scope.sql'
       - '.github/workflows/gps-full-stack.yml'
+      - '.github/workflows/p1-unified-gps-dbt.yml'
+      - 'data-engineering/dbt/**'
 
 concurrency:
   group: unified-gps-analytics-${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
