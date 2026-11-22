@@ -17,7 +17,7 @@ from sqlalchemy import select
 from src.consumers.base import BaseKafkaConsumer
 from src.database import AsyncSessionLocal
 from src.events.models import GPSLocationEvent
-from src.models import Vehicle
+from src.models import Route, Vehicle
 
 logger = structlog.get_logger()
 
@@ -75,6 +75,14 @@ class GPSLocationConsumer(BaseKafkaConsumer):
                 raise ValueError("Unknown GPS vehicle")
             if vehicle.current_driver_id != event.driver_id:
                 raise ValueError("GPS driver is not assigned to this vehicle")
+
+            if event.route_id is not None:
+                route = await session.get(Route, event.route_id)
+                if (route is None or route.driver_id != event.driver_id
+                    or route.vehicle_id != event.vehicle_id
+                    or route.status != "in_progress" or route.started_at is None
+                    or observed < route.started_at):
+                    raise ValueError("GPS route is not actively dispatched for this driver/vehicle")
 
             previous = vehicle.last_gps_at
             if previous is not None and observed <= previous:
