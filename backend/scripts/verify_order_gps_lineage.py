@@ -25,6 +25,20 @@ def _uuid(value, field):
         raise LineageError(f"{field}: invalid UUID") from exc
 
 
+def _unique_json_object(pairs):
+    """Reject ambiguous duplicate JSON keys rather than trusting last-key-wins."""
+    result = {}
+    for key, value in pairs:
+        if key in result:
+            raise LineageError(f"duplicate JSON key: {key}")
+        result[key] = value
+    return result
+
+
+def _load_unique_json(payload):
+    return json.loads(payload, object_pairs_hook=_unique_json_object)
+
+
 def verify(route, gps, analytics, source_bytes):
     """Return sanitized, verified identifiers; reject missing or inconsistent joins.
 
@@ -94,7 +108,7 @@ def verify(route, gps, analytics, source_bytes):
     # A matching hash alone does not establish that these bytes describe the
     # GPS event being claimed. Require a single canonical source JSON event.
     try:
-        source = json.loads(source_bytes.decode("utf-8"))
+        source = _load_unique_json(source_bytes.decode("utf-8"))
     except (UnicodeDecodeError, json.JSONDecodeError) as exc:
         raise LineageError("source must be a valid JSON event") from exc
     if not isinstance(source, dict):
@@ -124,7 +138,7 @@ def main():
     except OSError as exc:
         parser.exit(1, f"LINEAGE REJECTED: cannot clear prior output: {exc}\n")
     try:
-        receipt = verify(*(json.loads(p.read_text(encoding="utf-8")) for p in (args.route, args.gps, args.analytics)), source_bytes=args.source.read_bytes())
+        receipt = verify(*(_load_unique_json(p.read_text(encoding="utf-8")) for p in (args.route, args.gps, args.analytics)), source_bytes=args.source.read_bytes())
     except (LineageError, OSError, json.JSONDecodeError) as exc:
         parser.exit(1, f"LINEAGE REJECTED: {exc}\n")
     # Publish only complete evidence. Failed writes must not leave a partial
