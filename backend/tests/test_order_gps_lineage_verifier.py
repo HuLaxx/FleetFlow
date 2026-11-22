@@ -13,7 +13,9 @@ def _id(number):
 
 
 SOURCE_BYTES = b"fleetflow-synthetic-source-order-gps-event-v1"
-\n\ndef receipts():
+
+
+def receipts():
     route = dict(
         algorithm_used="ortools-cvrptw-haversine",
         approval_status="approved",
@@ -85,7 +87,7 @@ def test_missing_identity_rejected(index, key):
     data = list(deepcopy(receipts()))
     del data[index][key]
     with pytest.raises(LineageError):
-        verify(*data)
+        verify(*data, source_bytes=SOURCE_BYTES)
 
 
 def test_original_source_bytes_match_digest():
