@@ -74,11 +74,19 @@ def main():
     parser.add_argument("--source", required=True, type=Path, help="Original persisted synthetic source-event bytes")
     parser.add_argument("--output", required=True, type=Path)
     args = parser.parse_args()
+    # Never leave a stale success receipt after a failed or interrupted rerun.
+    try:
+        args.output.unlink(missing_ok=True)
+    except OSError as exc:
+        parser.exit(1, f"LINEAGE REJECTED: cannot clear prior output: {exc}\n")
     try:
         receipt = verify(*(json.loads(p.read_text(encoding="utf-8")) for p in (args.route, args.gps, args.analytics)), source_bytes=args.source.read_bytes())
     except (LineageError, OSError, json.JSONDecodeError) as exc:
         parser.exit(1, f"LINEAGE REJECTED: {exc}\n")
-    args.output.write_text(json.dumps(receipt, sort_keys=True, indent=2) + "\n", encoding="utf-8")
+    try:
+        args.output.write_text(json.dumps(receipt, sort_keys=True, indent=2) + "\n", encoding="utf-8")
+    except OSError as exc:
+        parser.exit(1, f"LINEAGE REJECTED: cannot write verified output: {exc}\n")
 
 
 if __name__ == "__main__":
