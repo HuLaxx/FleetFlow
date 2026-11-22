@@ -203,6 +203,8 @@ class GPSLocationEvent(BaseModel):
 
     driver_id: UUID
     vehicle_id: UUID
+    # Optional for legacy GPS; authenticated API binds this to a dispatched route.
+    route_id: UUID | None = None
     location: Location
     speed_kmh: float | None = Field(None, ge=0)
     heading: float | None = Field(None, ge=0, le=360)
