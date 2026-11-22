@@ -36,7 +36,7 @@ async def check_kafka_readiness() -> bool:
         return await asyncio.wait_for(
             asyncio.to_thread(_kafka_metadata_available), timeout=4
         )
-    except Exception:
+    except Exception:  # noqa: BLE001 - health probe must fail closed
         # Deliberately return no raw broker hostname, credentials or exception.
         return False
 
@@ -51,11 +51,11 @@ async def probe_readiness(
     try:
         db_result = await check_db()
         db_ready = isinstance(db_result, dict) and db_result.get("status") == "healthy"
-    except Exception:
+    except Exception:  # noqa: BLE001 - health probe must fail closed
         db_ready = False
     try:
         kafka_ready = bool(await check_kafka())
-    except Exception:
+    except Exception:  # noqa: BLE001 - health probe must fail closed
         kafka_ready = False
     ready = db_ready and kafka_ready
     return {
