@@ -17,7 +17,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     env:
-      PYTHONPATH: data-engineering/spark
+      PYTHONPATH: data-engineering/spark:backend
       SPARK_LOCAL_HOSTNAME: localhost
     steps:
       - uses: actions/checkout@v4
@@ -28,8 +28,11 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - run: python -m pip install 'pyspark==3.5.6' 'pytest==8.3.5'
+      - name: Install Spark and native replay contract dependencies
+        run: |
+          python -m pip install 'pyspark==3.5.6' 'pytest==8.3.5'
+          python -m pip install -e './backend[lake]'
       - name: Compile and run real local Spark assertions
         run: |
-          python -m py_compile data-engineering/spark/fleetflow_batch.py data-engineering/spark/test_fleetflow_batch.py
-          python -m pytest -q data-engineering/spark/test_fleetflow_batch.py
+          python -m py_compile data-engineering/spark/fleetflow_batch.py data-engineering/spark/test_fleetflow_batch.py data-engineering/spark/test_native_spark_parity.py
+          python -m pytest -q data-engineering/spark/test_fleetflow_batch.py data-engineering/spark/test_native_spark_parity.py
