@@ -78,10 +78,14 @@ class GPSLocationConsumer(BaseKafkaConsumer):
 
             if event.route_id is not None:
                 route = await session.get(Route, event.route_id)
-                if (route is None or route.driver_id != event.driver_id
+                if (
+                    route is None
+                    or route.driver_id != event.driver_id
                     or route.vehicle_id != event.vehicle_id
-                    or route.status != "in_progress" or route.started_at is None
-                    or observed < route.started_at):
+                    or route.status != "in_progress"
+                    or route.started_at is None
+                    or observed < route.started_at
+                ):
                     raise ValueError("GPS route is not actively dispatched for this driver/vehicle")
 
             previous = vehicle.last_gps_at
