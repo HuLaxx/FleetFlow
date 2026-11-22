@@ -82,3 +82,14 @@ def test_deterministic_tie_break_on_event_id(spark):
     actual = hourly_vehicle_facts(spark.createDataFrame(rows, SCHEMA), KEY).first()
     assert actual.last_latitude == 53.0
     assert actual.last_longitude == -2.0
+
+
+def test_real_parquet_read_and_backfill_replay(spark, tmp_path):
+    """Exercise Spark file I/O as well as DataFrame expressions."""
+    source_path = str(tmp_path / "clean" / "telemetry.parquet")
+    spark.createDataFrame(_rows(), SCHEMA).write.mode("overwrite").parquet(source_path)
+    accepted = spark.read.parquet(source_path)
+    first = hourly_vehicle_facts(accepted, KEY).orderBy("vehicle_id").collect()
+    second = hourly_vehicle_facts(spark.read.parquet(source_path), KEY).orderBy("vehicle_id").collect()
+    assert len(first) == 2
+    assert first == second
