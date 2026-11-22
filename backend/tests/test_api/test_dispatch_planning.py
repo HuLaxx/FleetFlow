@@ -219,6 +219,27 @@ async def test_real_solver_persists_plan_then_requires_existing_explicit_approva
     ).all()
     assert len(start_events) == 1
 
+    # A valid stop ID supplied under a different route ID must fail closed.
+    # This guards the route/stop ownership boundary against cross-route IDOR
+    # attempts without modifying the source order or creating an outbox fact.
+    mismatched_route_id = str(uuid4())
+    wrong_route_completion = await client.post(
+        f"/api/v1/routes/{mismatched_route_id}/stops/{stops[0].id}/complete",
+        json={"recipient_name": "Synthetic Recipient"},
+        headers=headers,
+    )
+    assert wrong_route_completion.status_code == 404, wrong_route_completion.text
+    await db_session.refresh(stops[0])
+    assert stops[0].status != "completed"
+    assert (
+        await db_session.scalars(
+            select(DispatchOutboxEvent).where(
+                DispatchOutboxEvent.topic == "routes.stops",
+                DispatchOutboxEvent.message_key == mismatched_route_id,
+            )
+        )
+    ).all() == []
+
     # A read-only principal must not complete the same solver-assigned stop
     # after dispatch. Rejection must preserve both the stop and durable outbox.
     viewer_completion = await client.post(
