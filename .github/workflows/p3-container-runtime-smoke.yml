@@ -1,0 +1,168 @@
+name: FleetFlow P3 Actual Container Runtime Acceptance
+
+# Builds images from source, then boots BOTH images with disposable
+# PostGIS and Redpanda. No cloud credentials, push, secret uploads or fees.
+on:
+  push:
+    branches: ['feature/**']
+    paths:
+      - 'backend/**'
+      - 'frontend/**'
+      - '.github/workflows/p3-container-runtime-smoke.yml'
+  pull_request:
+    branches: [main, 'feature/**']
+    paths:
+      - 'backend/**'
+      - 'frontend/**'
+      - '.github/workflows/p3-container-runtime-smoke.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fleetflow-container-runtime-${{ github.workflow }}-${{ github.event_name }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  actual-runtime:
+    name: Backend + frontend images boot against real disposable PostGIS/Redpanda
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build real non-root application images without publishing
+        run: |
+          set -euo pipefail
+          docker build -f backend/Dockerfile -t fleetflow-backend:runtime-ci backend
+          docker build -f frontend/Dockerfile -t fleetflow-frontend:runtime-ci \
+            --build-arg NEXT_PUBLIC_FASTAPI_BASE_URL=http://127.0.0.1:8000 \
+            --build-arg NEXT_PUBLIC_WS_URL=ws://127.0.0.1:8000/ws frontend
+          for component in backend frontend; do
+            user=$(docker image inspect "fleetflow-$component:runtime-ci" --format '{{.Config.User}}')
+            if [ -z "$user" ] || [ "$user" = root ] || [ "$user" = 0 ]; then
+              echo "::error::Insecure root runtime image: $component"
+              exit 1
+            fi
+            echo "$component uses non-root runtime identity"
+          done
+
+      - name: Start isolated disposable PostGIS and Kafka-compatible Redpanda
+        run: |
+          set -euo pipefail
+          docker network create fleetflow-runtime-ci
+          docker run -d --name fleetflow-runtime-db \
+            --network fleetflow-runtime-ci \
+            -e POSTGRES_USER=fleetflow \
+            -e POSTGRES_PASSWORD=ci_disposable_password \
+            -e POSTGRES_DB=fleetflow_runtime_ci \
+            postgis/postgis:15-3.3
+          docker run -d --name fleetflow-runtime-broker \
+            --network fleetflow-runtime-ci --hostname fleetflow-runtime-broker \
+            docker.redpanda.com/redpandadata/redpanda:v25.1.1 \
+            redpanda start --mode dev-container --smp 1 \
+            --kafka-addr internal://0.0.0.0:9092 \
+            --advertise-kafka-addr internal://fleetflow-runtime-broker:9092 \
+            --rpc-addr fleetflow-runtime-broker:33145 \
+            --advertise-rpc-addr fleetflow-runtime-broker:33145 \
+            --check=false
+          timeout 120s bash -c 'until docker exec fleetflow-runtime-db pg_isready -U fleetflow -d fleetflow_runtime_ci >/dev/null 2>&1; do sleep 2; done'
+          timeout 120s bash -c 'until docker exec fleetflow-runtime-broker rpk cluster info -X brokers=127.0.0.1:9092 >/dev/null 2>&1; do sleep 2; done'
+
+      - name: Start actual backend container and inspect health
+        run: |
+          set -euo pipefail
+          JWT_SECRET_KEY=$(python3 -c 'import secrets; print(secrets.token_urlsafe(48))')
+          docker run -d --name fleetflow-runtime-api \
+            --network fleetflow-runtime-ci -p 127.0.0.1:8000:8000 \
+            -e ENVIRONMENT=development \
+            -e POSTGRES_HOST=fleetflow-runtime-db \
+            -e POSTGRES_PORT=5432 \
+            -e POSTGRES_USER=fleetflow \
+            -e POSTGRES_PASSWORD=ci_disposable_password \
+            -e POSTGRES_DB=fleetflow_runtime_ci \
+            -e KAFKA_BOOTSTRAP_SERVERS=fleetflow-runtime-broker:9092 \
+            -e JWT_SECRET_KEY="$JWT_SECRET_KEY" \
+            fleetflow-backend:runtime-ci
+          for attempt in $(seq 1 75); do
+            if curl --silent --fail --max-time 3 http://127.0.0.1:8000/health > "$RUNNER_TEMP/backend-health.json"; then
+              break
+            fi
+            if ! docker inspect -f '{{.State.Running}}' fleetflow-runtime-api | grep -q true; then
+              echo "::error::Backend container exited before becoming ready"
+              docker logs --tail 120 fleetflow-runtime-api
+              exit 1
+            fi
+            sleep 2
+          done
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          health = json.loads((Path(os.environ["RUNNER_TEMP"]) / "backend-health.json").read_text())
+          assert health["status"] == "healthy", health
+          assert health["database"]["status"] == "healthy", health
+          print("Verified: real packaged FastAPI container responds with healthy isolated PostGIS")
+          PY
+
+      - name: Start actual frontend container and independently prove API proxy and UI routes
+        run: |
+          set -euo pipefail
+          docker run -d --name fleetflow-runtime-web \
+            --network fleetflow-runtime-ci -p 127.0.0.1:3000:3000 \
+            -e FASTAPI_URL=http://fleetflow-runtime-api:8000 \
+            fleetflow-frontend:runtime-ci
+          for attempt in $(seq 1 45); do
+            if curl --silent --fail --max-time 4 http://127.0.0.1:3000/tracking > "$RUNNER_TEMP/tracking.html"; then
+              break
+            fi
+            if ! docker inspect -f '{{.State.Running}}' fleetflow-runtime-web | grep -q true; then
+              echo "::error::Frontend standalone container exited before becoming ready"
+              docker logs --tail 120 fleetflow-runtime-web
+              exit 1
+            fi
+            sleep 2
+          done
+          test -s "$RUNNER_TEMP/tracking.html"
+          curl --silent --fail --max-time 10 http://127.0.0.1:3000/architecture > "$RUNNER_TEMP/architecture.html"
+          test -s "$RUNNER_TEMP/architecture.html"
+          curl --silent --fail --max-time 10 http://127.0.0.1:3000/api/health > "$RUNNER_TEMP/frontend-proxy-health.json"
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          health = json.loads((Path(os.environ["RUNNER_TEMP"]) / "frontend-proxy-health.json").read_text())
+          assert health["status"] == "healthy", health
+          assert health["database"]["status"] == "healthy", health
+          print("Verified: actual Next.js standalone server, tracking page, architecture page and cross-container backend health proxy")
+          PY
+
+      - name: Verify same images recover after controlled container restarts
+        run: |
+          set -euo pipefail
+          docker restart fleetflow-runtime-api fleetflow-runtime-web
+          for attempt in $(seq 1 75); do
+            if curl --silent --fail --max-time 3 http://127.0.0.1:3000/api/health > "$RUNNER_TEMP/restart-health.json"; then
+              break
+            fi
+            sleep 2
+          done
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          data = json.loads((Path(os.environ["RUNNER_TEMP"]) / "restart-health.json").read_text())
+          assert data["status"] == "healthy"
+          assert data["database"]["status"] == "healthy"
+          print("Verified: restarted packaged frontend → backend → real PostGIS health path")
+          PY
+
+      - name: Preserve capped, redacted debugging on failure
+        if: failure()
+        run: |
+          for name in fleetflow-runtime-db fleetflow-runtime-broker fleetflow-runtime-api fleetflow-runtime-web; do
+            echo "----- $name (last 70 lines) -----"
+            docker logs --tail 70 "$name" 2>&1 | sed -E 's/(password|secret|token|authorization)[^ ]*/[REDACTED]/Ig' || true
+          done
+
+      - name: Always remove containers and Docker network
+        if: always()
+        run: |
+          docker rm -f fleetflow-runtime-api fleetflow-runtime-web fleetflow-runtime-db fleetflow-runtime-broker || true
+          docker network rm fleetflow-runtime-ci || true
