@@ -1,4 +1,5 @@
 """Offline negative cases for the source-order/GPS/dbt lineage verifier."""
+import hashlib
 from copy import deepcopy
 from uuid import UUID
 
@@ -84,3 +85,24 @@ def test_missing_identity_rejected(index, key):
     del data[index][key]
     with pytest.raises(LineageError):
         verify(*data)
+
+
+def test_original_source_bytes_match_digest():
+    route, gps, analytics = receipts()
+    source = b'{"synthetic":true,"event_id":"source-event"}\\n'
+    analytics["source_sha256"] = hashlib.sha256(source).hexdigest()
+    assert verify(route, gps, analytics, source_bytes=source)["status"] == "verified"
+
+
+def test_mutated_source_bytes_fail_closed():
+    route, gps, analytics = receipts()
+    source = b'original synthetic event'
+    analytics["source_sha256"] = hashlib.sha256(source).hexdigest()
+    with pytest.raises(LineageError, match="actual source bytes"):
+        verify(route, gps, analytics, source_bytes=b'mutated synthetic event')
+
+
+def test_missing_or_wrong_type_source_rejected():
+    route, gps, analytics = receipts()
+    with pytest.raises(LineageError, match="source bytes must be bytes"):
+        verify(route, gps, analytics, source_bytes="not bytes")
