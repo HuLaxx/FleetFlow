@@ -6,6 +6,8 @@ integration run. It refuses to infer an absent route-to-vehicle association.
 import argparse
 import hashlib
 import json
+import os
+import tempfile
 from pathlib import Path
 from uuid import UUID
 
@@ -83,10 +85,26 @@ def main():
         receipt = verify(*(json.loads(p.read_text(encoding="utf-8")) for p in (args.route, args.gps, args.analytics)), source_bytes=args.source.read_bytes())
     except (LineageError, OSError, json.JSONDecodeError) as exc:
         parser.exit(1, f"LINEAGE REJECTED: {exc}\n")
+    # Publish only complete evidence. Failed writes must not leave a partial
+    # success receipt for a downstream CI stage to trust.
+    staged = None
     try:
-        args.output.write_text(json.dumps(receipt, sort_keys=True, indent=2) + "\n", encoding="utf-8")
+        with tempfile.NamedTemporaryFile(
+            mode="w", encoding="utf-8", dir=args.output.parent,
+            prefix=f".{args.output.name}.", suffix=".tmp", delete=False,
+        ) as handle:
+            staged = Path(handle.name)
+            json.dump(receipt, handle, sort_keys=True, indent=2)
+            handle.write("\n")
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(staged, args.output)
     except OSError as exc:
-        parser.exit(1, f"LINEAGE REJECTED: cannot write verified output: {exc}\n")
+        parser.exit(1, f"LINEAGE REJECTED: cannot publish verified output: {exc}\n")
+    finally:
+        if staged is not None:
+            staged.unlink(missing_ok=True)
+
 
 
 if __name__ == "__main__":
