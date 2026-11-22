@@ -250,3 +250,38 @@ def test_cli_atomic_publish_failure_leaves_no_success_or_temp(tmp_path, monkeypa
     assert error.value.code == 1
     assert not output.exists()
     assert not list(tmp_path.glob(".verified.json.*.tmp"))
+
+
+@pytest.mark.parametrize("field", ["event_id", "order_id", "route_id"])
+def test_duplicate_source_json_key_rejected_even_with_matching_digest(field):
+    route, gps, analytics = receipts()
+    source = json.loads(SOURCE_BYTES)
+    # A last-key-wins parser could otherwise accept a contradictory source.
+    duplicate = (json.dumps(source)[:-1] + f', "{field}": "{_id(99)}"}}').encode("utf-8")
+    analytics["source_sha256"] = hashlib.sha256(duplicate).hexdigest()
+    with pytest.raises(LineageError, match="duplicate JSON key"):
+        verify(route, gps, analytics, source_bytes=duplicate)
+
+
+@pytest.mark.parametrize("receipt_name", ["route", "gps", "analytics"])
+def test_cli_duplicate_receipt_key_fails_closed(tmp_path, monkeypatch, receipt_name):
+    route, gps, analytics = receipts()
+    payloads = {"route": route, "gps": gps, "analytics": analytics}
+    for name, payload in payloads.items():
+        serialized = json.dumps(payload)
+        if name == receipt_name:
+            serialized = serialized[:-1] + ', "broker_ack": false}'
+        (tmp_path / f"{name}.json").write_text(serialized, encoding="utf-8")
+    source = tmp_path / "source.json"
+    source.write_bytes(SOURCE_BYTES)
+    output = tmp_path / "verified.json"
+    output.write_text('{"status":"verified"}', encoding="utf-8")
+    monkeypatch.setattr(sys, "argv", [
+        "verify_order_gps_lineage", "--route", str(tmp_path / "route.json"),
+        "--gps", str(tmp_path / "gps.json"), "--analytics", str(tmp_path / "analytics.json"),
+        "--source", str(source), "--output", str(output),
+    ])
+    with pytest.raises(SystemExit) as error:
+        main()
+    assert error.value.code == 1
+    assert not output.exists()
