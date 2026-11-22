@@ -7,6 +7,8 @@ SELECT
     run_key,
     source_sha256,
     vehicle_id,
+    run_key || ':' || vehicle_id::text AS vehicle_run_key,
+    TO_CHAR(hour_utc AT TIME ZONE 'UTC', 'YYYYMMDD') AS utc_date_key,
     hour_utc,
     event_count,
     late_event_count,
