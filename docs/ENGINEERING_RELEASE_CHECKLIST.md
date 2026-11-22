@@ -1,5 +1,13 @@
 # FleetFlow — Engineering Release Checklist (evidence-gated)
 
+## 22 November 2026 — P1 analytics receipt type safety (draft, CI pending)
+
+- `verify_order_gps_lineage.py` now rejects JSON booleans, floats and numeric strings for `dbt_row_count` and `duplicate_count`. Python treats `True == 1` and `False == 0`; these are not valid measured row counts.
+- Six new negative tests in `backend/tests/test_order_gps_lineage_verifier.py` exercise both fields. **Do not mark these tests passing until exact-head CI finishes.**
+- Earlier head `245bdfc9ffaf6b81131f5ddb699ffc26848b9c27` had five completed successful workflows (backend [45023675179](https://github.com/HuLaxx/FleetFlow/actions/runs/45023675179), GPS/dbt [45023675192](https://github.com/HuLaxx/FleetFlow/actions/runs/45023675192), broker [45023675134](https://github.com/HuLaxx/FleetFlow/actions/runs/45023675134), GPS full stack [45023675117](https://github.com/HuLaxx/FleetFlow/actions/runs/45023675117), hygiene [45023675198](https://github.com/HuLaxx/FleetFlow/actions/runs/45023675198)). These are **stale-head evidence** for this change.
+- Still **P1 open**: the solver/approval PostGIS test and browser GPS-to-dbt path run against separate synthetic fixtures. Neither this verifier nor its offline tests prove one source order crossing the actual broker, approval ledger, GPS and dbt boundaries. Keep 68/100 until the continuous acceptance gate passes.
+
+
 ## 21 November 2026 — exact-head verification (PR #21)
 
 - **Draft PR head:** `88e63eb057f750d05170cf64371bde084110f4d3`, stacked on `feature/p2-fleetflow-routing-benchmark-2026-11-20`; no merge or production deployment.
