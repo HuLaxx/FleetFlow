@@ -14,7 +14,10 @@ def _id(number):
     return str(UUID(int=number))
 
 
-SOURCE_BYTES = b"fleetflow-synthetic-source-order-gps-event-v1"
+SOURCE_BYTES = (json.dumps({
+    "event_id": _id(5), "driver_id": _id(3), "vehicle_id": _id(4),
+    "order_id": _id(1), "route_id": _id(2),
+}, sort_keys=True) + "\\n").encode("utf-8")
 
 
 def receipts():
@@ -94,9 +97,26 @@ def test_missing_identity_rejected(index, key):
 
 def test_original_source_bytes_match_digest():
     route, gps, analytics = receipts()
-    source = b'{"synthetic":true,"event_id":"source-event"}\\n'
-    analytics["source_sha256"] = hashlib.sha256(source).hexdigest()
-    assert verify(route, gps, analytics, source_bytes=source)["status"] == "verified"
+    assert verify(route, gps, analytics, source_bytes=SOURCE_BYTES)["status"] == "verified"
+
+
+@pytest.mark.parametrize("field", ["event_id", "driver_id", "vehicle_id", "order_id", "route_id"])
+def test_hashed_source_with_wrong_identity_rejected(field):
+    route, gps, analytics = receipts()
+    source = json.loads(SOURCE_BYTES)
+    source[field] = _id(99)
+    altered = (json.dumps(source, sort_keys=True) + "\\n").encode("utf-8")
+    analytics["source_sha256"] = hashlib.sha256(altered).hexdigest()
+    with pytest.raises(LineageError, match=f"source {field}"):
+        verify(route, gps, analytics, source_bytes=altered)
+
+
+def test_matching_digest_for_non_json_source_rejected():
+    route, gps, analytics = receipts()
+    altered = b"not an event"
+    analytics["source_sha256"] = hashlib.sha256(altered).hexdigest()
+    with pytest.raises(LineageError, match="valid JSON event"):
+        verify(route, gps, analytics, source_bytes=altered)
 
 
 def test_mutated_source_bytes_fail_closed():
