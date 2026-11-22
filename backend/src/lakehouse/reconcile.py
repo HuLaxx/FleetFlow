@@ -162,7 +162,7 @@ def reconcile(run_dir: Path) -> dict[str, Any]:
     for key, events in groups.items():
         item = observed[key]
         speeds = [e["speed_kmh"] for e in events if e["speed_kmh"] is not None]
-        latest = max(events, key=lambda e: e["event_time"])
+        latest = max(events, key=lambda e: (e["event_time"], e["event_id"]))
         if item["event_count"] != len(events):
             raise ReconciliationError("Curated event count does not match clean data")
         if item["late_event_count"] != sum(int(e["is_late"]) for e in events):
