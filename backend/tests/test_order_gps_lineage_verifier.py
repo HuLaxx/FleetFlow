@@ -119,7 +119,7 @@ def test_hashed_source_missing_order_lineage_rejected(field):
     del source[field]
     altered = (json.dumps(source, sort_keys=True) + "\n").encode("utf-8")
     analytics["source_sha256"] = hashlib.sha256(altered).hexdigest()
-    with pytest.raises(LineageError, match=f"source\\.{field}"):
+    with pytest.raises(LineageError, match=rf"source\.{field}"):
         verify(route, gps, analytics, source_bytes=altered)
 
 
