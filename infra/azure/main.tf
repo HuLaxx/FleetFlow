@@ -1,6 +1,10 @@
 terraform {
   required_version = ">= 1.6.0"
 
+  # Must be configured with a pre-existing Azure Blob remote state container.
+  # Never apply from ephemeral GitHub-hosted local Terraform state.
+  backend "azurerm" {}
+
   required_providers {
     azurerm = {
       source  = "hashicorp/azurerm"
