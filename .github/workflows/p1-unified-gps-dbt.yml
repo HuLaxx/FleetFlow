@@ -175,6 +175,12 @@ jobs:
             fi
             sleep 1
           done
+          # Persist ONE actual source order and its solver/approval/dispatch
+          # in the same database/driver/vehicle used by the browser GPS test.
+          python backend/scripts/run_order_dispatch_browser_ci.py \\
+            --driver-id "$GPS_E2E_DRIVER_ID" \\
+            --vehicle-id "$GPS_E2E_VEHICLE_ID" \\
+            --output "$RUNNER_TEMP/order-dispatch.json"
           cd frontend
           pnpm exec playwright test e2e/gps-full-stack.spec.ts --reporter=line
 
@@ -189,6 +195,11 @@ jobs:
           base = Path(os.environ["RUNNER_TEMP"])
           origin = json.loads((base / "browser-origin.json").read_text())
           event = json.loads((base / "browser-gps.jsonl").read_text())
+          order = json.loads((base / "order-dispatch.json").read_text())
+          assert order["solver"] == "ortools-cvrptw-haversine"
+          assert order["approval_persisted"] and order["dispatch_persisted"]
+          assert order["vehicle_id"] == origin["vehicle_id"]
+          assert order["driver_id"] == origin["driver_id"]
           assert origin["vehicle_id"] == os.environ["GPS_E2E_VEHICLE_ID"]
           assert origin["event_id"] == event["event_id"]
           assert event["driver_id"] == os.environ["GPS_E2E_DRIVER_ID"]
@@ -266,6 +277,7 @@ jobs:
           name: fleetflow-same-event-gps-browser-dbt
           path: |
             ${{ runner.temp }}/solver-approval-slice.xml
+            ${{ runner.temp }}/order-dispatch.json
             ${{ runner.temp }}/browser-origin.json
             ${{ runner.temp }}/browser-gps.jsonl
             ${{ runner.temp }}/replay.json
