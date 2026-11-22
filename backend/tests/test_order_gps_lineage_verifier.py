@@ -270,7 +270,8 @@ def test_cli_duplicate_receipt_key_fails_closed(tmp_path, monkeypatch, receipt_n
     for name, payload in payloads.items():
         serialized = json.dumps(payload)
         if name == receipt_name:
-            serialized = serialized[:-1] + ', "broker_ack": false}'
+            first_key = next(iter(payload))
+            serialized = serialized[:-1] + ', ' + json.dumps(first_key) + ': null}'
         (tmp_path / f"{name}.json").write_text(serialized, encoding="utf-8")
     source = tmp_path / "source.json"
     source.write_bytes(SOURCE_BYTES)
