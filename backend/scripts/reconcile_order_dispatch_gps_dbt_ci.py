@@ -48,6 +48,14 @@ async def reconcile(order_receipt: dict, gps_receipt: dict, analytics_receipt: d
             raise AssertionError("Persisted route assignment mismatch")
         if vehicle.current_driver_id != driver_id or vehicle.last_gps_event_id != event_id:
             raise AssertionError("GPS consumer did not persist matching driver/event")
+        # Driver/vehicle alone cannot prove that a fix belongs to this dispatch.
+        # Reject GPS recorded before the route actually started, including
+        # missing timestamps. Both timestamps originate from the same PostGIS
+        # database and are compared as stored (no client clock assumptions).
+        if route.started_at is None or vehicle.last_gps_at is None:
+            raise AssertionError("Persisted dispatch/GPS timestamps required")
+        if vehicle.last_gps_at < route.started_at:
+            raise AssertionError("GPS fix predates route dispatch; cannot associate with source order")
         stops = (await session.scalars(select(RouteStop).where(RouteStop.route_id == route_id))).all()
         if len(stops) != 1 or stops[0].order_id != order_id:
             raise AssertionError("Source order not assigned to exactly one route stop")
