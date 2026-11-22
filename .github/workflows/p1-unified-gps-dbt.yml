@@ -181,7 +181,12 @@ jobs:
             --driver-id "$GPS_E2E_DRIVER_ID" \
             --vehicle-id "$GPS_E2E_VEHICLE_ID" \
             --output "$RUNNER_TEMP/order-dispatch.json"
-          echo "GPS_E2E_ROUTE_ID=$(python -c 'import json,os;from pathlib import Path;print(json.loads((Path(os.environ[\"RUNNER_TEMP\"])/\"order-dispatch.json\").read_text())[\"route_id\"])')" >> "$GITHUB_ENV"
+          python - <<'PY' >> "$GITHUB_ENV"
+          import json, os
+          from pathlib import Path
+          receipt = json.loads((Path(os.environ["RUNNER_TEMP"]) / "order-dispatch.json").read_text())
+          print("GPS_E2E_ROUTE_ID=" + receipt["route_id"])
+          PY
           cd frontend
           pnpm exec playwright test e2e/gps-full-stack.spec.ts --reporter=line
 
