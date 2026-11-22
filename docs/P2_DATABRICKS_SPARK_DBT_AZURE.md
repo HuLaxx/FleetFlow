@@ -62,18 +62,22 @@ remains the raw-event contract and quarantine authority.
 2. Import the repository as a Git folder. Open
    `data-engineering/spark/fleetflow_databricks.py` as a notebook with the
    sibling `fleetflow_batch.py` present.
-3. Upload `manifest.json` and the **clean Parquet files from the same run**
+3. Upload the **entire original run directory** (manifest, raw, clean, quarantine)
    into a Unity Catalog Volume you control (for example
    `/Volumes/<catalog>/<schema>/<volume>/<run_key>/`).
-4. Fill widget parameters: `manifest_path` pointing at the uploaded JSON,
-   `clean_parquet_path` pointing at the Parquet directory/glob and, only when
-   publishing, `output_table` in `catalog.schema.table` form.
+4. Fill widget parameters: `manifest_path` pointing at the uploaded JSON and,
+   only when publishing, `output_table` in `catalog.schema.table` form. The
+   notebook discovers exact clean files from the manifest, verifies the SHA-256
+   for every artifact, and reconciles Spark event/late counts before writing.
 5. Run in **preview** mode first. Review displayed rows and original run
    counts. Set `publish=yes` only for a new, dedicated Delta table. The
    notebook refuses to overwrite a pre-existing table.
 6. Record a screenshot of the successful Spark execution, SQL count query,
    Delta table path, workspace/runtime version, cost/usage quota and execution
    date in the evidence register. Do not claim Databricks until this executes.
+
+The manifest checks establish byte integrity against the supplied manifest,
+not the authenticity of whoever authored that manifest. Keep the run synthetic.
 
 The notebook does not create an Azure storage credential, production table or
 external integration. Free Edition quotas and feature availability can change.
