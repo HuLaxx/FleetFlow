@@ -25,6 +25,10 @@ The evidence JSON must contain **only synthetic identifiers**, Git commit SHA, w
 
 The offline `verify_order_gps_lineage.py` checker now rejects approval receipts without a UUID `approval_audit_id`, UUID `approver_id`, positive integer `candidate_version` (booleans rejected), or timezone-aware `approved_at`. Nine negative cases cover missing, malformed and naive timestamps/version values. **These fields are claims supplied by the receipt; the checker alone does not independently query the audit table, establish that the approver was authorised, or prove the solver and GPS stages ran on one order.** The integrated runner must fetch the approval audit and candidate version from the actual database and cross-check the authenticated principal, transactional outbox and route identity before the P1 gate can close. Exact-head CI for this addition must pass before treating its tests as verified.
 
+## Duplicate-key integrity guard (22 November 2026)
+
+The source and receipt JSON parsers now reject repeated object keys at every nesting level. Standard Python JSON decoding silently keeps the last duplicate key, allowing a single hashed artifact to express contradictory identifiers or acknowledgements to different consumers. Six synthetic negative cases cover duplicate source event/order/route identities and each of the three receipt files. This is an offline integrity gate only: it does **not** establish database-backed approval, a real broker ACK or a continuous source-order-to-dbt journey. CI on the new PR head must complete successfully before counting the guard as verified.
+
 ## Mandatory negative cases
 
 1. Viewer/anonymous approval or completion: 401/403, unchanged route/stop, no audit/outbox mutation.
