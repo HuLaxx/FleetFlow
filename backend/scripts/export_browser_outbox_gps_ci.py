@@ -77,6 +77,7 @@ async def export(expected_vehicle_id: UUID, output: Path) -> dict:
         "scope": "disposable_browser_test_only",
         "vehicle_id": str(expected_vehicle_id),
         "driver_id": str(event.driver_id),
+        "route_id": str(event.route_id) if event.route_id is not None else None,
         "event_id": str(event.event_id),
         "source_sha256": hashlib.sha256(content).hexdigest(),
         "outbox_published": True,
