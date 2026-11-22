@@ -66,7 +66,7 @@ def main():
     args = parser.parse_args()
     if not os.getenv("DATABASE_URL"):
         parser.error("DATABASE_URL required")
-    print(json.dumps(asyncio.run(load(args.run_dir, os.environ["DATABASE_URL"])))
+    print(json.dumps(asyncio.run(load(args.run_dir, os.environ["DATABASE_URL"]))))
 
 
 if __name__ == "__main__":
