@@ -181,6 +181,7 @@ jobs:
             --driver-id "$GPS_E2E_DRIVER_ID" \
             --vehicle-id "$GPS_E2E_VEHICLE_ID" \
             --output "$RUNNER_TEMP/order-dispatch.json"
+          echo "GPS_E2E_ROUTE_ID=$(python -c 'import json,os;from pathlib import Path;print(json.loads((Path(os.environ[\"RUNNER_TEMP\"])/\"order-dispatch.json\").read_text())[\"route_id\"])')" >> "$GITHUB_ENV"
           cd frontend
           pnpm exec playwright test e2e/gps-full-stack.spec.ts --reporter=line
 
@@ -203,6 +204,7 @@ jobs:
           assert origin["vehicle_id"] == os.environ["GPS_E2E_VEHICLE_ID"]
           assert origin["event_id"] == event["event_id"]
           assert event["driver_id"] == os.environ["GPS_E2E_DRIVER_ID"]
+          assert event["route_id"] == order["route_id"]
           print("PASS: WebSocket/consumer stored exact source event; browser ledger identity aligned")
           PY
 
@@ -255,6 +257,7 @@ jobs:
           clean = pq.ParquetFile(paths[0]).read().to_pylist()
           assert len(clean) == 1
           assert clean[0]["event_id"] == event["event_id"] == origin["event_id"]
+          assert clean[0]["route_id"] == os.environ["GPS_E2E_ROUTE_ID"]
           assert clean[0]["vehicle_id"] == os.environ["GPS_E2E_VEHICLE_ID"]
 
           with psycopg2.connect(
