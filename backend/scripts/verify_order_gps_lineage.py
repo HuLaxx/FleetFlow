@@ -65,6 +65,20 @@ def verify(route, gps, analytics, source_bytes):
         raise LineageError("source bytes must be bytes")
     if hashlib.sha256(source_bytes).hexdigest() != digest:
         raise LineageError("actual source bytes do not match analytics digest")
+    # A matching hash alone does not establish that these bytes describe the
+    # GPS event being claimed. Require a single canonical source JSON event.
+    try:
+        source = json.loads(source_bytes.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise LineageError("source must be a valid JSON event") from exc
+    if not isinstance(source, dict):
+        raise LineageError("source must be a JSON object")
+    for field, expected in (("event_id", event_id), ("driver_id", ids["driver_id"]), ("vehicle_id", ids["vehicle_id"])):
+        if _uuid(source.get(field), f"source.{field}") != expected:
+            raise LineageError(f"source {field} differs from accepted GPS event")
+    for field in ("order_id", "route_id"):
+        if field in source and _uuid(source[field], f"source.{field}") != ids[field]:
+            raise LineageError(f"source {field} differs from dispatched route")
     return {"status": "verified", **ids, "gps_event_id": event_id, "source_sha256": digest}
 
 
