@@ -240,7 +240,11 @@ jobs:
             -v ON_ERROR_STOP=1 -1 -f data-engineering/sql/01_gps_hourly_curated.sql
           python -m src.lakehouse.load_postgres "$UNIFIED_LAKE_RUN" > "$RUNNER_TEMP/loaded-first.json"
           python -m src.lakehouse.load_postgres "$UNIFIED_LAKE_RUN" > "$RUNNER_TEMP/loaded-second.json"
-          dbt build --project-dir data-engineering/dbt --profiles-dir data-engineering/dbt --select +fct_gps_hourly
+          PGPASSWORD=fleetpass psql -h localhost -U fleetflow -d fleetflow_test \
+            -v ON_ERROR_STOP=1 -1 -f data-engineering/sql/02_gps_route_events.sql
+          python -m src.lakehouse.load_route_events "$UNIFIED_LAKE_RUN" > "$RUNNER_TEMP/route-loaded-first.json"
+          python -m src.lakehouse.load_route_events "$UNIFIED_LAKE_RUN" > "$RUNNER_TEMP/route-loaded-second.json"
+          dbt build --project-dir data-engineering/dbt --profiles-dir data-engineering/dbt --select +fct_gps_hourly fct_gps_route_events
 
       - name: Independently reconcile one SAME-ID GPS event through dbt mart
         run: |
@@ -280,6 +284,12 @@ jobs:
               )
               rows = cursor.fetchall()
           assert rows == [(os.environ["GPS_E2E_VEHICLE_ID"], 1, 1)], rows
+          with psycopg2.connect(host="localhost", dbname="fleetflow_test", user="fleetflow", password="fleetpass") as conn, conn.cursor() as cursor:
+              cursor.execute("SELECT event_id::text,route_id::text,vehicle_id::text FROM public_marts.fct_gps_route_events")
+              route_rows = cursor.fetchall()
+          assert route_rows == [(event["event_id"], event["route_id"], event["vehicle_id"])], route_rows
+          assert json.loads((tmp / "route-loaded-first.json").read_text()) == {"inserted": 1, "reused": 0}
+          assert json.loads((tmp / "route-loaded-second.json").read_text()) == {"inserted": 0, "reused": 1}
           (tmp / "analytics-observed.json").write_text(json.dumps({
               "event_id": event["event_id"],
               "vehicle_id": os.environ["GPS_E2E_VEHICLE_ID"],
@@ -312,6 +322,8 @@ jobs:
             ${{ runner.temp }}/reconciled.json
             ${{ runner.temp }}/loaded-first.json
             ${{ runner.temp }}/loaded-second.json
+            ${{ runner.temp }}/route-loaded-first.json
+            ${{ runner.temp }}/route-loaded-second.json
             data-engineering/dbt/target/run_results.json
           if-no-files-found: error
           retention-days: 14
