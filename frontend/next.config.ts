@@ -1,7 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // Required by the reviewed frontend/Dockerfile (standalone Node server).\n  output: "standalone",
+  // Required by the frontend Dockerfile's standalone Node server.
+  output: "standalone",
 };
 
 export default nextConfig;
