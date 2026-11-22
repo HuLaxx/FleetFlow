@@ -24,7 +24,7 @@ on:
       - 'data-engineering/dbt/**'
 
 concurrency:
-  group: unified-gps-analytics-${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
+  group: unified-gps-analytics-${{ github.workflow }}-${{ github.event_name }}-${{ github.head_ref || github.ref_name }}
   cancel-in-progress: true
 
 jobs:
