@@ -177,9 +177,9 @@ jobs:
           done
           # Persist ONE actual source order and its solver/approval/dispatch
           # in the same database/driver/vehicle used by the browser GPS test.
-          python backend/scripts/run_order_dispatch_browser_ci.py \\
-            --driver-id "$GPS_E2E_DRIVER_ID" \\
-            --vehicle-id "$GPS_E2E_VEHICLE_ID" \\
+          python backend/scripts/run_order_dispatch_browser_ci.py \
+            --driver-id "$GPS_E2E_DRIVER_ID" \
+            --vehicle-id "$GPS_E2E_VEHICLE_ID" \
             --output "$RUNNER_TEMP/order-dispatch.json"
           cd frontend
           pnpm exec playwright test e2e/gps-full-stack.spec.ts --reporter=line
