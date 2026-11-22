@@ -78,6 +78,24 @@ def test_unverifiable_approval_audit_rejected(key, value):
         verify(route, gps, analytics, source_bytes=SOURCE_BYTES)
 
 
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("dbt_row_count", True),
+        ("dbt_row_count", 1.0),
+        ("dbt_row_count", "1"),
+        ("duplicate_count", False),
+        ("duplicate_count", 0.0),
+        ("duplicate_count", "0"),
+    ],
+)
+def test_analytics_counts_require_exact_integer_types(field, value):
+    route, gps, analytics = receipts()
+    analytics[field] = value
+    with pytest.raises(LineageError, match="exact integers"):
+        verify(route, gps, analytics, source_bytes=SOURCE_BYTES)
+
+
 def test_complete_explicit_lineage():
     assert verify(*receipts(), source_bytes=SOURCE_BYTES)["status"] == "verified"
 
