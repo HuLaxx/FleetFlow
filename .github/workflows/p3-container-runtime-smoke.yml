@@ -102,6 +102,16 @@ jobs:
           assert health["database"]["status"] == "healthy", health
           print("Verified: real packaged FastAPI container responds with healthy isolated PostGIS")
           PY
+          curl --silent --fail --max-time 10 http://127.0.0.1:8000/health/ready > "$RUNNER_TEMP/backend-ready.json"
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          data = json.loads((Path(os.environ["RUNNER_TEMP"]) / "backend-ready.json").read_text())
+          assert data["status"] == "ready", data
+          assert data["components"]["database"]["status"] == "healthy", data
+          assert data["components"]["kafka"]["status"] == "healthy", data
+          print("Verified: real Kafka metadata AND PostGIS readiness, not producer existence")
+          PY
 
       - name: Start actual frontend container and independently prove API proxy and UI routes
         run: |
@@ -132,6 +142,38 @@ jobs:
           assert health["status"] == "healthy", health
           assert health["database"]["status"] == "healthy", health
           print("Verified: actual Next.js standalone server, tracking page, architecture page and cross-container backend health proxy")
+          PY
+
+      - name: Verify broker outage yields HTTP 503 and readiness recovers
+        run: |
+          set -euo pipefail
+          docker stop fleetflow-runtime-broker
+          http_code=$(curl --silent --output "$RUNNER_TEMP/broker-down.json" --write-out '%{http_code}' --max-time 10 http://127.0.0.1:8000/health/ready)
+          test "$http_code" = "503"
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          data = json.loads((Path(os.environ["RUNNER_TEMP"]) / "broker-down.json").read_text())
+          assert data["status"] == "not_ready", data
+          assert data["components"]["database"]["status"] == "healthy", data
+          assert data["components"]["kafka"]["status"] == "unavailable", data
+          print("Verified: broker outage cannot produce a false 200 readiness response")
+          PY
+          docker start fleetflow-runtime-broker
+          timeout 120s bash -c 'until docker exec fleetflow-runtime-broker rpk cluster info -X brokers=127.0.0.1:9092 >/dev/null 2>&1; do sleep 2; done'
+          for attempt in $(seq 1 30); do
+            if curl --silent --fail --max-time 5 http://127.0.0.1:8000/health/ready > "$RUNNER_TEMP/broker-restored.json"; then
+              break
+            fi
+            sleep 2
+          done
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          data = json.loads((Path(os.environ["RUNNER_TEMP"]) / "broker-restored.json").read_text())
+          assert data["status"] == "ready", data
+          assert data["components"]["kafka"]["status"] == "healthy", data
+          print("Verified: broker restoration returns HTTP 200 readiness")
           PY
 
       - name: Verify same images recover after controlled container restarts
