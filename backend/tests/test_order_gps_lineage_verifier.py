@@ -26,6 +26,10 @@ def receipts():
         approval_status="approved",
         dispatch_status="in_progress",
         broker_ack=True,
+        approval_audit_id=_id(6),
+        approver_id=_id(7),
+        candidate_version=1,
+        approved_at="2026-11-22T10:00:00Z",
         order_id=_id(1),
         route_id=_id(2),
         driver_id=_id(3),
@@ -51,6 +55,27 @@ def receipts():
         source_sha256=hashlib.sha256(SOURCE_BYTES).hexdigest(),
     )
     return route, gps, analytics
+
+
+@pytest.mark.parametrize(
+    "key,value",
+    [
+        ("approval_audit_id", None),
+        ("approval_audit_id", "invalid"),
+        ("approver_id", None),
+        ("candidate_version", 0),
+        ("candidate_version", True),
+        ("candidate_version", "1"),
+        ("approved_at", None),
+        ("approved_at", "2026-11-22T10:00:00"),
+        ("approved_at", "not-a-timestamp"),
+    ],
+)
+def test_unverifiable_approval_audit_rejected(key, value):
+    route, gps, analytics = receipts()
+    route[key] = value
+    with pytest.raises(LineageError):
+        verify(route, gps, analytics, source_bytes=SOURCE_BYTES)
 
 
 def test_complete_explicit_lineage():
