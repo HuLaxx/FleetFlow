@@ -152,6 +152,20 @@ Rather than advertising unsupported numbers, here's the source evidence for what
 
 This is an **implementation inventory**, not a guarantee that all services are running in a hosted production environment.
 
+## Lakehouse data pipeline
+
+Alongside the dispatch app, FleetFlow has a tested batch data platform: **bronze → quality gate → PySpark silver → dbt star schema**, orchestrated by Airflow, deployable to Databricks on Azure with Terraform, and run end to end in CI with measured results posted on each pull request.
+
+| Piece | Where |
+| :--- | :--- |
+| Pipeline overview, how to run, evidence | [data-engineering/lakehouse/README.md](data-engineering/lakehouse/README.md) |
+| PySpark silver job (idempotent, partitioned) | [lakehouse/spark_job.py](data-engineering/lakehouse/spark_job.py) |
+| Data contracts and quality gate | [lakehouse/quality.py](data-engineering/lakehouse/quality.py) |
+| dbt star schema (DuckDB + Snowflake) | [dbt_warehouse/](data-engineering/dbt_warehouse/) |
+| Airflow DAG | [lakehouse_daily.py](data-engineering/airflow/dags/lakehouse_daily.py) |
+| Azure lakehouse Terraform (ADLS Gen2, Databricks, Key Vault) | [infra/azure-lakehouse/](infra/azure-lakehouse/) |
+| CI | [lakehouse.yml](.github/workflows/lakehouse.yml) |
+
 ## Start a local dispatch
 
 For the documented local-first workflow, see [Local Full-Power Stack](docs/local-stack.md). The checked-in scripts are designed to start the infrastructure, backend, frontend and WebSocket server in a development environment.
