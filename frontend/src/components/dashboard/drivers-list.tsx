@@ -23,14 +23,14 @@ export function DriversList() {
     });
 
     // Listen for real-time driver status updates
-    const { drivers: liveUpdates } = useDriverUpdates();
+    useDriverUpdates();
 
     // Use real data
     const drivers = driversData || [];
 
     // Apply filter
     const filteredDrivers = selectedStatus
-        ? drivers.filter((d: any) => d.status === selectedStatus)
+        ? drivers.filter((d) => d.status === selectedStatus)
         : drivers;
 
     if (isLoading) {
@@ -77,7 +77,7 @@ export function DriversList() {
                             No drivers found
                         </div>
                     ) : (
-                        filteredDrivers.map((driver: any, index: number) => {
+                        filteredDrivers.map((driver, index) => {
                             const initials = driver.name
                                 ? driver.name.split(' ').map((n: string) => n[0]).join('')
                                 : 'DR';

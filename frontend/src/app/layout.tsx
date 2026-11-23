@@ -5,8 +5,8 @@ import { LoadingScreen } from '@/components/effects/loading-screen';
 
 export const metadata: Metadata = {
   title: 'FleetFlow | Dispatch planning and fleet operations',
-  description: 'Explore a capacity-aware dispatch scenario, route proposals and delivery workflows. Demo values are illustrative; live services require a configured backend.',
-  keywords: ['delivery dispatch', 'fleet operations', 'route planning', 'logistics', 'last-mile delivery'],
+  description: 'Capacity-aware dispatch planning and fleet data engineering: OR-Tools route proposals, Kafka GPS streaming and a PySpark and dbt lakehouse. Demo values are illustrative; benchmarks are synthetic CI runs.',
+  keywords: ['delivery dispatch', 'fleet operations', 'route planning', 'data engineering', 'last-mile delivery'],
   authors: [{ name: 'HuLaX' }],
   icons: {
     icon: '/favicon.svg',

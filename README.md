@@ -34,9 +34,9 @@ FleetFlow investigates both sides of that problem: a *planning path* for route o
 | **Constraints become real** | Which loads and time windows must the solution respect? | [OR-Tools route solver](ml/route_optimizer.py) |
 | **A route is proposed** | Can a request produce a feasible candidate plan? | [Optimization API](backend/src/api/routes/optimization.py) |
 | **The fleet starts moving** | Can location events reach the tracking interface? | [GPS consumer](backend/src/consumers/gps_consumer.py) · [WebSocket server](backend/src/websocket_server.py) |
-| **Conditions change** | How might deviations, late arrivals or hotspots be detected? | [Event processing module](data-engineering/flink/stream_processor.py) |
+| **Conditions change** | How might deviations, late arrivals or hotspots be detected? | [Event processing module](data-engineering/python_stream_processor/stream_processor.py) |
 
-**Status note:** these paths exist in the repository, but their combined behaviour has not been freshly verified in a running full-stack environment. The event-processing module describes itself as a simplified Python approach, *not* a production Flink deployment.
+**Verification note:** draft [PR #9](https://github.com/HuLaxx/FleetFlow/pull/9) passed a real local authenticated browser → API → PostgreSQL outbox → Redpanda → GPS consumer → PostGIS → WebSocket journey ([exact CI evidence](https://github.com/HuLaxx/FleetFlow/actions/runs/43927262403)). That is **not** proof that the hosted site uses a live backend or that these unmerged changes are deployed. The event-processing module is explicitly filed under **python_stream_processor**, not Flink. It remains a simplified Python example, not an Apache Flink job, a production event-time engine or a verified component of the dispatch golden path.
 
 ## The dispatch decision
 
@@ -44,7 +44,7 @@ FleetFlow investigates both sides of that problem: a *planning path* for route o
 
 <img src="docs/dispatch-decision-sheet.svg" alt="Original dispatch run-sheet: an order manifest flows into vehicle-capacity and service-window constraints, then to an OR-Tools route preview" width="100%" />
 
-<sub>An architectural worksheet, not a screenshot or measured route. The current optimization API returns route proposals rather than persisting an approved dispatch.</sub>
+<sub>An architectural worksheet, not a screenshot or measured route. The preview endpoint remains read-only; the separately implemented plan endpoint persists unapproved routes, and dispatch requires explicit approval in stacked draft PRs.</sub>
 
 </div>
 
@@ -53,7 +53,7 @@ The route engine has a concrete implementation path:
 1. **Choose a depot and date.** Load the available vehicles and pending orders.
 2. **Apply constraints.** Model capacity, depot location, route duration and service windows with OR-Tools.
 3. **Solve for a candidate.** Compute and return routes when the dependencies and input data permit it.
-4. **Inspect before applying.** The optimization endpoint returns route proposals and summary fields; it does not automatically commit the resulting dispatch to the database.
+4. **Inspect before applying.** The `/optimize` preview remains read-only; the explicit `/plan` path persists a `planned` route, and `/approve` is a separate, authorised dispatcher decision. These are demonstrated in stacked draft PRs, not deployed on the public site.
 
 The optimizer uses an approximate distance/time calculation in the current source; OSRM has a **separate optional local routing profile**, not a verified dependency of every solver run. See [route optimizer](ml/route_optimizer.py), [optimization route](backend/src/api/routes/optimization.py) and [local-stack notes](docs/local-stack.md).
 
@@ -87,7 +87,7 @@ Python's OR-Tools models investigate vehicle routing with capacity and time cons
 
 The repository contains Kafka event models, producers/consumers, a dedicated WebSocket server, and a simplified Python event processor for alerts and deviations.
 
-**Code:** [Event producer](backend/src/events/producer.py) · [WebSocket server](backend/src/websocket_server.py) · [Stream processor](data-engineering/flink/stream_processor.py)
+**Code:** [Event producer](backend/src/events/producer.py) · [WebSocket server](backend/src/websocket_server.py) · [Stream processor](data-engineering/python_stream_processor/stream_processor.py)
 
 </td>
 <td width="50%" valign="top">
@@ -113,6 +113,21 @@ Data warehouse models, batch workflow definitions, forecasting code and monitori
 
 The frontend's demo banner checks a health endpoint, but a positive health response **does not on its own prove that Kafka, routing and WebSocket streams are all connected**.
 
+## Verification ledger — local evidence, not a hosted release
+
+The current engineering implementation is in **unmerged, stacked draft pull requests**. Its locally tested capabilities should not be confused with the hosted, fixture-backed public demo.
+
+| Milestone | Concrete evidence | Boundary |
+| :--- | :--- | :--- |
+| Authenticated GPS and real Kafka → browser | [PR #9](https://github.com/HuLaxx/FleetFlow/pull/9) · [non-mocked Chromium CI](https://github.com/HuLaxx/FleetFlow/actions/runs/43927262403) | Proven with synthetic input on disposable PostGIS/Redpanda, not hosted production GPS |
+| Immutable Parquet and clean/curated reconciliation | [PR #14](https://github.com/HuLaxx/FleetFlow/pull/14) · [backend CI](https://github.com/HuLaxx/FleetFlow/actions/runs/44146640193) | Historical local GPS JSONL replay, not an always-on Kafka-to-S3 sink |
+| Verified PostgreSQL analytics and dbt | [PR #15](https://github.com/HuLaxx/FleetFlow/pull/15) · [actual dbt build](https://github.com/HuLaxx/FleetFlow/actions/runs/44148239684) | 12 dbt data tests passed on synthetic, content-addressed GPS facts |
+| Opt-in Airflow DAG parsing | [PR #16](https://github.com/HuLaxx/FleetFlow/pull/16) · [Airflow import CI](https://github.com/HuLaxx/FleetFlow/actions/runs/44149282147) | Imported and dependency-validated; actual scheduler/worker execution still outstanding |
+| Forecast baseline evaluation | [PR #17](https://github.com/HuLaxx/FleetFlow/pull/17) | Synthetic chronological holdout; verify current CI before citing measured values |
+| Optional AWS infrastructure | [PR #18](https://github.com/HuLaxx/FleetFlow/pull/18) | Terraform definitions for review **only**; zero AWS resources provisioned |
+
+Read the [engineering case study](docs/FLEETFLOW_ENGINEERING_CASE_STUDY_2026.md) for exact architecture, failure modes, reproduction, and evidence limitations.
+
 ## Under the hood
 
 Rather than advertising unsupported numbers, here's the source evidence for what exists.
@@ -125,7 +140,7 @@ Rather than advertising unsupported numbers, here's the source evidence for what
 | Event backbone | [Event models](backend/src/events/models.py) · [Kafka consumers](backend/src/consumers/) |
 | Telemetry | [WebSocket server](backend/src/websocket_server.py) · [Tracking hook](frontend/src/hooks/useWebSocket.ts) |
 | Geospatial and time-series schemas | [PostGIS schema](db/init/01_postgis_schema.sql) · [TimescaleDB schema](db/init/02_timescale_schema.sql) |
-| Data engineering | [Airflow](data-engineering/airflow/dags/) · [dbt](data-engineering/dbt/models/) · [Stream-processing code](data-engineering/flink/) |
+| Data engineering | [Airflow](data-engineering/airflow/dags/) · [dbt](data-engineering/dbt/models/) · [Prototype Python stream processor](data-engineering/python_stream_processor/) |
 | Observability and validation | [Monitoring](monitoring/) · [Backend tests](backend/tests/) · [Validation script](scripts/validate-local.sh) |
 
 ### Technology set
@@ -136,6 +151,20 @@ Rather than advertising unsupported numbers, here's the source evidence for what
 **Research and operations:** forecasting/ML scripts, Airflow/dbt models, monitoring configurations and test tooling.
 
 This is an **implementation inventory**, not a guarantee that all services are running in a hosted production environment.
+
+## Lakehouse data pipeline
+
+Alongside the dispatch app, FleetFlow has a tested batch data platform: **bronze → quality gate → PySpark silver → dbt star schema**, orchestrated by Airflow, deployable to Databricks on Azure with Terraform, and run end to end in CI with measured results posted on each pull request.
+
+| Piece | Where |
+| :--- | :--- |
+| Pipeline overview, how to run, evidence | [data-engineering/lakehouse/README.md](data-engineering/lakehouse/README.md) |
+| PySpark silver job (idempotent, partitioned) | [lakehouse/spark_job.py](data-engineering/lakehouse/spark_job.py) |
+| Data contracts and quality gate | [lakehouse/quality.py](data-engineering/lakehouse/quality.py) |
+| dbt star schema (DuckDB + Snowflake) | [dbt_warehouse/](data-engineering/dbt_warehouse/) |
+| Airflow DAG | [lakehouse_daily.py](data-engineering/airflow/dags/lakehouse_daily.py) |
+| Azure lakehouse Terraform (ADLS Gen2, Databricks, Key Vault) | [infra/azure-lakehouse/](infra/azure-lakehouse/) |
+| CI | [lakehouse.yml](.github/workflows/lakehouse.yml) |
 
 ## Start a local dispatch
 

@@ -1,0 +1,30 @@
+version: 2
+models:
+  - name: dim_observed_vehicle
+    description: One observed vehicle per immutable GPS replay run; not a master fleet inventory.
+    columns:
+      - name: vehicle_run_key
+        tests:
+          - unique
+          - not_null
+      - name: run_key
+        tests:
+          - not_null
+      - name: vehicle_id
+        tests:
+          - not_null
+      - name: observed_event_count
+        tests:
+          - not_null
+
+  - name: dim_utc_date
+    description: UTC calendar dates observed in immutable GPS replays.
+    columns:
+      - name: utc_date_key
+        tests:
+          - unique
+          - not_null
+      - name: utc_date
+        tests:
+          - unique
+          - not_null

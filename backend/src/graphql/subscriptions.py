@@ -2,18 +2,18 @@
 GraphQL Subscriptions for real-time updates.
 """
 
-from typing import AsyncGenerator
 import asyncio
-import strawberry
-from strawberry.types import Info
+from collections.abc import AsyncGenerator
 
-from src.graphql.types import Driver, Order, Location
+import strawberry
+
+from src.graphql.types import Location
 
 
 @strawberry.type
 class Subscription:
     """GraphQL Subscriptions for real-time data."""
-    
+
     @strawberry.subscription
     async def driver_location_updates(
         self,
@@ -21,7 +21,7 @@ class Subscription:
     ) -> AsyncGenerator[Location, None]:
         """
         Subscribe to driver location updates.
-        
+
         In production, this would connect to Kafka or Redis pub/sub.
         For now, simulates periodic updates.
         """
@@ -33,7 +33,7 @@ class Subscription:
                 longitude=-74.0060 + (asyncio.get_event_loop().time() % 0.01),
             )
             await asyncio.sleep(5)  # Update every 5 seconds
-    
+
     @strawberry.subscription
     async def order_status_updates(
         self,
@@ -44,12 +44,12 @@ class Subscription:
         """
         statuses = ["pending", "assigned", "in_transit", "arrived", "delivered"]
         index = 0
-        
+
         while True:
             yield statuses[index % len(statuses)]
             index += 1
             await asyncio.sleep(10)
-    
+
     @strawberry.subscription
     async def dashboard_updates(self) -> AsyncGenerator[str, None]:
         """

@@ -1,0 +1,59 @@
+name: FleetFlow P2 Chronological Demand Baselines
+
+on:
+  push:
+    branches: ['feature/**']
+    paths:
+      - 'ml/evaluation/demand_baselines.py'
+      - 'ml/data/generate_demand_fixture.py'
+      - 'tests/test_demand_baselines.py'
+      - '.github/workflows/p2-demand-baselines.yml'
+  pull_request:
+    branches: [main, 'feature/**']
+    paths:
+      - 'ml/evaluation/demand_baselines.py'
+      - 'ml/data/generate_demand_fixture.py'
+      - 'tests/test_demand_baselines.py'
+      - '.github/workflows/p2-demand-baselines.yml'
+
+concurrency:
+  group: p2-demand-${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  demand-baseline:
+    name: Deterministic past-only holdout and JSON metrics
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install minimal CPU test dependency
+        run: python -m pip install 'pytest>=8,<10'
+      - name: Verify chronology, gap handling and no future leakage
+        run: python -m pytest tests/test_demand_baselines.py -v
+      - name: Produce and reproduce exact synthetic-baseline evidence
+        run: |
+          set -euo pipefail
+          python ml/data/generate_demand_fixture.py "$RUNNER_TEMP/synthetic-hourly-demand.jsonl" --days 35
+          python ml/evaluation/demand_baselines.py "$RUNNER_TEMP/synthetic-hourly-demand.jsonl" --holdout-hours 168 --output "$RUNNER_TEMP/metrics-a.json"
+          python ml/evaluation/demand_baselines.py "$RUNNER_TEMP/synthetic-hourly-demand.jsonl" --holdout-hours 168 --output "$RUNNER_TEMP/metrics-b.json"
+          cmp "$RUNNER_TEMP/metrics-a.json" "$RUNNER_TEMP/metrics-b.json"
+          python - <<'PY'
+          import json, os
+          path = os.path.join(os.environ["RUNNER_TEMP"],"metrics-a.json")
+          report = json.load(open(path))
+          assert report["train_hours"] == 672 and report["holdout_hours"] == 168
+          assert len(report["metrics"]) == 4
+          assert all(m["n"] == 168 for m in report["metrics"].values())
+          print("Verified deterministic synthetic demand baseline JSON report")
+          PY
+      - name: Upload inspectable baseline results
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: synthetic-demand-baseline-evidence
+          path: ${{ runner.temp }}/metrics-a.json
+          retention-days: 14

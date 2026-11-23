@@ -5,6 +5,9 @@ Tests for Driver API endpoints.
 import pytest
 from httpx import AsyncClient
 
+from src.models.user import UserRole
+from tests.test_api.test_dispatch_approval import token_for
+
 
 @pytest.mark.asyncio
 async def test_list_drivers_empty(client: AsyncClient):
@@ -29,7 +32,7 @@ async def test_list_drivers_with_data(client: AsyncClient, sample_depot, sample_
     data = response.json()
     assert len(data["drivers"]) == 1
     assert data["drivers"][0]["id"] == str(driver.id)
-    assert data["drivers"][0]["name"] == driver.name
+    assert data["drivers"][0]["name"] == driver.full_name
 
 
 @pytest.mark.asyncio
@@ -42,8 +45,15 @@ async def test_get_driver_by_id(client: AsyncClient, sample_depot, sample_driver
     assert response.status_code == 200
     data = response.json()
     assert data["id"] == str(driver.id)
-    assert data["name"] == driver.name
+    assert data["name"] == driver.full_name
     assert data["email"] == driver.email
+    # Do not invent perfect on-time or delivery-speed metrics on an empty ledger.
+    assert data["stats"] == {
+        "on_time_rate": None,
+        "avg_delivery_time_minutes": None,
+        "deliveries_today": None,
+        "distance_today_km": None,
+    }
 
 
 @pytest.mark.asyncio
@@ -70,10 +80,11 @@ async def test_filter_drivers_by_status(client: AsyncClient, sample_depot, sampl
 
 
 @pytest.mark.asyncio
-async def test_update_driver_location(client: AsyncClient, sample_depot, sample_driver):
+async def test_update_driver_location(client: AsyncClient, db_session, sample_depot, sample_driver, sample_vehicle):
     """Test updating driver GPS location."""
     depot = await sample_depot()
     driver = await sample_driver(depot_id=depot.id)
+    await sample_vehicle(driver_id=driver.id, depot_id=depot.id)
     
     location_data = {
         "latitude": 40.7580,
@@ -84,19 +95,23 @@ async def test_update_driver_location(client: AsyncClient, sample_depot, sample_
     
     response = await client.post(
         f"/api/v1/drivers/{driver.id}/location",
-        json=location_data
+        json=location_data,
+        headers=await token_for(db_session, UserRole.DRIVER, driver_id=driver.id),
     )
-    assert response.status_code == 200
+    assert response.status_code == 202
     data = response.json()
-    assert data["status"] == "success"
+    assert data["driver_id"] == str(driver.id)
+    assert data["status"] == "queued"
+    assert data["delivery_status"] == "pending"
 
 
 @pytest.mark.integration
 @pytest.mark.asyncio
-async def test_driver_workflow(client: AsyncClient, sample_depot, sample_driver):
+async def test_driver_workflow(client: AsyncClient, db_session, sample_depot, sample_driver, sample_vehicle):
     """Integration test: Create driver, update status, get driver."""
     depot = await sample_depot()
     driver = await sample_driver(depot_id=depot.id)
+    await sample_vehicle(driver_id=driver.id, depot_id=depot.id)
     
     # Get driver
     response = await client.get(f"/api/v1/drivers/{driver.id}")
@@ -105,10 +120,31 @@ async def test_driver_workflow(client: AsyncClient, sample_depot, sample_driver)
     # Update location
     response = await client.post(
         f"/api/v1/drivers/{driver.id}/location",
-        json={"latitude": 40.7590, "longitude": -73.9800}
+        json={"latitude": 40.7590, "longitude": -73.9800},
+        headers=await token_for(db_session, UserRole.DRIVER, driver_id=driver.id),
     )
-    assert response.status_code == 200
+    assert response.status_code == 202
+    assert response.json()["status"] == "queued"
     
     # Verify driver still exists
     response = await client.get(f"/api/v1/drivers/{driver.id}")
     assert response.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_unmeasured_fleet_analytics_remain_unknown_not_fabricated(
+    client, sample_depot, sample_driver, sample_vehicle
+):
+    depot = await sample_depot()
+    driver = await sample_driver(depot_id=depot.id)
+    await sample_vehicle(driver_id=driver.id, depot_id=depot.id)
+    vehicles = await client.get("/api/v1/vehicles/stats/summary")
+    assert vehicles.status_code == 200, vehicles.text
+    assert vehicles.json()["total_vehicles"] == 1
+    assert vehicles.json()["avg_utilization_rate"] is None
+    assert vehicles.json()["total_distance_today_km"] is None
+    drivers = await client.get("/api/v1/drivers/stats/summary")
+    assert drivers.status_code == 200, drivers.text
+    assert drivers.json()["total_drivers"] == 1
+    assert drivers.json()["avg_deliveries_per_driver"] is None
+    assert drivers.json()["fleet_utilization"] is None

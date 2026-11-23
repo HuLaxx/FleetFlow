@@ -1,0 +1,107 @@
+name: FleetFlow P2 Analytics Acceptance
+
+on:
+  push:
+    branches: [main, 'feature/**', 'fix/**']
+    paths:
+      - 'data-engineering/dbt/**'
+      - 'backend/src/lakehouse/**'
+      - 'backend/tests/test_lakehouse/**'
+      - '.github/workflows/p2-analytics.yml'
+  pull_request:
+    branches: [main, 'feature/**']
+    paths:
+      - 'data-engineering/dbt/**'
+      - 'backend/src/lakehouse/**'
+      - 'backend/tests/test_lakehouse/**'
+      - '.github/workflows/p2-analytics.yml'
+
+concurrency:
+  group: p2-analytics-${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  postgres-dbt:
+    name: Actual PostGIS dbt build, reconciliation, and fixture assertions
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    services:
+      postgres:
+        image: postgis/postgis:15-3.3
+        env:
+          POSTGRES_USER: fleetflow
+          POSTGRES_PASSWORD: fleetpass
+          POSTGRES_DB: fleetflow_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      POSTGRES_HOST: localhost
+      POSTGRES_PORT: '5432'
+      POSTGRES_USER: fleetflow
+      POSTGRES_PASSWORD: fleetpass
+      POSTGRES_DB: fleetflow_test
+      DBT_HOST: localhost
+      DBT_PORT: '5432'
+      DBT_USER: fleetflow
+      DBT_PASSWORD: fleetpass
+      DBT_DATABASE: fleetflow_test
+      DBT_SCHEMA: public
+      JWT_SECRET_KEY: temporary-dbtauth-key-at-least-32-chars-for-ci-2026
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+      - name: Install actual dbt Postgres adapter and schema code
+        run: |
+          python -m pip install -e ./backend
+          python -m pip install 'dbt-postgres>=1.9,<2'
+      - name: Initialize disposable PostGIS transactional source tables
+        run: |
+          python data-engineering/dbt/ci/bootstrap_test_db.py
+          PGPASSWORD=fleetpass psql -h localhost -U fleetflow -d fleetflow_test \
+            -v ON_ERROR_STOP=1 -1 -f data-engineering/dbt/ci/seed_postgis.sql
+      - name: Compile and build actual views/marts + run all dbt data tests
+        run: |
+          dbt debug --profiles-dir data-engineering/dbt --project-dir data-engineering/dbt
+          dbt build --profiles-dir data-engineering/dbt --project-dir data-engineering/dbt --full-refresh \
+            --exclude "source:raw.gps_hourly_curated+" "source:raw.gps_route_events+"
+      - name: Assert exact seeded KPIs and unobserved NULL semantics
+        run: |
+          PGPASSWORD=fleetpass psql -h localhost -U fleetflow -d fleetflow_test \
+            -v ON_ERROR_STOP=1 -1 -f data-engineering/dbt/ci/assert_fixture_outcomes.sql
+      - name: Upload dbt manifest and test results for inspection
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fleetflow-p2-dbt-evidence
+          path: |
+            data-engineering/dbt/target/manifest.json
+            data-engineering/dbt/target/run_results.json
+          if-no-files-found: ignore
+          retention-days: 14
+
+  parquet-quality:
+    name: Immutable GPS raw-clean-curated replay and integrity checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    env:
+      JWT_SECRET_KEY: temporary-lake-key-at-least-32-chars-for-ci-2026
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+      - name: Install actual PyArrow and test tooling
+        run: python -m pip install -e './backend[dev,lake]'
+      - name: Assert immutable raw, partitioned clean and curated reconciliation
+        run: |
+          python -m pytest backend/tests/test_lakehouse/test_replay.py -q
+          python -m pytest backend/tests/test_lakehouse/test_quality.py -q

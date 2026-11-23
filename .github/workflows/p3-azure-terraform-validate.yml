@@ -1,0 +1,29 @@
+name: FleetFlow P3 Azure Terraform Static Gates
+on:
+  push:
+    branches: ['feature/**', 'fix/**']
+    paths:
+      - 'infra/azure/**'
+      - '.github/workflows/p3-azure-terraform-validate.yml'
+  pull_request:
+    branches: [main, 'feature/**']
+    paths:
+      - 'infra/azure/**'
+      - '.github/workflows/p3-azure-terraform-validate.yml'
+permissions:
+  contents: read
+jobs:
+  terraform-static-validation:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: '1.9.8'
+      - name: Ensure committed Terraform formatting
+        run: terraform -chdir=infra/azure fmt -check -recursive
+      - name: Download only providers; no backend or Azure credentials
+        run: terraform -chdir=infra/azure init -backend=false -input=false
+      - name: Validate offline structure; never plan or apply
+        run: terraform -chdir=infra/azure validate -no-color

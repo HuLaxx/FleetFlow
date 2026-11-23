@@ -1,0 +1,34 @@
+# Throwaway CI deployment of the real k8s/base API manifests to a local kind
+# cluster, with in-cluster PostGIS and Redpanda (Kafka API). No registry push,
+# no cloud. Secrets are generated at runtime by the workflow, never committed.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../base
+  - dependencies.yaml
+
+images:
+  - name: fleetflow/api
+    newName: fleetflow-backend
+    newTag: kind-ci
+
+patches:
+  # This overlay proves the API tier. The template Secret is replaced by one the
+  # workflow generates; frontend, websocket and ingress are validated with a
+  # server-side dry run of k8s/base instead.
+  - path: api-ci.yaml
+  - path: drop-secret-fleetflow-secrets.yaml
+  - path: drop-deployment-fleetflow-frontend.yaml
+  - path: drop-service-fleetflow-frontend.yaml
+  - path: drop-deployment-fleetflow-websocket.yaml
+  - path: drop-service-fleetflow-websocket.yaml
+  - path: drop-horizontalpodautoscaler-fleetflow-websocket-hpa.yaml
+  - path: drop-ingress-fleetflow-ingress.yaml
+  - target:
+      kind: HorizontalPodAutoscaler
+      name: fleetflow-api-hpa
+    patch: |-
+      - op: replace
+        path: /spec/minReplicas
+        value: 2

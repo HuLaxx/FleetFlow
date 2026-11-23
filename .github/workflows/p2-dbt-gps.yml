@@ -1,0 +1,130 @@
+name: FleetFlow P2 Actual Parquet to dbt Acceptance
+
+on:
+  push:
+    branches: ['feature/**']
+    paths:
+      - 'data-engineering/dbt/**'
+      - 'data-engineering/sql/**'
+      - 'backend/src/lakehouse/**'
+      - 'backend/scripts/generate_gps_lake_fixture.py'
+      - '.github/workflows/p2-dbt-gps.yml'
+  pull_request:
+    branches: [main, 'feature/**']
+    paths:
+      - 'data-engineering/dbt/**'
+      - 'data-engineering/sql/**'
+      - 'backend/src/lakehouse/**'
+      - 'backend/scripts/generate_gps_lake_fixture.py'
+      - '.github/workflows/p2-dbt-gps.yml'
+
+concurrency:
+  group: fleetflow-p2-dbt-${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  parquet-to-dbt:
+    name: Real Parquet reconciliation and dbt/PostgreSQL mart
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: fleetflow
+          POSTGRES_PASSWORD: fleetpass
+          POSTGRES_DB: fleetflow_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql+asyncpg://fleetflow:fleetpass@localhost:5432/fleetflow_test
+      DBT_HOST: localhost
+      DBT_USER: fleetflow
+      DBT_PASSWORD: fleetpass
+      DBT_DATABASE: fleetflow_test
+      DBT_PROFILES_DIR: data-engineering/dbt
+      DBT_SEND_ANONYMOUS_USAGE_STATS: 'false'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+      - name: Install verified Python and dbt dependencies
+        run: |
+          python -m pip install -e './backend[lake]'
+          python -m pip install 'dbt-postgres>=1.9,<2'
+
+      - name: Apply isolated analytical SQL schema
+        run: |
+          PGPASSWORD=fleetpass psql -h localhost -U fleetflow -d fleetflow_test \
+            -v ON_ERROR_STOP=1 -1 -f data-engineering/sql/01_gps_hourly_curated.sql
+
+      - name: Generate and validate deterministic content-addressed GPS lake
+        run: |
+          python backend/scripts/generate_gps_lake_fixture.py "$RUNNER_TEMP/synthetic-gps.jsonl"
+          python -m src.lakehouse.replay --input "$RUNNER_TEMP/synthetic-gps.jsonl" --output "$RUNNER_TEMP/fleetflow-lake" > "$RUNNER_TEMP/replay-summary.json"
+          python - <<'PY' >> "$GITHUB_ENV"
+          import json, os
+          result = json.load(open(os.path.join(os.environ["RUNNER_TEMP"], "replay-summary.json")))
+          print("LAKE_RUN_DIR=" + result["run_dir"])
+          PY
+
+      - name: Verify Parquet reconciliation and idempotent PostgreSQL import
+        run: |
+          set -euo pipefail
+          python -m src.lakehouse.reconcile "$LAKE_RUN_DIR" > "$RUNNER_TEMP/reconciliation.json"
+          python -m src.lakehouse.load_postgres "$LAKE_RUN_DIR" > "$RUNNER_TEMP/loaded-first.json"
+          python -m src.lakehouse.load_postgres "$LAKE_RUN_DIR" > "$RUNNER_TEMP/loaded-second.json"
+          python - <<'PY'
+          import json, os
+          base = os.environ["RUNNER_TEMP"]
+          def load(name):
+              return json.load(open(os.path.join(base, name)))
+          result = load("reconciliation.json")
+          first = load("loaded-first.json")
+          second = load("loaded-second.json")
+          assert result["status"] == "reconciled"
+          assert result["accepted"] == 3 and result["late"] == 1 and result["duplicates"] == 1
+          assert first["inserted_vehicle_hours"] == 2 and first["idempotent_existing_vehicle_hours"] == 0
+          assert second["inserted_vehicle_hours"] == 0 and second["idempotent_existing_vehicle_hours"] == 2
+          print("Verified: 3 accepted / 1 late / 1 duplicate / 2 hours; second load no writes")
+          PY
+
+      - name: Compile, build and test dbt mart against real PostgreSQL
+        run: |
+          dbt --version
+          dbt debug --project-dir data-engineering/dbt --profiles-dir data-engineering/dbt
+          dbt build --project-dir data-engineering/dbt --profiles-dir data-engineering/dbt --select +fct_gps_hourly
+
+      - name: Independently validate dbt business facts
+        run: |
+          PGPASSWORD=fleetpass psql -h localhost -U fleetflow -d fleetflow_test \
+            -v ON_ERROR_STOP=1 -At <<'SQL' > "$RUNNER_TEMP/dbt-metrics.txt"
+          SELECT COUNT(*), SUM(event_count), SUM(late_event_count),
+                 MIN(avg_speed_kmh), MAX(avg_speed_kmh)
+          FROM public_marts.fct_gps_hourly;
+          SQL
+          python - <<'PY'
+          import os
+          values = open(os.path.join(os.environ["RUNNER_TEMP"], "dbt-metrics.txt")).read().strip().split("|")
+          assert values[:3] == ["2", "3", "1"], values
+          assert sorted([float(values[3]),float(values[4])]) == [15.0,30.0], values
+          print("Verified dbt: 2 vehicle/hour rows, 3 accepted events, 1 late event, observed speed 15/30")
+          PY
+
+      - name: Preserve reproducible failures
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gps-p2-dbt-debug
+          path: |
+            data-engineering/dbt/logs/
+            data-engineering/dbt/target/run_results.json
+          if-no-files-found: ignore
+          retention-days: 7

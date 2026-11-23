@@ -8,12 +8,25 @@ services:
       - "9090:9090"
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./alerts:/etc/prometheus/alerts:ro
       - prometheus-data:/prometheus
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.path=/prometheus'
       - '--web.console.libraries=/usr/share/prometheus/console_libraries'
       - '--web.console.templates=/usr/share/prometheus/consoles'
+    networks:
+      - fleetflow-network
+
+  # Serves host metrics plus the pipeline run / source freshness *.prom files
+  # written by `python -m fleetflow_observability ... --metrics-out textfile/<name>.prom`.
+  node-exporter:
+    image: prom/node-exporter:v1.8.2
+    container_name: fleetflow-node-exporter
+    command:
+      - '--collector.textfile.directory=/textfile'
+    volumes:
+      - ./textfile:/textfile:ro
     networks:
       - fleetflow-network
 

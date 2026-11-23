@@ -5,6 +5,55 @@
 
 import { toDisplayDriver, toDisplayOrder } from './fleet-adapters';
 
+/** Wire-format projections: optional fields reflect partial API responses. */
+export type BackendOrder = {
+    id: string;
+    order_number?: string;
+    status: string;
+    priority?: number;
+    customer?: { name?: string } | null;
+    delivery_address?: string;
+    time_window_start?: string;
+};
+export type BackendDriver = {
+    id: string;
+    employee_id?: string;
+    name?: string;
+    status: string;
+    rating?: number | string | null;
+    vehicle?: { vehicle_number?: string; latitude?: number; longitude?: number; status?: string } | null;
+    depot?: { name?: string } | null;
+};
+export type BackendVehicle = {
+    id: string;
+    status?: string;
+    latitude?: number;
+    longitude?: number;
+    vehicle_number?: string;
+};
+export type BackendRoute = {
+    id: string;
+    status?: string;
+    planned_stops?: number;
+    completed_stops?: number;
+    planned_distance_km?: number;
+    actual_distance_km?: number;
+    planned_duration_minutes?: number;
+    vehicle?: BackendVehicle | null;
+};
+export type BackendStats = Record<string, number>;
+export type BackendMutationResponse = Record<string, unknown>;
+export type RouteOptimizationResponse = {
+    status: string;
+    message?: string;
+    routes: Array<Record<string, unknown>>;
+    metrics?: {
+        total_vehicles_used: number;
+        total_orders_scheduled: number;
+        total_distance_km: number;
+    };
+};
+
 const FASTAPI_BASE_URL = process.env.FASTAPI_URL || 'http://localhost:8000/api/v1';
 
 export class FastAPIClient {
@@ -50,7 +99,7 @@ export class FastAPIClient {
     }
 
     async getDriver(id: string) {
-        return this.request<any>(`/drivers/${id}`);
+        return this.request<BackendDriver>(`/drivers/${id}`);
     }
 
     async updateDriverLocation(id: string, data: {
@@ -59,7 +108,7 @@ export class FastAPIClient {
         speed_kmh?: number;
         heading?: number;
     }) {
-        return this.request<any>(`/drivers/${id}/location`, {
+        return this.request<BackendMutationResponse>(`/drivers/${id}/location`, {
             method: 'POST',
             body: JSON.stringify(data),
         });
@@ -78,18 +127,18 @@ export class FastAPIClient {
     }
 
     async getOrder(id: string) {
-        return this.request<any>(`/orders/${id}`);
+        return this.request<BackendOrder>(`/orders/${id}`);
     }
 
-    async createOrder(data: any) {
-        return this.request<any>('/orders', {
+    async createOrder(data: unknown) {
+        return this.request<BackendMutationResponse>('/orders', {
             method: 'POST',
             body: JSON.stringify(data),
         });
     }
 
     async cancelOrder(id: string, reason?: string) {
-        return this.request<any>(`/orders/${id}/cancel`, {
+        return this.request<BackendMutationResponse>(`/orders/${id}/cancel`, {
             method: 'POST',
             body: JSON.stringify({ reason: reason?.trim() || 'Cancelled by dispatcher' }),
         });
@@ -103,21 +152,21 @@ export class FastAPIClient {
         if (params?.driver_id) queryParams.append('driver_id', params.driver_id);
 
         const query = queryParams.toString();
-        return this.request<any>(`/routes${query ? `?${query}` : ''}`);
+        return this.request<{ routes: BackendRoute[] }>(`/routes${query ? `?${query}` : ''}`);
     }
 
     async getRoute(id: string) {
-        return this.request<any>(`/routes/${id}`);
+        return this.request<BackendRoute>(`/routes/${id}`);
     }
 
     async startRoute(id: string) {
-        return this.request<any>(`/routes/${id}/start`, {
+        return this.request<BackendMutationResponse>(`/routes/${id}/start`, {
             method: 'POST',
         });
     }
 
-    async completeStop(routeId: string, stopId: string, data?: any) {
-        return this.request<any>(`/routes/${routeId}/stops/${stopId}/complete`, {
+    async completeStop(routeId: string, stopId: string, data?: unknown) {
+        return this.request<BackendMutationResponse>(`/routes/${routeId}/stops/${stopId}/complete`, {
             method: 'POST',
             body: JSON.stringify(data || {}),
         });
@@ -130,20 +179,20 @@ export class FastAPIClient {
         if (params?.depot_id) queryParams.append('depot_id', params.depot_id);
 
         const query = queryParams.toString();
-        return this.request<any>(`/vehicles${query ? `?${query}` : ''}`);
+        return this.request<{ vehicles: BackendVehicle[] }>(`/vehicles${query ? `?${query}` : ''}`);
     }
 
     async getVehicle(id: string) {
-        return this.request<any>(`/vehicles/${id}`);
+        return this.request<BackendVehicle>(`/vehicles/${id}`);
     }
 
     async getVehicleLocation(id: string) {
-        return this.request<any>(`/vehicles/${id}/location`);
+        return this.request<BackendVehicle>(`/vehicles/${id}/location`);
     }
 
     // Optimization
     async optimizeRoutes(data: { date: string; depot_id: string }) {
-        return this.request<any>('/optimization/routes/optimize', {
+        return this.request<RouteOptimizationResponse>('/optimization/routes/optimize', {
             method: 'POST',
             body: JSON.stringify(data),
         });
@@ -152,10 +201,10 @@ export class FastAPIClient {
     // Stats
     async getStats() {
         return Promise.all([
-            this.request<any>('/orders/stats/summary'),
-            this.request<any>('/drivers/stats/summary'),
-            this.request<any>('/routes/stats/summary'),
-            this.request<any>('/vehicles/stats/summary'),
+            this.request<BackendStats>('/orders/stats/summary'),
+            this.request<BackendStats>('/drivers/stats/summary'),
+            this.request<BackendStats>('/routes/stats/summary'),
+            this.request<BackendStats>('/vehicles/stats/summary'),
         ]).then(([orders, drivers, routes, vehicles]) => ({
             orders,
             drivers,

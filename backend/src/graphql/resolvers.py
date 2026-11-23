@@ -2,29 +2,35 @@
 GraphQL Resolvers for FleetFlow.
 """
 
-from typing import Optional, List
 from uuid import UUID
+
 import strawberry
-from strawberry.types import Info
-from sqlalchemy import select, func
-from sqlalchemy.orm import joinedload
+from sqlalchemy import func, select
 
 from src.database import AsyncSessionLocal
-from src.models import Driver as DriverModel, Order as OrderModel, Route as RouteModel
-from src.models import Vehicle as VehicleModel, Depot as DepotModel
 from src.graphql.types import (
-    Driver, Order, Route, Vehicle, Depot, Location,
-    DriverStats, OrderStats, RouteStats, DashboardStats,
-    OptimizationResult, RouteStop, OrderItem,
+    DashboardStats,
+    Driver,
+    DriverStats,
+    Location,
+    Order,
+    OrderItem,
+    OrderStats,
+    RouteStats,
+    Vehicle,
 )
+from src.models import Driver as DriverModel
+from src.models import Order as OrderModel
+from src.models import Route as RouteModel
+from src.models import Vehicle as VehicleModel
 
 
 # Helper to convert DB models to GraphQL types
-def db_driver_to_graphql(driver: DriverModel, vehicle: Optional[VehicleModel] = None) -> Driver:
+def db_driver_to_graphql(driver: DriverModel, vehicle: VehicleModel | None = None) -> Driver:
     """Convert DB driver to GraphQL type."""
     current_location = None
     current_vehicle = None
-    
+
     if vehicle:
         if vehicle.latitude and vehicle.longitude:
             current_location = Location(
@@ -39,7 +45,7 @@ def db_driver_to_graphql(driver: DriverModel, vehicle: Optional[VehicleModel] = 
             status=vehicle.status,
             current_location=current_location,
         )
-    
+
     return Driver(
         id=strawberry.ID(str(driver.id)),
         employee_id=driver.employee_id,
@@ -64,7 +70,7 @@ def db_order_to_graphql(order: OrderModel) -> Order:
         )
         for item in (order.items or [])
     ]
-    
+
     return Order(
         id=strawberry.ID(str(order.id)),
         order_number=order.order_number,
@@ -82,115 +88,108 @@ def db_order_to_graphql(order: OrderModel) -> Order:
 @strawberry.type
 class Query:
     """GraphQL Query resolvers."""
-    
+
     @strawberry.field
     async def drivers(
         self,
-        status: Optional[str] = None,
+        status: str | None = None,
         limit: int = 50,
-    ) -> List[Driver]:
+    ) -> list[Driver]:
         """Get all drivers."""
         async with AsyncSessionLocal() as db:
             stmt = select(DriverModel).limit(limit)
             if status:
                 stmt = stmt.where(DriverModel.status == status)
-            
+
             result = await db.execute(stmt)
             drivers = result.scalars().all()
-            
+
             # Get vehicles
             vehicle_stmt = select(VehicleModel).where(
                 VehicleModel.current_driver_id.in_([d.id for d in drivers])
             )
             vehicle_result = await db.execute(vehicle_stmt)
             vehicles = {v.current_driver_id: v for v in vehicle_result.scalars().all()}
-            
-            return [
-                db_driver_to_graphql(driver, vehicles.get(driver.id))
-                for driver in drivers
-            ]
-    
+
+            return [db_driver_to_graphql(driver, vehicles.get(driver.id)) for driver in drivers]
+
     @strawberry.field
-    async def driver(self, id: strawberry.ID) -> Optional[Driver]:
+    async def driver(self, id: strawberry.ID) -> Driver | None:
         """Get driver by ID."""
         async with AsyncSessionLocal() as db:
             stmt = select(DriverModel).where(DriverModel.id == UUID(id))
             result = await db.execute(stmt)
             driver = result.scalar_one_or_none()
-            
+
             if not driver:
                 return None
-            
+
             # Get vehicle
-            vehicle_stmt = select(VehicleModel).where(
-                VehicleModel.current_driver_id == driver.id
-            )
+            vehicle_stmt = select(VehicleModel).where(VehicleModel.current_driver_id == driver.id)
             vehicle_result = await db.execute(vehicle_stmt)
             vehicle = vehicle_result.scalar_one_or_none()
-            
+
             return db_driver_to_graphql(driver, vehicle)
-    
+
     @strawberry.field
     async def orders(
         self,
-        status: Optional[str] = None,
-        date: Optional[str] = None,
+        status: str | None = None,
+        date: str | None = None,
         limit: int = 50,
-    ) -> List[Order]:
+    ) -> list[Order]:
         """Get all orders."""
         async with AsyncSessionLocal() as db:
             stmt = select(OrderModel).limit(limit)
             if status:
                 stmt = stmt.where(OrderModel.status == status)
-            
+
             result = await db.execute(stmt)
             orders = result.scalars().all()
-            
+
             return [db_order_to_graphql(order) for order in orders]
-    
+
     @strawberry.field
-    async def order(self, id: strawberry.ID) -> Optional[Order]:
+    async def order(self, id: strawberry.ID) -> Order | None:
         """Get order by ID."""
         async with AsyncSessionLocal() as db:
             stmt = select(OrderModel).where(OrderModel.id == UUID(id))
             result = await db.execute(stmt)
             order = result.scalar_one_or_none()
-            
+
             return db_order_to_graphql(order) if order else None
-    
+
     @strawberry.field
     async def dashboard_stats(self) -> DashboardStats:
         """Get dashboard statistics."""
         async with AsyncSessionLocal() as db:
             # Driver stats
-            driver_stmt = select(
-                DriverModel.status,
-                func.count(DriverModel.id)
-            ).group_by(DriverModel.status)
+            driver_stmt = select(DriverModel.status, func.count(DriverModel.id)).group_by(
+                DriverModel.status
+            )
             driver_result = await db.execute(driver_stmt)
             driver_by_status = dict(driver_result.all())
-            
+
             driver_total_stmt = select(func.count(DriverModel.id))
             driver_total = (await db.execute(driver_total_stmt)).scalar()
-            
+
             rating_stmt = select(func.avg(DriverModel.rating))
             avg_rating = (await db.execute(rating_stmt)).scalar() or 0
-            
+
             # Order stats
-            order_stmt = select(
-                OrderModel.status,
-                func.count(OrderModel.id)
-            ).group_by(OrderModel.status)
+            order_stmt = select(OrderModel.status, func.count(OrderModel.id)).group_by(
+                OrderModel.status
+            )
             order_result = await db.execute(order_stmt)
             order_by_status = dict(order_result.all())
-            
+
             order_total_stmt = select(func.count(OrderModel.id))
             order_total = (await db.execute(order_total_stmt)).scalar()
-            
+
             # Route stats
             route_total_stmt = select(func.count(RouteModel.id))
             route_total = (await db.execute(route_total_stmt)).scalar()
-            
+
             return DashboardStats(
                 drivers=DriverStats(
                     total_drivers=driver_total or 0,
@@ -220,14 +219,14 @@ class Query:
 @strawberry.type
 class Mutation:
     """GraphQL Mutation resolvers."""
-    
+
     @strawberry.mutation
     async def update_driver_location(
         self,
         driver_id: strawberry.ID,
         latitude: float,
         longitude: float,
-        speed_kmh: Optional[float] = None,
+        speed_kmh: float | None = None,
     ) -> Driver:
         """Update driver location."""
         # Update vehicle location directly in DB
@@ -236,41 +235,39 @@ class Mutation:
             stmt = select(DriverModel).where(DriverModel.id == UUID(driver_id))
             result = await db.execute(stmt)
             driver = result.scalar_one_or_none()
-            
+
             if not driver:
                 raise ValueError("Driver not found")
-            
+
             # Get and update vehicle
-            vehicle_stmt = select(VehicleModel).where(
-                VehicleModel.current_driver_id == driver.id
-            )
+            vehicle_stmt = select(VehicleModel).where(VehicleModel.current_driver_id == driver.id)
             vehicle_result = await db.execute(vehicle_stmt)
             vehicle = vehicle_result.scalar_one_or_none()
-            
+
             if vehicle:
                 vehicle.latitude = latitude
                 vehicle.longitude = longitude
                 await db.commit()
-            
+
             return db_driver_to_graphql(driver, vehicle)
-    
+
     @strawberry.mutation
     async def cancel_order(
         self,
         order_id: strawberry.ID,
-        reason: Optional[str] = None,
+        reason: str | None = None,
     ) -> Order:
         """Cancel an order."""
         async with AsyncSessionLocal() as db:
             stmt = select(OrderModel).where(OrderModel.id == UUID(order_id))
             result = await db.execute(stmt)
             order = result.scalar_one_or_none()
-            
+
             if not order:
                 raise ValueError("Order not found")
-            
+
             order.status = "cancelled"
             await db.commit()
             await db.refresh(order)
-            
+
             return db_order_to_graphql(order)

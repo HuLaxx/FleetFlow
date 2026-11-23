@@ -1,0 +1,7 @@
+# Use a globally unique name. This example is intentionally not deployable as-is.
+storage_account_name = "chooseuniquelakename"
+# location             = "uksouth"
+# deploy_api           = false  # default, preserve until external dependencies ready
+# api_image            = "ghcr.io/your-org/fleetflow-api@sha256:..."
+# kafka_bootstrap_servers = "private-broker.example:9092"
+# Never commit database_url or jwt_secret_key. Supply via secured TF_VAR_* variables.

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import {
     AlertTriangle,
     AlertCircle,
@@ -160,12 +160,8 @@ function AlertItem({
 }
 
 export default function AlertsSidebar() {
-    const [alerts, setAlerts] = useState<Alert[]>([]);
+    const [alerts, setAlerts] = useState<Alert[]>(() => generateMockAlerts());
     const [filter, setFilter] = useState<string>('all');
-
-    useEffect(() => {
-        setAlerts(generateMockAlerts());
-    }, []);
 
     const dismissAlert = (id: string) => {
         setAlerts(prev => prev.filter(a => a.id !== id));

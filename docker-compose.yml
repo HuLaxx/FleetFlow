@@ -16,6 +16,7 @@ services:
       - TIMESCALE_PORT=5432
       - REDIS_HOST=redis
       - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY:?Set JWT_SECRET_KEY to a random secret in your local .env}
       - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
     depends_on:
       - postgres
@@ -212,16 +213,23 @@ services:
     container_name: fleetflow-airflow
     environment:
       AIRFLOW_HOME: /opt/airflow
-      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      # SQLite does not support Airflow LocalExecutor; SequentialExecutor is
+      # deliberately limited to the optional single-node dev profile.
+      AIRFLOW__CORE__EXECUTOR: SequentialExecutor
       AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      FLEETFLOW_ANALYTICS_DATABASE_URL: ${FLEETFLOW_ANALYTICS_DATABASE_URL:-}
+      FLEETFLOW_HOURLY_COUNTS_CSV: ${FLEETFLOW_HOURLY_COUNTS_CSV:-}
+      FLEETFLOW_EVALUATION_ARTIFACT_DIR: /opt/airflow/logs/fleetflow
       AIRFLOW__CORE__DAGS_FOLDER: /opt/airflow/dags
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: sqlite:////opt/airflow/airflow.db
       AIRFLOW__WEBSERVER__WEB_SERVER_PORT: 8080
     volumes:
-      - ./data-engineering/airflow/dags:/opt/airflow/dags
+      - ./data-engineering/airflow/dags:/opt/airflow/dags:ro
+      - ./backend:/opt/fleetflow/backend:ro
+      - ./data-engineering/airflow/input:/opt/fleetflow/input:ro
       - airflow_logs:/opt/airflow/logs
     ports:
-      - "${AIRFLOW_PORT:-8081}:8080"
+      - "127.0.0.1:${AIRFLOW_PORT:-8081}:8080"
     command: airflow standalone
     profiles:
       - data

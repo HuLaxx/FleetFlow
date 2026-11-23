@@ -17,7 +17,7 @@ const systems = [
   { label: 'Control surface', value: 'Next.js · tRPC · MapLibre', icon: MapPinned },
   { label: 'Optimization path', value: 'FastAPI · OR-Tools', icon: Route },
   { label: 'Operational data', value: 'PostgreSQL · PostGIS · WebSockets', icon: Database },
-  { label: 'Event architecture', value: 'Kafka · optional local services', icon: Layers3 },
+  { label: 'Data platform', value: 'Kafka · Spark streaming · dbt lakehouse', icon: Layers3 },
 ];
 
 function RouteIllustration() {
