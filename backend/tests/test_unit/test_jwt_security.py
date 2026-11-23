@@ -13,6 +13,8 @@ from src.auth.jwt import validate_jwt_secret
         "short-secret",
         "your-secret-key-change-in-production-immediately",
         "CHANGE_ME_GENERATE_SECURE_KEY_AT_LEAST_32_CHARS",
+        "CHANGEME_GENERATE_SECURE_KEY_32_CHARS_MIN",  # the k8s/base template value
+        "changeme-generate-secure-key-at-least-32-chars",
     ],
 )
 def test_missing_or_template_jwt_signing_secrets_fail_closed(weak_key):

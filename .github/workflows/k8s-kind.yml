@@ -1,0 +1,138 @@
+name: FleetFlow Kubernetes deployment on kind
+
+# Deploys the real k8s/base API manifests (via k8s/overlays/kind-ci) to a
+# throwaway kind cluster with in-cluster PostGIS and Redpanda, then proves
+# readiness, security posture and self-healing through the Kubernetes Service.
+# No registry push, no cloud account, no cost.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'k8s/**'
+      - 'backend/**'
+      - '.github/workflows/k8s-kind.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'k8s/**'
+      - 'backend/**'
+      - '.github/workflows/k8s-kind.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fleetflow-k8s-kind-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  kind-deploy:
+    name: Deploy API manifests to kind and smoke-test
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build the API image (not pushed)
+        run: docker build -f backend/Dockerfile -t fleetflow-backend:kind-ci backend
+
+      - name: Create kind cluster
+        uses: helm/kind-action@v1
+        with:
+          cluster_name: fleetflow-ci
+
+      - name: Load the image into the cluster
+        run: kind load docker-image fleetflow-backend:kind-ci --name fleetflow-ci
+
+      - name: Server-side dry run of every base manifest
+        run: |
+          set -euo pipefail
+          kubectl create namespace fleetflow
+          kubectl apply -k k8s/base --dry-run=server
+          echo "All k8s/base objects (API, websocket, frontend, ingress, HPAs) accepted by the API server" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Create a generated secret (never committed)
+        run: |
+          set -euo pipefail
+          kubectl -n fleetflow create secret generic fleetflow-secrets \
+            --from-literal=POSTGRES_USER=fleetflow \
+            --from-literal=POSTGRES_PASSWORD="$(python3 -c 'import secrets; print(secrets.token_urlsafe(24))')" \
+            --from-literal=JWT_SECRET_KEY="$(python3 -c 'import secrets; print(secrets.token_urlsafe(48))')" \
+            --from-literal=SENTRY_DSN= \
+            --from-literal=TOMTOM_API_KEY=
+
+      - name: Deploy the kind-ci overlay
+        run: |
+          set -euo pipefail
+          kubectl kustomize k8s/overlays/kind-ci > "$RUNNER_TEMP/rendered.yaml"
+          if grep -q "CHANGEME" "$RUNNER_TEMP/rendered.yaml"; then
+            echo "::error::Template secret leaked into the rendered overlay"; exit 1
+          fi
+          start=$(date +%s)
+          kubectl apply -f "$RUNNER_TEMP/rendered.yaml"
+          kubectl -n fleetflow rollout status deploy/postgres --timeout=240s
+          kubectl -n fleetflow rollout status deploy/kafka --timeout=240s
+          kubectl -n fleetflow rollout status deploy/fleetflow-api --timeout=300s
+          echo "ROLLOUT_SECONDS=$(( $(date +%s) - start ))" >> "$GITHUB_ENV"
+
+      - name: Smoke-test through the Kubernetes Service
+        run: |
+          set -euo pipefail
+          kubectl -n fleetflow port-forward svc/fleetflow-api 18000:8000 > "$RUNNER_TEMP/pf.log" 2>&1 &
+          for i in $(seq 1 30); do curl -fsS http://127.0.0.1:18000/health/live >/dev/null && break; sleep 1; done
+          curl -fsS http://127.0.0.1:18000/health/ready > "$RUNNER_TEMP/ready.json"
+          curl -fsS -D "$RUNNER_TEMP/headers.txt" -o /dev/null http://127.0.0.1:18000/health/live
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          tmp = Path(os.environ["RUNNER_TEMP"])
+          ready = json.loads((tmp / "ready.json").read_text())
+          assert ready["status"] == "ready", ready
+          assert ready["components"]["database"]["status"] == "healthy", ready
+          assert ready["components"]["kafka"]["status"] == "healthy", ready
+          headers = (tmp / "headers.txt").read_text().lower()
+          for h in ("x-content-type-options", "x-frame-options"):
+              assert h in headers, f"missing production security header {h}"
+          print("Verified: /health/ready via the Service reports PostGIS and Kafka healthy; security headers present")
+          PY
+
+      - name: Check replicas, non-root pods and self-healing
+        run: |
+          set -euo pipefail
+          ready=$(kubectl -n fleetflow get deploy fleetflow-api -o jsonpath='{.status.readyReplicas}')
+          test "$ready" = "2"
+          for pod in $(kubectl -n fleetflow get pods -l component=api -o name); do
+            test "$(kubectl -n fleetflow get "$pod" -o jsonpath='{.spec.containers[0].securityContext.runAsNonRoot}')" = "true"
+            test "$(kubectl -n fleetflow get "$pod" -o jsonpath='{.spec.containers[0].securityContext.readOnlyRootFilesystem}')" = "true"
+          done
+          victim=$(kubectl -n fleetflow get pods -l component=api -o jsonpath='{.items[0].metadata.name}')
+          start=$(date +%s)
+          kubectl -n fleetflow delete pod "$victim" --wait=false
+          sleep 2
+          kubectl -n fleetflow rollout status deploy/fleetflow-api --timeout=180s
+          for i in $(seq 1 60); do
+            r=$(kubectl -n fleetflow get deploy fleetflow-api -o jsonpath='{.status.readyReplicas}')
+            [ "$r" = "2" ] && break; sleep 2
+          done
+          test "$(kubectl -n fleetflow get deploy fleetflow-api -o jsonpath='{.status.readyReplicas}')" = "2"
+          recover=$(( $(date +%s) - start ))
+          {
+            echo "### Kubernetes deployment (kind, synthetic CI cluster)"
+            echo ""
+            echo "| Check | Result |"
+            echo "| --- | --- |"
+            echo "| Base manifests (server-side dry run) | accepted |"
+            echo "| Rollout: PostGIS, Redpanda, 2 API replicas | ${ROLLOUT_SECONDS}s |"
+            echo "| /health/ready via Service (PostGIS + Kafka) | ready |"
+            echo "| Production security headers | present |"
+            echo "| Pods non-root, read-only root filesystem | yes |"
+            echo "| Self-healing after deleting an API pod | back to 2 ready in ${recover}s |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Diagnostics on failure
+        if: failure()
+        run: |
+          kubectl -n fleetflow get all -o wide || true
+          kubectl -n fleetflow describe pods || true
+          kubectl -n fleetflow logs -l component=api --tail=120 --all-containers || true
+          kubectl -n fleetflow get events --sort-by=.lastTimestamp | tail -40 || true
