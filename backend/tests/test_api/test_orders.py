@@ -40,7 +40,7 @@ async def test_get_order_by_id(client: AsyncClient, sample_depot, sample_order):
     response = await client.get(f"/api/v1/orders/{order.id}")
     assert response.status_code == 200
     data = response.json()
-    assert data["id"] == str(order.id)
+    assert data["order_id"] == str(order.id)
     assert data["order_number"] == order.order_number
 
 
@@ -51,24 +51,27 @@ async def test_create_order(client: AsyncClient, sample_depot):
     now = datetime.utcnow()
     
     order_data = {
-        "order_number": "TEST-001",
         "customer_name": "Test Customer",
         "customer_phone": "+1234567890",
-        "delivery_address": "123 Test St",
-        "delivery_latitude": 40.7128,
-        "delivery_longitude": -74.0060,
+        "street": "123 Test St",
+        "city": "Glasgow",
+        "state": "Scotland",
+        "postal_code": "G1 1AA",
+        "latitude": 55.8642,
+        "longitude": -4.2518,
         "delivery_date": now.date().isoformat(),
         "time_window_start": (now + timedelta(hours=2)).isoformat(),
         "time_window_end": (now + timedelta(hours=4)).isoformat(),
-        "total_weight_kg": 25.5,
+        "items": [{"sku": "BOOK", "name": "Parcel", "quantity": 1, "weight_kg": 1.5}],
+        "total_weight_kg": 1.5,
         "priority": 3,
-        "depot_id": str(depot.id)
     }
-    
+
     response = await client.post("/api/v1/orders", json=order_data)
     assert response.status_code == 201
     data = response.json()
-    assert data["order_number"] == "TEST-001"
+    assert data["order_number"].startswith("ORD-")
+    assert data["order_id"]
     assert data["status"] == "pending"
 
 

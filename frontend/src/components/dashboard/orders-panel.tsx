@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Package, Clock, MapPin, AlertTriangle, Filter } from 'lucide-react';
+import { Clock, MapPin, AlertTriangle, Filter } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useOrderUpdates } from '@/hooks/use-websocket';
 import { trpc } from '@/lib/trpc';
@@ -24,22 +24,22 @@ export function OrdersPanel() {
     });
 
     // Listen for real-time order updates
-    const { orders: liveUpdates } = useOrderUpdates();
+    useOrderUpdates();
 
     // Merge static data with live updates
     const orders = ordersData || [];
 
     // Apply filter
     const filteredOrders = filter
-        ? orders.filter((o: any) => o.status === filter)
+        ? orders.filter((o) => o.status === filter)
         : orders;
 
     // Calculate stats dynamically from real data
     const stats = {
-        pending: orders.filter((o: any) => o.status === 'pending').length,
-        in_transit: orders.filter((o: any) => o.status === 'in_transit').length,
-        delayed: orders.filter((o: any) => o.status === 'delayed').length,
-        delivered: orders.filter((o: any) => o.status === 'delivered').length,
+        pending: orders.filter((o) => o.status === 'pending').length,
+        in_transit: orders.filter((o) => o.status === 'in_transit').length,
+        delayed: orders.filter((o) => o.status === 'delayed').length,
+        delivered: orders.filter((o) => o.status === 'delivered').length,
     };
 
     if (isLoading) {
@@ -55,7 +55,7 @@ export function OrdersPanel() {
             {/* Header */}
             <div className="p-4 border-b border-stone-800">
                 <div className="flex items-center justify-between mb-3">
-                    <h2 className="text-lg font-semibold text-stone-100">Today's Orders</h2>
+                    <h2 className="text-lg font-semibold text-stone-100">Today&apos;s Orders</h2>
                     <button
                         onClick={() => refetch()}
                         className="p-1.5 hover:bg-stone-800 rounded-md transition-colors"
@@ -96,7 +96,7 @@ export function OrdersPanel() {
                             No orders found
                         </div>
                     ) : (
-                        filteredOrders.map((order: any, index: number) => (
+                        filteredOrders.map((order, index) => (
                             <motion.div
                                 key={order.id}
                                 initial={{ opacity: 0, y: 10 }}
@@ -114,12 +114,12 @@ export function OrdersPanel() {
                                             <span className="text-sm font-mono font-medium text-stone-100 group-hover:text-emerald-400 transition-colors">
                                                 {order.order_number || `ORD-${order.id.slice(0, 8)}`}
                                             </span>
-                                            {order.priority > 2 && (
+                                            {(order.priority ?? 0) > 2 && (
                                                 <span className={cn(
                                                     'text-[10px] px-1.5 py-0.5 rounded uppercase font-semibold',
-                                                    order.priority >= 4 ? 'bg-teal-500/10 text-teal-500' : 'bg-emerald-500/10 text-emerald-500'
+                                                    (order.priority ?? 0) >= 4 ? 'bg-teal-500/10 text-teal-500' : 'bg-emerald-500/10 text-emerald-500'
                                                 )}>
-                                                    {order.priority >= 4 ? 'URGENT' : 'HIGH'}
+                                                    {(order.priority ?? 0) >= 4 ? 'URGENT' : 'HIGH'}
                                                 </span>
                                             )}
                                         </div>

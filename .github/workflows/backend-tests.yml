@@ -1,17 +1,84 @@
 name: Backend Tests
 
+# Cancel superseded checks when several small commits land on one review branch.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
 on:
   push:
-    branches: [main, develop]
+    branches: [main, develop, 'feature/**', 'fix/**']
     paths:
       - 'backend/**'
+      - 'ml/**'
+      - 'frontend/**'
+      - 'docs/EVIDENCE_REGISTER.md'
       - '.github/workflows/backend-tests.yml'
   pull_request:
-    branches: [main]
+    # Stacked PRs also need full gates before merging into their parent branch.
+    branches: [main, 'audit/**', 'feature/**']
     paths:
       - 'backend/**'
+      - 'ml/**'
+      - 'docs/EVIDENCE_REGISTER.md'
 
 jobs:
+  frontend-quality:
+    name: Frontend lint, types and production build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+      - name: Install exact frontend dependencies
+        working-directory: frontend
+        run: pnpm install --frozen-lockfile
+      - name: Lint
+        id: frontend_lint
+        continue-on-error: true
+        working-directory: frontend
+        run: pnpm run lint
+      - name: Type check
+        id: frontend_types
+        continue-on-error: true
+        working-directory: frontend
+        run: pnpm exec tsc --noEmit
+      - name: Build
+        id: frontend_build
+        continue-on-error: true
+        working-directory: frontend
+        run: pnpm run build
+      - name: Enforce all frontend quality gates
+        if: always()
+        env:
+          LINT: ${{ steps.frontend_lint.outcome }}
+          TYPES: ${{ steps.frontend_types.outcome }}
+          BUILD: ${{ steps.frontend_build.outcome }}
+        run: |
+          echo "Lint: $LINT | TypeScript: $TYPES | Build: $BUILD"
+          test "$LINT" = success
+          test "$TYPES" = success
+          test "$BUILD" = success
+
+  security:
+    name: High / Critical Dependency Security Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Scan source and dependency manifests
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: fs
+          scan-ref: .
+          severity: CRITICAL,HIGH
+          exit-code: '1'
+
   test:
     runs-on: ubuntu-latest
     
@@ -43,8 +110,16 @@ jobs:
         working-directory: backend
         run: |
           python -m pip install --upgrade pip
-          pip install -e ".[dev]"
+          pip install -e ".[dev,lake]"
       
+      - name: Install CPU-only PyTorch for required backend ML tests
+        run: |
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+
+      - name: Generate ephemeral signing key for isolated test process
+        run: |
+          echo "JWT_SECRET_KEY=$(python -c 'import secrets; print(secrets.token_urlsafe(48))')" >> "$GITHUB_ENV"
+
       - name: Run tests
         working-directory: backend
         env:
@@ -52,11 +127,36 @@ jobs:
         run: |
           pytest --cov=src --cov-report=xml --cov-report=term-missing -v
       
-      - name: Upload coverage
-        uses: codecov/codecov-action@v4
+      - name: Preserve inspectable coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
         with:
-          files: backend/coverage.xml
-          fail_ci_if_error: false
+          name: backend-coverage
+          path: backend/coverage.xml
+          if-no-files-found: warn
+          retention-days: 14
+
+  ml-cpu-smoke:
+    name: ML CPU smoke (no GPU)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install minimal test tooling
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest 'ortools>=9.8.3296' 'structlog>=24.1.0'
+
+      - name: Install CPU-only PyTorch
+        run: pip install torch --index-url https://download.pytorch.org/whl/cpu
+
+      - name: Test real optimizer and forecasting code
+        run: python -m pytest ml/tests/test_core_ml_smoke.py -q
 
   lint:
     runs-on: ubuntu-latest
@@ -79,4 +179,4 @@ jobs:
       
       - name: Run Black
         working-directory: backend
-        run: black --check src/
+        run: black --check --diff src/

@@ -1,139 +1,143 @@
-"""
-GPS location event consumer.
+"""Kafka GPS consumer: validated event-time position -> PostgreSQL -> WebSocket.
 
-Consumes GPS updates from Kafka and:
-1. Updates vehicle location in PostgreSQL
-2. Stores history in TimescaleDB
-3. Broadcasts to WebSocket clients
+Broker offsets advance after the durable database write. Browser delivery is
+best effort; a reconnect retrieves the latest persisted positions via the same
+FastAPI WebSocket. We do not claim exactly-once external broadcasts.
 """
 
-from datetime import datetime
+import math
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
-from typing import Optional
-from uuid import UUID
 
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 import structlog
+from geoalchemy2.elements import WKTElement
+from pydantic import ValidationError
+from sqlalchemy import select
 
 from src.consumers.base import BaseKafkaConsumer
 from src.database import AsyncSessionLocal
-from src.models import Vehicle
+from src.events.models import GPSLocationEvent
+from src.models import Route, Vehicle
 
 logger = structlog.get_logger()
 
 
+def validate_gps_event(raw: dict) -> GPSLocationEvent:
+    """Reject unversioned, missing-id or physically impossible GPS events."""
+    if raw.get("schema_version") != 1 or "event_id" not in raw:
+        raise ValueError("GPS event must have schema_version=1 and event_id")
+    try:
+        event = GPSLocationEvent.model_validate(raw)
+    except ValidationError as exc:
+        raise ValueError("Invalid GPS event contract") from exc
+    if event.timestamp.tzinfo is None:
+        raise ValueError("GPS event time must have an explicit UTC offset")
+    if event.timestamp.astimezone(UTC) > datetime.now(UTC) + timedelta(minutes=5):
+        raise ValueError("GPS event time is in the future")
+    numbers = [
+        event.location.latitude,
+        event.location.longitude,
+        event.speed_kmh,
+        event.heading,
+        event.accuracy_m,
+    ]
+    if any(value is not None and not math.isfinite(value) for value in numbers):
+        raise ValueError("GPS numeric fields must be finite")
+    return event
+
+
 class GPSLocationConsumer(BaseKafkaConsumer):
-    """
-    Consumes GPS location events and updates vehicle positions.
-    
-    Topic: gps.location
-    
-    Event format:
-    {
-        "driver_id": "uuid",
-        "vehicle_id": "uuid",
-        "location": {"latitude": 40.7484, "longitude": -73.9857},
-        "speed_kmh": 35.5,
-        "heading": 45.0,
-        "accuracy_m": 5.0,
-        "altitude_m": 10.0,
-        "battery_level": 85,
-        "is_moving": true,
-        "timestamp": "2024-01-15T10:30:00Z"
-    }
-    """
-    
+    """Update only known vehicles and broadcast accepted fresh GPS coordinates."""
+
     def __init__(self):
-        super().__init__(
-            topics=["gps.location"],
-            group_id="gps-location-consumer",
-        )
-        self.websocket_manager = None  # Will be injected
-    
+        super().__init__(topics=["gps.location"], group_id="gps-location-consumer")
+        self.websocket_manager = None
+
     def set_websocket_manager(self, manager):
-        """Inject WebSocket manager for broadcasting."""
         self.websocket_manager = manager
-    
+
     async def handle_message(
-        self,
-        topic: str,
-        key: Optional[str],
-        value: dict,
-        timestamp: int,
-    ):
-        """Process GPS location event."""
-        try:
-            # Parse event
-            vehicle_id = UUID(value["vehicle_id"])
-            driver_id = UUID(value["driver_id"]) if value.get("driver_id") else None
-            location = value["location"]
-            latitude = Decimal(str(location["latitude"]))
-            longitude = Decimal(str(location["longitude"]))
-            
-            # Update vehicle location in PostgreSQL
-            async with AsyncSessionLocal() as session:
-                stmt = select(Vehicle).where(Vehicle.id == vehicle_id)
-                result = await session.execute(stmt)
-                vehicle = result.scalar_one_or_none()
-                
-                if vehicle:
-                    vehicle.latitude = latitude
-                    vehicle.longitude = longitude
-                    vehicle.updated_at = datetime.utcnow()
-                    
-                    await session.commit()
-                    
-                    logger.info(
-                        "Vehicle location updated",
-                        vehicle_id=str(vehicle_id),
-                        latitude=float(latitude),
-                        longitude=float(longitude),
-                    )
-                else:
-                    logger.warning("Vehicle not found", vehicle_id=str(vehicle_id))
-            
-            # TODO: Store in TimescaleDB gps_history
-            # TODO: Broadcast to WebSocket clients
-            if self.websocket_manager:
-                await self._broadcast_to_websocket(value)
-        
-        except Exception as e:
-            logger.error("Failed to process GPS event", error=str(e), event=value)
-            raise
-    
-    async def _broadcast_to_websocket(self, event_data: dict):
-        """Broadcast GPS update to WebSocket clients."""
-        if not self.websocket_manager:
-            return
-        
-        try:
-            # Import here to avoid circular dependency
+        self, topic: str, key: str | None, value: dict, timestamp: int
+    ) -> None:
+        if topic != "gps.location":
+            raise ValueError("Unsupported GPS topic")
+        event = validate_gps_event(value)
+        observed = event.timestamp.astimezone(UTC).replace(tzinfo=None)
+
+        # Lock position updates so duplicates or delayed telemetry cannot
+        # overwrite a newer event when consumers rebalance/replay.
+        async with AsyncSessionLocal() as session:
+            result = await session.execute(
+                select(Vehicle).where(Vehicle.id == event.vehicle_id).with_for_update()
+            )
+            vehicle = result.scalar_one_or_none()
+            if vehicle is None:
+                raise ValueError("Unknown GPS vehicle")
+            if vehicle.current_driver_id != event.driver_id:
+                raise ValueError("GPS driver is not assigned to this vehicle")
+
+            if event.route_id is not None:
+                route = await session.get(Route, event.route_id)
+                if (
+                    route is None
+                    or route.driver_id != event.driver_id
+                    or route.vehicle_id != event.vehicle_id
+                    or route.status != "in_progress"
+                    or route.started_at is None
+                    or observed < route.started_at
+                ):
+                    raise ValueError("GPS route is not actively dispatched for this driver/vehicle")
+
+            previous = vehicle.last_gps_at
+            if previous is not None and observed <= previous:
+                # Duplicate or late event: no DB mutation or WebSocket signal.
+                return
+
+            latitude = Decimal(str(event.location.latitude))
+            longitude = Decimal(str(event.location.longitude))
+            vehicle.latitude = latitude
+            vehicle.longitude = longitude
+            vehicle.current_location = WKTElement(f"POINT({longitude} {latitude})", srid=4326)
+            vehicle.last_gps_at = observed
+            vehicle.last_gps_event_id = event.event_id
+            vehicle.updated_at = datetime.now(UTC).replace(tzinfo=None)
+            await session.commit()
+
+        logger.info(
+            "Validated GPS location persisted",
+            vehicle_id=str(event.vehicle_id),
+            event_id=str(event.event_id),
+        )
+
+        if self.websocket_manager is not None:
             from src.websocket_server import WebSocketMessage
-            
-            message = WebSocketMessage(
-                type="vehicle_update",
-                data={
-                    "vehicle_id": event_data["vehicle_id"],
-                    "driver_id": event_data.get("driver_id"),
-                    "location": {
-                        "latitude": event_data["location"]["latitude"],
-                        "longitude": event_data["location"]["longitude"],
-                    },
-                    "speed_kmh": event_data.get("speed_kmh"),
-                    "heading": event_data.get("heading"),
-                    "updated_at": event_data.get("timestamp", datetime.utcnow().isoformat()),
-                }
-            )
-            
-            # Broadcast to 'vehicles' channel
-            sent_count = await self.websocket_manager.broadcast(message, channel="vehicles")
-            
-            logger.debug(
-                "GPS update broadcasted",
-                vehicle_id=event_data["vehicle_id"],
-                clients=sent_count
-            )
-        
-        except Exception as e:
-            logger.error("Failed to broadcast GPS update", error=str(e))
+
+            # No broadcast history is persisted; snapshot-on-reconnect is the
+            # recovery contract. Socket failures must not trigger duplicate DB
+            # writes or block the Kafka offset after DB commit.
+            try:
+                await self.websocket_manager.broadcast(
+                    WebSocketMessage(
+                        type="vehicle_update",
+                        data={
+                            "vehicle_id": str(event.vehicle_id),
+                            "driver_id": str(event.driver_id),
+                            "event_id": str(event.event_id),
+                            "location": {
+                                "latitude": event.location.latitude,
+                                "longitude": event.location.longitude,
+                            },
+                            "speed_kmh": event.speed_kmh,
+                            "heading": event.heading,
+                            "observed_at": event.timestamp.astimezone(UTC).isoformat(),
+                            "source": "kafka",
+                        },
+                    ),
+                    channel="vehicles",
+                )
+            except (RuntimeError, OSError) as exc:
+                logger.warning(
+                    "Best-effort GPS broadcast unavailable",
+                    error_type=type(exc).__name__,
+                    vehicle_id=str(event.vehicle_id),
+                )

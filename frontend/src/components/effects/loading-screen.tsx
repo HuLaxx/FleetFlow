@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 
 export function LoadingScreen() {
   const [isVisible, setIsVisible] = useState(false);
@@ -14,9 +15,9 @@ export function LoadingScreen() {
       // If sessionStorage is blocked, still show once per mount.
     }
 
-    setIsVisible(true);
+    const frame = requestAnimationFrame(() => setIsVisible(true));
     const hideTimer = setTimeout(() => setIsVisible(false), 2200);
-    return () => clearTimeout(hideTimer);
+    return () => { cancelAnimationFrame(frame); clearTimeout(hideTimer); };
   }, []);
 
   if (!isVisible) return null;
@@ -40,7 +41,7 @@ export function LoadingScreen() {
         {/* Logo */}
         <div className="relative mb-8">
           <div className="w-20 h-20 rounded-2xl overflow-hidden shadow-2xl shadow-emerald-500/20 animate-pulse bg-stone-900/70 border border-emerald-500/30 flex items-center justify-center">
-            <img src="/favicon.svg" alt="FleetFlow" className="w-10 h-10" />
+            <Image src="/favicon.svg" alt="FleetFlow" width={40} height={40} className="w-10 h-10" />
           </div>
           <div className="absolute -inset-2 rounded-3xl bg-gradient-to-r from-emerald-200 via-emerald-400 to-emerald-300 opacity-15 blur-xl animate-pulse" />
         </div>

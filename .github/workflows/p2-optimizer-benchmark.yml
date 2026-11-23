@@ -1,0 +1,61 @@
+name: FleetFlow P2 Real Solver Benchmark
+
+on:
+  push:
+    branches: ['feature/**']
+    paths:
+      - 'backend/src/optimization/**'
+      - 'tests/test_routing_benchmark.py'
+      - '.github/workflows/p2-optimizer-benchmark.yml'
+  pull_request:
+    branches: [main, 'feature/**']
+    paths:
+      - 'backend/src/optimization/**'
+      - 'tests/test_routing_benchmark.py'
+      - '.github/workflows/p2-optimizer-benchmark.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  solver-vs-nearest-neighbour:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install CPU routing engine and test tooling
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest 'ortools>=9.8,<10' 'structlog>=24,<26' 'ruff>=0.9'
+      - name: Assert benchmark source lint
+        run: |
+          ruff check backend/src/optimization/benchmark.py tests/test_routing_benchmark.py
+          ruff format --check backend/src/optimization/benchmark.py tests/test_routing_benchmark.py
+      - name: Exercise real solver, negative constraints and deterministic inputs
+        env:
+          PYTHONPATH: backend
+        run: python -m pytest -q tests/test_routing_benchmark.py
+      - name: Run both planners on the same synthetic scenarios
+        env:
+          PYTHONPATH: backend
+        run: |
+          python -m src.optimization.benchmark --output "$RUNNER_TEMP/optimizer-benchmark.json"
+          python - "$RUNNER_TEMP/optimizer-benchmark.json" <<'PY'
+          import json
+          import sys
+          report = json.load(open(sys.argv[1], encoding="utf-8"))
+          assert len(report["results"]) == 3
+          assert all(item["ortools"]["capacity_or_window_or_duplicate_violations"] == 0
+                     for item in report["results"])
+          print("PASS: all constraint assertions hold on actual OR-Tools execution")
+          PY
+      - name: Publish comparable distance and infeasibility evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: fleetflow-ortools-vs-nearest-neighbour
+          path: ${{ runner.temp }}/optimizer-benchmark.json
+          retention-days: 14
+          if-no-files-found: error

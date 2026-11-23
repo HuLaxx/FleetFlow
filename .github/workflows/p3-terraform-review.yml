@@ -1,0 +1,52 @@
+name: FleetFlow P3 Terraform Offline Validation
+
+on:
+  push:
+    branches: [main, 'feature/**', 'fix/**']
+    paths:
+      - 'infra/terraform/**'
+      - '.github/workflows/p3-terraform-review.yml'
+  pull_request:
+    branches: [main, 'feature/**']
+    paths:
+      - 'infra/terraform/**'
+      - '.github/workflows/p3-terraform-review.yml'
+
+concurrency:
+  group: p3-terraform-${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  validate-only:
+    name: Terraform fmt, init without backend, validate (${{ matrix.module }}, NO AWS apply)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        module: [analytics, aws-lakehouse]
+    defaults:
+      run:
+        working-directory: infra/terraform/${{ matrix.module }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: '1.10.5'
+          terraform_wrapper: false
+      - name: Check format without changing tracked files
+        run: terraform fmt -check -diff -recursive
+      - name: Install provider schemas WITHOUT remote state or credentials
+        run: terraform init -backend=false -input=false -no-color
+      - name: Validate module without contacting an AWS account
+        run: terraform validate -no-color
+      - name: Enforce no state, tfvars, apply or destroy in CI
+        working-directory: .
+        run: |
+          test ! -f infra/terraform/${{ matrix.module }}/terraform.tfstate
+          test ! -f infra/terraform/${{ matrix.module }}/terraform.tfvars
+          ! grep -E 'terraform[[:space:]]+(apply|destroy)' .github/workflows/p3-terraform-review.yml
+          echo "CI performed only fmt/init/validate. No plan, apply, AWS credentials or expense."

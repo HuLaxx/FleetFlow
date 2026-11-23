@@ -1,0 +1,96 @@
+name: FleetFlow P2 Forecast and Airflow Safety
+
+on:
+  push:
+    branches: [main, 'feature/**', 'fix/**']
+    paths:
+      - 'backend/src/analytics/**'
+      - 'backend/tests/test_analytics/**'
+      - 'data-engineering/airflow/**'
+      - 'docker-compose.yml'
+      - '.github/workflows/p2-forecast-orchestration.yml'
+  pull_request:
+    branches: [main, 'feature/**']
+    paths:
+      - 'backend/src/analytics/**'
+      - 'backend/tests/test_analytics/**'
+      - 'data-engineering/airflow/**'
+      - 'docker-compose.yml'
+      - '.github/workflows/p2-forecast-orchestration.yml'
+
+concurrency:
+  group: p2-forecast-${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  chronological-baselines:
+    name: Actual holdout, negative data tests and output artifact
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    env:
+      JWT_SECRET_KEY: fleetflow-synthetic-forecast-ci-key-over-32-characters
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+      - name: Install audited backend dev requirements
+        run: python -m pip install -e './backend[dev]'
+      - name: Test chronological splitting and disabled unsafe DAGs
+        run: python -m pytest backend/tests/test_analytics/test_forecast_baselines.py -v
+      - name: Measure deterministic one-step-ahead synthetic baselines
+        run: |
+          python -m src.analytics.forecast_baselines \
+            --seed 42 --weeks 12 --holdout-hours 168 \
+            --output "$RUNNER_TEMP/forecast-baselines.json"
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          p=Path(os.environ["RUNNER_TEMP"])/"forecast-baselines.json"
+          result=json.loads(p.read_text())
+          assert result["data_source"]=="seeded-synthetic-only"
+          assert result["train_hours"]+result["holdout_hours"]==12*7*24
+          assert result["holdout_hours"]==168
+          assert len(result["baselines"])==4
+          print("name | MAE | RMSE | WAPE (undefined when zero demand)")
+          for baseline in result["baselines"]:
+              print(f"{baseline['method']} | {baseline['mae']} | "
+                    f"{baseline['rmse']} | {baseline['wape_pct']}")
+          PY
+      - name: Publish chronological evaluation evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fleetflow-p2-forecast-baseline
+          path: ${{ runner.temp }}/forecast-baselines.json
+          if-no-files-found: ignore
+          retention-days: 14
+
+  actual-airflow-import:
+    name: Parse both DAGs using real Apache Airflow 2.8.2
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Import DAGs in pinned official Airflow runtime
+        run: |
+          docker run --rm \
+            --env AIRFLOW_HOME=/tmp/airflow \
+            --env AIRFLOW__CORE__LOAD_EXAMPLES=false \
+            --env AIRFLOW__LOGGING__BASE_LOG_FOLDER=/tmp/airflow-logs \
+            --volume "$PWD/data-engineering/airflow/dags:/opt/airflow/dags:ro" \
+            --entrypoint python \
+            apache/airflow:2.8.2 -c '
+          from airflow.models.dagbag import DagBag
+          bag=DagBag(dag_folder="/opt/airflow/dags", include_examples=False, read_dags_from_db=False)
+          assert not bag.import_errors, bag.import_errors
+          required={"daily_route_optimization","hourly_demand_forecast"}
+          assert required.issubset(bag.dags), set(bag.dags)
+          for name in required:
+              dag=bag.dags[name]
+              assert dag.schedule_interval is None, f"{name} must be manual"
+              assert dag.catchup is False
+              assert len(dag.tasks)==1
+              print(f"Airflow imported manual-only DAG: {name} ({len(dag.tasks)} read-only/evaluation task)")
+          '

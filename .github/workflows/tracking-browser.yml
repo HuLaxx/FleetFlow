@@ -1,0 +1,55 @@
+name: FleetFlow Live Tracking Browser Acceptance
+
+on:
+  push:
+    branches: [main, 'feature/**', 'fix/**']
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/tracking-browser.yml'
+  pull_request:
+    branches: [main, 'feature/**']
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/tracking-browser.yml'
+
+concurrency:
+  group: tracking-browser-${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  browser-tracking:
+    name: Playwright tracking freshness/reconnect acceptance
+    # Playwright Chromium currently has no ubuntu-26.04 installer target.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+      - name: Install locked frontend dependencies
+        working-directory: frontend
+        run: pnpm install --frozen-lockfile
+      - name: Install Chromium for browser acceptance
+        working-directory: frontend
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Browser tests with controlled WebSocket messages
+        working-directory: frontend
+        env:
+          NEXT_TELEMETRY_DISABLED: '1'
+        run: pnpm exec playwright test e2e/live-tracking.spec.ts --reporter=line
+      - name: Preserve failing browser traces
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tracking-browser-artifacts
+          path: |
+            frontend/test-results/
+            frontend/playwright-report/
+          if-no-files-found: ignore
+          retention-days: 7

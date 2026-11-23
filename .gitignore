@@ -13,3 +13,24 @@ mlflow-artifacts/
 backend/.venv/
 **/__pycache__/
 *.pyc
+
+# Generated Python files must never enter the Git index.
+*.pyo
+*.pyd
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Local Airflow operator-supplied data and generated evidence; never commit GPS/customer CSV.
+data-engineering/airflow/input/
+data-engineering/dbt/target/
+data-engineering/dbt/logs/
+
+# Terraform state, local variables and plans can contain AWS identifiers/secrets.
+**/.terraform/
+**/*.tfstate
+**/*.tfstate.*
+**/*.tfplan
+**/*.tfvars
+!**/*.tfvars.example
+crash.log

@@ -1,0 +1,103 @@
+name: FleetFlow P2 Airflow Task Execution
+on:
+  pull_request:
+    branches: [main, 'feature/**', 'docs/**']
+    paths:
+      - '.github/workflows/p2-airflow-execution.yml'
+      - 'data-engineering/airflow/dags/gps_lake_pipeline.py'
+      - 'data-engineering/dbt/**'
+      - 'data-engineering/sql/**'
+      - 'backend/src/lakehouse/**'
+      - 'backend/src/events/**'
+  push:
+    branches: ['docs/p4-fleetflow-evidence-2026-11-17']
+permissions:
+  contents: read
+jobs:
+  execute:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: fleetflow
+          POSTGRES_PASSWORD: fleetpass
+          POSTGRES_DB: fleetflow_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      AIRFLOW_HOME: /tmp/fleetflow-airflow
+      AIRFLOW__CORE__LOAD_EXAMPLES: 'False'
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: sqlite:////tmp/fleetflow-airflow/airflow.db
+      DATABASE_URL: postgresql+asyncpg://fleetflow:fleetpass@localhost:5432/fleetflow_test
+      DBT_HOST: localhost
+      DBT_USER: fleetflow
+      DBT_PASSWORD: fleetpass
+      DBT_DATABASE: fleetflow_test
+      DBT_SEND_ANONYMOUS_USAGE_STATS: 'false'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install isolated Airflow task environment and separate dbt CLI
+        run: |
+          python -m venv "$RUNNER_TEMP/airflow-venv"
+          "$RUNNER_TEMP/airflow-venv/bin/pip" install 'apache-airflow==2.10.5' --constraint 'https://raw.githubusercontent.com/apache/airflow/constraints-2.10.5/constraints-3.11.txt'
+          "$RUNNER_TEMP/airflow-venv/bin/pip" install 'pydantic>=2,<3' 'pydantic-settings>=2,<3' 'asyncpg>=0.29,<1' 'pyarrow>=17,<24' 'structlog>=24,<27' 'confluent-kafka>=2,<3'
+          "$RUNNER_TEMP/airflow-venv/bin/pip" check
+          python -m venv "$RUNNER_TEMP/dbt-venv"
+          "$RUNNER_TEMP/dbt-venv/bin/pip" install 'dbt-postgres>=1.9,<2'
+          "$RUNNER_TEMP/dbt-venv/bin/pip" check
+          echo "$RUNNER_TEMP/dbt-venv/bin" >> "$GITHUB_PATH"
+          echo "$RUNNER_TEMP/airflow-venv/bin" >> "$GITHUB_PATH"
+          echo "PYTHONPATH=$GITHUB_WORKSPACE/backend" >> "$GITHUB_ENV"
+          echo "FLEETFLOW_ANALYTICS_INPUT_DIR=$RUNNER_TEMP/gps-input" >> "$GITHUB_ENV"
+          echo "FLEETFLOW_ANALYTICS_OUTPUT_DIR=$RUNNER_TEMP/gps-output" >> "$GITHUB_ENV"
+      - name: Prepare isolated PostgreSQL schema and synthetic source
+        run: |
+          mkdir -p "$AIRFLOW_HOME" "$FLEETFLOW_ANALYTICS_INPUT_DIR"
+          airflow db migrate
+          PGPASSWORD=fleetpass psql -h localhost -U fleetflow -d fleetflow_test -v ON_ERROR_STOP=1 -1 -f data-engineering/sql/01_gps_hourly_curated.sql
+          python backend/scripts/generate_gps_lake_fixture.py "$FLEETFLOW_ANALYTICS_INPUT_DIR/synthetic-gps.jsonl"
+      - name: Execute actual Airflow local DAG twice and verify idempotent facts
+        run: |
+          set -euo pipefail
+          conf="$(python -c 'import json,os; print(json.dumps({"source_path":os.path.join(os.environ["FLEETFLOW_ANALYTICS_INPUT_DIR"],"synthetic-gps.jsonl")}))')"
+          dag=data-engineering/airflow/dags/gps_lake_pipeline.py
+          for ts in 2026-11-18T00:00:00+00:00 2026-11-18T01:00:00+00:00; do
+            airflow dags test --subdir "$dag" --conf "$conf" fleetflow_gps_analytics_replay "$ts"
+            # A successful exit alone is not acceptance: check every materialized fact.
+            result="$(PGPASSWORD=fleetpass psql -h localhost -U fleetflow -d fleetflow_test -v ON_ERROR_STOP=1 -At -c 'SELECT COUNT(*), SUM(event_count), SUM(late_event_count) FROM public.gps_hourly_curated;')"
+            test "$result" = '2|3|1'
+            result="$(PGPASSWORD=fleetpass psql -h localhost -U fleetflow -d fleetflow_test -v ON_ERROR_STOP=1 -At -c 'SELECT COUNT(*), SUM(event_count), SUM(late_event_count) FROM public_marts.fct_gps_hourly;')"
+            test "$result" = '2|3|1'
+          done
+          python - <<'PY'
+          from airflow.models.dagrun import DagRun
+          from airflow.utils.session import create_session
+          with create_session() as session:
+              runs = session.query(DagRun).filter(DagRun.dag_id == "fleetflow_gps_analytics_replay").all()
+              assert len(runs) == 2, len(runs)
+              for run in runs:
+                  assert run.state == "success", run.state
+                  tasks = run.get_task_instances(session=session)
+                  assert len(tasks) == 4 and all(task.state == "success" for task in tasks)
+          print("PASS: two manual Airflow DAG executions, all four tasks successful, no duplicate facts")
+          PY
+      - name: Preserve Airflow task and dbt evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fleetflow-airflow-task-evidence
+          path: |
+            data-engineering/dbt/target/run_results.json
+            /tmp/fleetflow-airflow/logs/
+          if-no-files-found: warn
+          retention-days: 7
