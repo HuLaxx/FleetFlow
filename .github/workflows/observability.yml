@@ -61,7 +61,7 @@ jobs:
       - name: Lint (ruff + black)
         working-directory: data-engineering/observability
         run: |
-          { ruff check . && black --check . ; } 2>&1 | tee ../../ci-artifacts/logs/02-lint.log
+          { ruff check . && black --check --diff . ; } 2>&1 | tee ../../ci-artifacts/logs/02-lint.log
       - name: Unit tests (incl. SqlRunStore against PostgreSQL 16)
         working-directory: data-engineering/observability
         run: |
