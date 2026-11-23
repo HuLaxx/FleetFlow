@@ -88,10 +88,15 @@ def parse(raw: DataFrame) -> DataFrame:
 
 
 def silver(events: DataFrame) -> DataFrame:
+    valid = events.where(F.col("rejection_reason").isNull())
+    if events.isStreaming:
+        deduped = valid.withWatermark("event_time", WATERMARK).dropDuplicatesWithinWatermark(
+            ["event_id"]
+        )
+    else:  # Spark only allows the watermark-bounded variant on streams.
+        deduped = valid.dropDuplicates(["event_id"])
     return (
-        events.where(F.col("rejection_reason").isNull())
-        .withWatermark("event_time", WATERMARK)
-        .dropDuplicatesWithinWatermark(["event_id"])
+        deduped
         .select(
             "event_id", "event_time", "vehicle_id", "driver_id", "route_id",
             F.col("location.latitude").alias("latitude"),
