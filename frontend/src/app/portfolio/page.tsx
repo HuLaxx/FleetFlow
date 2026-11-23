@@ -11,9 +11,9 @@ import {
     Brain,
     Layers,
     ShieldCheck,
-    Terminal,
     ArrowRight
 } from 'lucide-react';
+import { PageHero } from '@/components/site/page-hero';
 
 const workflowSteps = [
     {
@@ -140,26 +140,15 @@ const TechBadge = ({ name }: { name: string }) => (
 
 export default function PortfolioPage() {
     return (
-        <div className="min-h-screen bg-stone-950">
+        <div className="ff-v2 min-h-screen">
             <SiteHeader />
 
-            {/* Hero */}
-            <section className="pt-32 pb-12 relative overflow-hidden">
-                <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-stone-900/60 via-stone-950 to-stone-950" />
-                <div className="max-w-6xl mx-auto px-6 relative z-10 text-center">
-                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-stone-900/60 border border-emerald-500/20 text-xs font-medium text-emerald-200 mb-6">
-                        <Terminal className="w-3.5 h-3.5" />
-                        Portfolio evidence • multi-role scope
-                    </div>
-                    <h1 className="text-4xl md:text-5xl font-bold text-stone-100 mb-4">
-                        Workflow, Integrations, and Role Evidence
-                    </h1>
-                    <p className="text-lg text-stone-400 max-w-3xl mx-auto">
-                        This page maps real code, data pipelines, and infrastructure to the exact
-                        skills and roles demonstrated by FleetFlow.
-                    </p>
-                </div>
-            </section>
+            <PageHero
+                width="6xl"
+                eyebrow="Portfolio evidence"
+                title="What FleetFlow demonstrates, and where to check it."
+                lede="This page maps real code, data pipelines and infrastructure to the skills and roles FleetFlow demonstrates, with links to the workflows that prove them."
+            />
 
             {/* Rank-1 Focus Notice */}
             <section className="pb-10">
@@ -172,7 +161,7 @@ export default function PortfolioPage() {
             <section className="py-12">
                 <div className="max-w-6xl mx-auto px-6">
                     <div className="flex items-center justify-between mb-8">
-                        <h2 className="text-2xl font-bold text-stone-100">Workflow & Integrations</h2>
+                        <h2 className="text-[clamp(1.9rem,3vw,2.75rem)] font-semibold leading-[1.05] tracking-[-.05em] text-stone-100">Workflow & Integrations</h2>
                         <span className="text-xs text-stone-500">End-to-end flow from data to decisions</span>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -207,7 +196,7 @@ export default function PortfolioPage() {
             <section className="py-12 bg-stone-900/30 border-y border-stone-900">
                 <div className="max-w-6xl mx-auto px-6">
                     <div className="flex items-center justify-between mb-8">
-                        <h2 className="text-2xl font-bold text-stone-100">Role Evidence Matrix</h2>
+                        <h2 className="text-[clamp(1.9rem,3vw,2.75rem)] font-semibold leading-[1.05] tracking-[-.05em] text-stone-100">Role Evidence Matrix</h2>
                         <span className="text-xs text-stone-500">Claims backed by shipped code</span>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -240,7 +229,7 @@ export default function PortfolioPage() {
             <section className="py-12">
                 <div className="max-w-6xl mx-auto px-6">
                     <div className="flex items-center justify-between mb-6">
-                        <h2 className="text-2xl font-bold text-stone-100">Skills, Tools, and Libraries</h2>
+                        <h2 className="text-[clamp(1.9rem,3vw,2.75rem)] font-semibold leading-[1.05] tracking-[-.05em] text-stone-100">Skills, Tools, and Libraries</h2>
                         <Link
                             href="/tech-stack"
                             className="text-sm text-emerald-400 hover:text-emerald-300 flex items-center gap-1"

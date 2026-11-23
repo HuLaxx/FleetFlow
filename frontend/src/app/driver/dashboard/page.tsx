@@ -53,7 +53,7 @@ export default function DriverDashboard() {
     const currentStop = currentRoute.stops[activeStopIndex];
 
     return (
-        <div className="min-h-screen bg-stone-950 pb-20">
+        <div className="min-h-screen ff-v2-scope pb-20">
             {/* Header */}
             <div className="bg-stone-900 border-b border-stone-800 p-4 sticky top-0 z-20">
                 <div className="flex items-center justify-between">

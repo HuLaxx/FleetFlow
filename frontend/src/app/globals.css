@@ -234,3 +234,68 @@
   opacity: 0.02;
   background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
+
+/*
+ * v2 palette for the pages built before the v2 redesign (architecture, tech stack,
+ * portfolio, tracking, connected workspace, driver). Scoped to page content so the
+ * site header and footer keep their own design untouched.
+ */
+.ff-v2 {
+  background-color: #0c1418;
+}
+
+.ff-v2 > :not(header):not(footer),
+.ff-v2-scope {
+  --color-stone-50: #f2f8f4;
+  --color-stone-100: #eaf2ed;
+  --color-stone-200: #d2e7d8;
+  --color-stone-300: #b5cfc6;
+  --color-stone-400: #94aeaa;
+  --color-stone-500: #79978b;
+  --color-stone-600: #587f6d;
+  --color-stone-700: #3c5651;
+  --color-stone-800: #2c4643;
+  --color-stone-900: #121e22;
+  --color-stone-950: #0c1418;
+  /* The theme's lg/xl/md radii are inline calc()s of --radius, so set it too. */
+  --radius: 2px;
+  --radius-lg: 2px;
+  --radius-xl: 2px;
+  --radius-2xl: 3px;
+  --radius-3xl: 4px;
+}
+
+.ff-v2-scope {
+  background-color: #0c1418;
+}
+
+/* Gentle entrance for page openings; the home hero waits for the intro curtain. */
+.ff-rise {
+  opacity: 0;
+  transform: translateY(18px);
+  animation: ff-rise 1000ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  animation-delay: calc(var(--ff-delay, 0ms) + var(--ff-after-intro, 0ms));
+}
+
+@keyframes ff-rise {
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.ff-home {
+  --ff-after-intro: 2100ms;
+}
+
+html[data-ff-intro-done='true'] .ff-home {
+  --ff-after-intro: 0ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ff-rise {
+    opacity: 1;
+    transform: none;
+    animation: none;
+  }
+}

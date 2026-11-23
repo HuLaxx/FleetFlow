@@ -22,7 +22,7 @@ const FleetMap = dynamic(() => import('@/components/map/fleet-map'), {
 
 export default function DemoPage() {
     return (
-        <div className="min-h-screen bg-stone-950 flex flex-col">
+        <div className="ff-v2 min-h-screen flex flex-col">
             {/* Site Header */}
             <SiteHeader />
 

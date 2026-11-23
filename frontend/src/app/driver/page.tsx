@@ -24,7 +24,7 @@ export default function DriverLoginPage() {
     };
 
     return (
-        <div className="min-h-screen bg-stone-950 flex flex-col items-center justify-center p-6 relative overflow-hidden">
+        <div className="min-h-screen ff-v2-scope flex flex-col items-center justify-center p-6 relative overflow-hidden">
             {/* Background Effects */}
             <div className="absolute top-0 left-0 w-full h-96 bg-gradient-to-b from-emerald-900/10 to-transparent pointer-events-none" />
             <div className="absolute -top-20 -right-20 w-64 h-64 bg-emerald-500/5 rounded-full blur-3xl" />

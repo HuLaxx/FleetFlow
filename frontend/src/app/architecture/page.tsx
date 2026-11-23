@@ -13,6 +13,7 @@ import {
 import { SiteHeader } from '@/components/site/site-header';
 import { SiteFooter } from '@/components/site/site-footer';
 import Link from 'next/link';
+import { PageHero } from '@/components/site/page-hero';
 
 // Logo URLs from Simple Icons
 const getLogoUrl = (name: string) => {
@@ -120,30 +121,21 @@ const layers = [
 
 export default function ArchitecturePage() {
     return (
-        <div className="min-h-screen bg-stone-950">
+        <div className="ff-v2 min-h-screen">
             <SiteHeader />
 
-            {/* Hero */}
-            <section className="pt-32 pb-16 relative overflow-hidden">
-                <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-stone-900/40 via-stone-950 to-stone-950" />
-                <div className="max-w-7xl mx-auto px-6 relative z-10">
-                    <div className="text-center max-w-3xl mx-auto">
-                        <h1 className="text-4xl md:text-5xl font-bold text-stone-100 mb-4">
-                            System Architecture
-                        </h1>
-                        <p className="text-xl text-stone-400">
-                            A modern, scalable architecture designed for real-time delivery optimization
-                            with ML-powered decision making.
-                        </p>
-                    </div>
-                </div>
-            </section>
+            <PageHero
+                width="7xl"
+                eyebrow="Architecture"
+                title="How a delivery plan moves through the system."
+                lede="Orders and GPS events flow through FastAPI, Kafka and PostGIS into a PySpark and dbt lakehouse. Route proposals come from OR-Tools. The heavy services run locally with Docker Compose or a kind cluster; the public demo stays independent of them."
+            />
 
             {/* Visual Data Flow */}
             <section className="py-12 relative">
                 <div className="absolute inset-0 bg-[linear-gradient(rgba(16,185,129,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(16,185,129,0.02)_1px,transparent_1px)] bg-[size:40px_40px] [mask-image:radial-gradient(ellipse_at_center,black_40%,transparent_80%)]" />
                 <div className="max-w-5xl mx-auto px-6 relative z-10">
-                    <h2 className="text-2xl font-bold text-stone-100 mb-8 text-center">Data Flow</h2>
+                    <h2 className="text-[clamp(1.9rem,3vw,2.75rem)] font-semibold leading-[1.05] tracking-[-.05em] text-stone-100 mb-8">Data Flow</h2>
 
                     <div className="relative bg-stone-900/80 border border-stone-800 rounded-2xl p-8 backdrop-blur-sm shadow-2xl shadow-black/50">
                         {/* Flow visualization */}
@@ -201,7 +193,7 @@ export default function ArchitecturePage() {
             {/* Architecture Layers */}
             <section className="py-16">
                 <div className="max-w-7xl mx-auto px-6">
-                    <h2 className="text-2xl font-bold text-stone-100 mb-12 text-center">Architecture Layers</h2>
+                    <h2 className="text-[clamp(1.9rem,3vw,2.75rem)] font-semibold leading-[1.05] tracking-[-.05em] text-stone-100 mb-12">Architecture Layers</h2>
 
                     <div className="space-y-6">
                         {layers.map((layer, index) => (

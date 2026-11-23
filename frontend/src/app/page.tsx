@@ -26,12 +26,12 @@ const systems = [
 
 export default function HomePage() {
   return (
-    <div className="relative z-10 min-h-screen bg-[#0c1418] text-[#eaf2ed]">
+    <div className="ff-home relative z-10 min-h-screen bg-[#0c1418] text-[#eaf2ed]">
       <SiteHeader />
       <main>
         <section className="mx-auto max-w-[1580px] px-4 pb-20 pt-36 md:px-8 md:pt-44">
           <div className="grid items-center gap-12 xl:grid-cols-[.94fr_1.06fr] xl:gap-16">
-            <div className="pb-2">
+            <div className="ff-rise pb-2">
               <div className="mb-7 flex items-center gap-3 text-[11px] font-semibold uppercase tracking-[.24em] text-[#9dceb2]">
                 <span className="h-[1px] w-8 bg-[#9dceb2]"/> Logistics, without guesswork
               </div>
@@ -59,7 +59,9 @@ export default function HomePage() {
                 <div><span className="font-mono text-xl text-[#d9ede2]">03</span><p className="text-[11px] uppercase tracking-widest text-[#79948b]">Deliver</p></div>
               </div>
             </div>
-            <DispatchBoard />
+            <div className="ff-rise" style={{ ['--ff-delay' as string]: '160ms' }}>
+              <DispatchBoard />
+            </div>
           </div>
         </section>
 

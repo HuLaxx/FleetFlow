@@ -4,6 +4,7 @@ import { SiteHeader } from '@/components/site/site-header';
 import { SiteFooter } from '@/components/site/site-footer';
 import Link from 'next/link';
 import { ArrowRight, Play, ExternalLink } from 'lucide-react';
+import { PageHero } from '@/components/site/page-hero';
 
 // Using Simple Icons CDN for real logos
 const getLogoUrl = (name: string) => {
@@ -131,24 +132,15 @@ const categories = [
 
 export default function TechStackPage() {
     return (
-        <div className="min-h-screen bg-stone-950">
+        <div className="ff-v2 min-h-screen">
             <SiteHeader />
 
-            {/* Hero */}
-            <section className="pt-32 pb-16 relative overflow-hidden">
-                <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-stone-900/60 via-stone-950 to-stone-950" />
-                <div className="max-w-7xl mx-auto px-6 relative z-10">
-                    <div className="text-center max-w-3xl mx-auto">
-                        <h1 className="text-4xl md:text-5xl font-bold text-stone-100 mb-4">
-                            Technology Stack
-                        </h1>
-                        <p className="text-xl text-stone-400">
-                            30+ production-ready technologies chosen for scalability,
-                            performance, and developer experience.
-                        </p>
-                    </div>
-                </div>
-            </section>
+            <PageHero
+                width="7xl"
+                eyebrow="Technology"
+                title="The tools, and the job each one does."
+                lede="Every technology below is listed with its role in FleetFlow. Some run in CI against real services, some run locally only; the public demo does not depend on them."
+            />
 
             {/* Tech Categories */}
             <section className="py-12 relative">
@@ -160,7 +152,7 @@ export default function TechStackPage() {
                                     <span className="text-xl font-bold text-stone-900 shadow-sm">{category.name.charAt(0)}</span>
                                 </div>
                                 <div>
-                                    <h2 className="text-2xl font-bold text-stone-100">{category.name}</h2>
+                                    <h2 className="text-[clamp(1.9rem,3vw,2.75rem)] font-semibold leading-[1.05] tracking-[-.05em] text-stone-100">{category.name}</h2>
                                     <p className="text-stone-500">{category.description}</p>
                                 </div>
                             </div>
