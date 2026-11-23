@@ -1,12 +1,25 @@
 fleetflow:
-  target: local
+  # local: developer Postgres/PostGIS. ci: GitHub Actions service container.
+  # Select with DBT_TARGET (defaults to local).
+  target: "{{ env_var('DBT_TARGET', 'local') }}"
   outputs:
     local:
       type: postgres
       host: "{{ env_var('DBT_HOST', 'localhost') }}"
       user: "{{ env_var('DBT_USER', 'fleetflow') }}"
       password: "{{ env_var('DBT_PASSWORD') }}"
-      port: 5432
+      port: "{{ env_var('DBT_PORT', '5432') | int }}"
       dbname: "{{ env_var('DBT_DATABASE', 'fleetflow_test') }}"
-      schema: public
+      schema: "{{ env_var('DBT_SCHEMA', 'public') }}"
       threads: 1
+    ci:
+      type: postgres
+      host: "{{ env_var('DBT_HOST') }}"
+      user: "{{ env_var('DBT_USER') }}"
+      password: "{{ env_var('DBT_PASSWORD') }}"
+      port: "{{ env_var('DBT_PORT', '5432') | int }}"
+      dbname: "{{ env_var('DBT_DATABASE') }}"
+      schema: "{{ env_var('DBT_SCHEMA', 'public') }}"
+      threads: 2
+      connect_timeout: 10
+      keepalives_idle: 0
