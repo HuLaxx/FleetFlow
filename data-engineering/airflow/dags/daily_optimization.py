@@ -73,6 +73,14 @@ def inspect_dispatch_readiness(**context):
     }
 
 
+
+# Pipeline observability (data-engineering/observability): record each task
+# run and alert on failure. Optional - DAGs still parse if it is not installed.
+try:
+    from fleetflow_observability.airflow_callbacks import on_failure_callback, on_success_callback
+except ImportError:  # pragma: no cover - depends on the Airflow image
+    on_failure_callback = on_success_callback = None
+
 with DAG(
     dag_id="daily_route_optimization",
     description="Manual read-only dispatch readiness; route plan/approve stays in authenticated API",
@@ -80,6 +88,10 @@ with DAG(
     schedule_interval=None,
     catchup=False,
     max_active_runs=1,
+    default_args={
+        "on_failure_callback": on_failure_callback,
+        "on_success_callback": on_success_callback,
+    },
     tags=["fleetflow", "read-only", "manual", "dispatch"],
 ) as dag:
     PythonOperator(task_id="inspect_dispatch_readiness", python_callable=inspect_dispatch_readiness)

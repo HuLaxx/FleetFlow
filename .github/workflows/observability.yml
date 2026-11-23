@@ -1,0 +1,264 @@
+name: Pipeline observability
+
+# Unit tests for data-engineering/observability, a real `dbt source freshness`
+# run against a disposable PostGIS container (stale -> recovered scenarios),
+# promtool checks/unit tests of the alert rules, and a live node_exporter +
+# Prometheus run proving the alerts fire and resolve. Results are posted as a
+# PR comment, including log tails for any failed job.
+
+on:
+  pull_request:
+    paths:
+      - "data-engineering/observability/**"
+      - "data-engineering/dbt/**"
+      - "data-engineering/airflow/**"
+      - "monitoring/**"
+      - "db/init/**"
+      - ".github/workflows/observability.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: observability-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  PROMETHEUS_IMAGE: prom/prometheus:v2.53.2
+  NODE_EXPORTER_IMAGE: prom/node-exporter:v1.8.2
+
+jobs:
+  unit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: obs
+          POSTGRES_PASSWORD: obs-ci-only
+          POSTGRES_DB: obs
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      FLEETFLOW_TEST_POSTGRES_DSN: postgresql://obs:obs-ci-only@localhost:5432/obs
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install
+        run: |
+          mkdir -p ci-artifacts/logs
+          python -m pip install -r data-engineering/observability/requirements-ci.txt 2>&1 | tail -n 5 | tee ci-artifacts/logs/01-install.log
+          python -m pip install -e data-engineering/observability 2>&1 | tail -n 3 | tee -a ci-artifacts/logs/01-install.log
+      - name: Lint (ruff + black)
+        working-directory: data-engineering/observability
+        run: |
+          { ruff check . && black --check --diff . ; } 2>&1 | tee ../../ci-artifacts/logs/02-lint.log
+      - name: Unit tests (incl. SqlRunStore against PostgreSQL 16)
+        working-directory: data-engineering/observability
+        run: |
+          python -m pytest -v --junitxml=../../ci-artifacts/junit.xml \
+            --cov --cov-branch --cov-report=term-missing 2>&1 | tee ../../ci-artifacts/logs/03-pytest.log
+          grep -E "^(Name|TOTAL|fleetflow_observability)" ../../ci-artifacts/logs/03-pytest.log > ../../ci-artifacts/coverage.txt || true
+          # the PostgreSQL test must have run, not been skipped
+          grep -q "test_postgres_store_upserts PASSED" ../../ci-artifacts/logs/03-pytest.log
+      - name: Airflow DAGs still compile with the callbacks wired in
+        run: python -m py_compile data-engineering/airflow/dags/*.py 2>&1 | tee ci-artifacts/logs/04-dags.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: unit
+          path: ci-artifacts
+          retention-days: 14
+
+  promtool:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: promtool check config, check rules, test rules
+        run: |
+          mkdir -p ci-artifacts/logs
+          promtool() { docker run --rm -v "$PWD/monitoring:/m:ro" -w /m --entrypoint promtool "$PROMETHEUS_IMAGE" "$@"; }
+          {
+            promtool check config prometheus.yml
+            promtool check rules alerts/pipeline_alerts.yml
+            promtool test rules alerts/tests/pipeline_alerts_test.yml
+          } 2>&1 | tee ci-artifacts/logs/01-promtool.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: promtool
+          path: ci-artifacts
+          retention-days: 14
+
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgis/postgis:15-3.3
+        env:
+          POSTGRES_USER: fleetflow
+          POSTGRES_PASSWORD: fleetflow-ci-only
+          POSTGRES_DB: fleetflow_obs
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      PGHOST: localhost
+      PGUSER: fleetflow
+      PGPASSWORD: fleetflow-ci-only
+      PGDATABASE: fleetflow_obs
+      FLEETFLOW_DBT_USER: fleetflow
+      FLEETFLOW_DBT_PASSWORD: fleetflow-ci-only
+      FLEETFLOW_DBT_DBNAME: fleetflow_obs
+      FLEETFLOW_ALERT_WEBHOOK_URL: http://127.0.0.1:18080/alerts
+      OBS: data-engineering/observability
+      OUT: ci-artifacts/out
+      LOGS: ci-artifacts/logs
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install dbt and the observability package
+        run: |
+          mkdir -p "$OUT/stale/textfile" "$OUT/healthy/textfile" "$OUT/e2e-textfile" "$LOGS"
+          python -m pip install -r "$OBS/requirements-dbt.txt" -e "$OBS" 2>&1 | tail -n 5 | tee "$LOGS/01-install.log"
+          dbt --version | tee -a "$LOGS/01-install.log"
+      - name: Load schema and SYNTHETIC stale scenario into PostGIS
+        run: |
+          {
+            psql -v ON_ERROR_STOP=1 -q -f db/init/01_postgis_schema.sql
+            psql -v ON_ERROR_STOP=1 -f "$OBS/ci/seed_stale_scenario.sql"
+            psql -c "select 'orders' t, max(created_at) from orders union all select 'drivers', max(updated_at) from drivers
+                     union all select 'routes', max(updated_at) from routes union all select 'route_stops', max(updated_at) from route_stops"
+          } 2>&1 | tee "$LOGS/02-seed.log"
+      - name: Start alert webhook receiver
+        run: |
+          nohup python "$OBS/ci/webhook_receiver.py" 18080 "$OUT/webhook.jsonl" > "$LOGS/webhook-receiver.log" 2>&1 &
+          sleep 1
+      - name: "Stale: dbt source freshness must FAIL (exit 1) and be recorded as a failed run"
+        run: |
+          set +e
+          python -m fleetflow_observability track --store "$OUT/runs.jsonl" --alert \
+            --pipeline dbt --task source_freshness --expected-interval-seconds 3600 \
+            --metrics-out "$OUT/stale/textfile/runs.prom" -- \
+            dbt source freshness --project-dir data-engineering/dbt --profiles-dir "$OBS/ci" \
+              --output "$PWD/$OUT/stale/sources.json" 2>&1 | tee "$LOGS/03-dbt-stale.log"
+          code=${PIPESTATUS[0]}
+          set -e
+          echo "dbt source freshness exit code: $code" | tee -a "$LOGS/03-dbt-stale.log"
+          test "$code" -eq 1
+      - name: "Stale: verdicts match expectations and independent recomputation; alerts sent"
+        run: |
+          python -m fleetflow_observability freshness --sources-json "$OUT/stale/sources.json" \
+            --expect "$OBS/ci/expected_stale.json" --fail-on never --alert \
+            --metrics-out "$OUT/stale/textfile/freshness.prom" --summary-md "$OUT/stale/summary.md" \
+            2>&1 | tee "$LOGS/04-verify-stale.log"
+      - name: "Recover: real UPDATEs (triggers bump updated_at); dbt must PASS"
+        run: |
+          psql -v ON_ERROR_STOP=1 -f "$OBS/ci/refresh_scenario.sql" 2>&1 | tee "$LOGS/05-refresh.log"
+          python -m fleetflow_observability track --store "$OUT/runs.jsonl" --alert \
+            --pipeline dbt --task source_freshness --expected-interval-seconds 3600 \
+            --metrics-out "$OUT/healthy/textfile/runs.prom" -- \
+            dbt source freshness --project-dir data-engineering/dbt --profiles-dir "$OBS/ci" \
+              --output "$PWD/$OUT/healthy/sources.json" 2>&1 | tee -a "$LOGS/05-refresh.log"
+          python -m fleetflow_observability freshness --sources-json "$OUT/healthy/sources.json" \
+            --expect "$OBS/ci/expected_healthy.json" --fail-on warn \
+            --metrics-out "$OUT/healthy/textfile/freshness.prom" --summary-md "$OUT/healthy/summary.md" \
+            2>&1 | tee -a "$LOGS/05-refresh.log"
+      - name: Webhook received the stale-source and failed-run alerts
+        run: |
+          {
+            cat "$OUT/webhook.jsonl"
+            python - <<'EOF'
+          import json, os
+          titles = [json.loads(l)["alert"]["title"] for l in open(os.path.join(os.environ["OUT"], "webhook.jsonl"))]
+          expected = {"Pipeline failed: dbt.source_freshness", "Stale source raw.route_stops (error)", "Stale source raw.drivers (warn)"}
+          missing = expected - set(titles)
+          assert not missing, f"missing webhook alerts: {missing}"
+          assert len(titles) == len(expected), f"unexpected extra alerts: {titles}"
+          print(f"webhook OK: {sorted(titles)}")
+          EOF
+          } 2>&1 | tee "$LOGS/06-webhook.log"
+      - name: promtool check metrics on the generated textfiles
+        run: |
+          for f in "$OUT"/stale/textfile/*.prom "$OUT"/healthy/textfile/*.prom; do
+            echo "== $f"
+            docker run --rm -i --entrypoint promtool "$PROMETHEUS_IMAGE" check metrics < "$f"
+          done 2>&1 | tee "$LOGS/07-check-metrics.log"
+      - name: "Live Prometheus: stale metrics fire the expected alerts"
+        run: |
+          cp "$OUT"/stale/textfile/*.prom "$OUT/e2e-textfile/"
+          chmod 755 "$OUT/e2e-textfile"
+          docker network create obs
+          docker run -d --name node-exporter --network obs -v "$PWD/$OUT/e2e-textfile:/textfile:ro" \
+            "$NODE_EXPORTER_IMAGE" --collector.textfile.directory=/textfile
+          docker run -d --name prometheus --network obs -p 9090:9090 \
+            -v "$PWD/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro" \
+            -v "$PWD/monitoring/alerts:/etc/prometheus/alerts:ro" "$PROMETHEUS_IMAGE"
+          python "$OBS/ci/assert_prometheus_alerts.py" --timeout 180 --report "$OUT/prom-stale.json" \
+            --expect "firing:FleetflowSourceFreshnessError,table=route_stops" \
+            --expect "firing:FleetflowPipelineRunFailed,pipeline=dbt,task=source_freshness" \
+            --expect "pending:FleetflowSourceFreshnessWarn,table=drivers" \
+            --expect "absent:FleetflowSourceFreshnessError,table=orders" \
+            --expect "absent:FleetflowFreshnessCheckNotRunning" \
+            2>&1 | tee "$LOGS/08-prometheus-stale.log"
+      - name: "Live Prometheus: recovered metrics resolve the alerts"
+        run: |
+          cp "$OUT"/healthy/textfile/*.prom "$OUT/e2e-textfile/"
+          python "$OBS/ci/assert_prometheus_alerts.py" --timeout 180 --report "$OUT/prom-healthy.json" \
+            --expect "absent:FleetflowSourceFreshnessError" \
+            --expect "absent:FleetflowSourceFreshnessWarn" \
+            --expect "absent:FleetflowPipelineRunFailed" \
+            2>&1 | tee "$LOGS/09-prometheus-healthy.log"
+      - name: Container logs
+        if: failure()
+        run: |
+          docker logs prometheus > "$LOGS/prometheus-container.log" 2>&1 || true
+          docker logs node-exporter > "$LOGS/node-exporter-container.log" 2>&1 || true
+          cp data-engineering/dbt/logs/dbt.log "$LOGS/dbt-debug.log" 2>/dev/null || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: e2e
+          path: ci-artifacts
+          retention-days: 14
+
+  report:
+    needs: [unit, promtool, e2e]
+    if: always() && github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: data-engineering/observability/ci
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      - name: Post results as a PR comment
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NEEDS: ${{ toJSON(needs) }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          PR: ${{ github.event.pull_request.number }}
+          SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          python data-engineering/observability/ci/render_pr_comment.py artifacts "$NEEDS" "$RUN_URL" "$SHA" > comment.md
+          # GitHub caps comments at 65536 chars
+          head -c 60000 comment.md > comment.trimmed.md
+          gh pr comment "$PR" --repo "${{ github.repository }}" --body-file comment.trimmed.md

@@ -1,0 +1,14 @@
+# dbt profile used only by the observability CI job (disposable PostGIS
+# service container). Credentials come from the environment, never the repo.
+fleetflow:
+  target: ci
+  outputs:
+    ci:
+      type: postgres
+      host: "{{ env_var('FLEETFLOW_DBT_HOST', 'localhost') }}"
+      port: "{{ env_var('FLEETFLOW_DBT_PORT', '5432') | as_number }}"
+      user: "{{ env_var('FLEETFLOW_DBT_USER') }}"
+      password: "{{ env_var('FLEETFLOW_DBT_PASSWORD') }}"
+      dbname: "{{ env_var('FLEETFLOW_DBT_DBNAME') }}"
+      schema: dbt_ci
+      threads: 4

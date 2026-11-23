@@ -1,0 +1,62 @@
+# FleetFlow pipeline and data-freshness alerts.
+# Metrics are written by data-engineering/observability as node_exporter
+# textfile *.prom files. Rules are unit-tested with `promtool test rules`
+# (monitoring/alerts/tests/pipeline_alerts_test.yml) in CI.
+groups:
+  - name: fleetflow-pipeline-runs
+    rules:
+      - alert: FleetflowPipelineRunFailed
+        expr: fleetflow_pipeline_last_run_success == 0
+        for: 0m
+        labels:
+          severity: critical
+          team: data-platform
+        annotations:
+          summary: "Pipeline {{ $labels.pipeline }}.{{ $labels.task }} failed its latest run"
+          description: "The most recent finished run of {{ $labels.pipeline }}.{{ $labels.task }} did not succeed. Check the run store / Airflow logs."
+
+      - alert: FleetflowPipelineMissedSchedule
+        # No success within twice the declared interval (e.g. >48h for a daily DAG).
+        expr: >
+          (time() - fleetflow_pipeline_last_success_timestamp_seconds)
+            > 2 * fleetflow_pipeline_expected_interval_seconds
+        for: 10m
+        labels:
+          severity: warning
+          team: data-platform
+        annotations:
+          summary: "Pipeline {{ $labels.pipeline }}.{{ $labels.task }} has not succeeded within 2x its schedule"
+          description: "Last success was {{ $value | humanizeDuration }} ago."
+
+  - name: fleetflow-source-freshness
+    rules:
+      - alert: FleetflowSourceFreshnessWarn
+        expr: fleetflow_source_freshness_status_code == 1
+        for: 15m
+        labels:
+          severity: warning
+          team: data-platform
+        annotations:
+          summary: "Source {{ $labels.source }}.{{ $labels.table }} is past its warn_after SLA"
+          description: "dbt source freshness reports warn for {{ $labels.source }}.{{ $labels.table }}."
+
+      - alert: FleetflowSourceFreshnessError
+        expr: fleetflow_source_freshness_status_code >= 2
+        for: 0m
+        labels:
+          severity: critical
+          team: data-platform
+        annotations:
+          summary: "Source {{ $labels.source }}.{{ $labels.table }} is stale or its freshness check errored"
+          description: "Status code {{ $value }} (2 = past error_after, 3 = freshness query failed)."
+
+      - alert: FleetflowFreshnessCheckNotRunning
+        # Meta-monitoring: the freshness job itself stopped reporting.
+        expr: time() - fleetflow_source_freshness_check_timestamp_seconds > 3 * 3600
+        for: 10m
+        labels:
+          severity: warning
+          team: data-platform
+        annotations:
+          summary: "dbt source freshness has not reported for over 3 hours"
+          description: "Freshness metrics are {{ $value | humanizeDuration }} old; stale-data alerts cannot fire."
