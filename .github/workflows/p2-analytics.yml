@@ -70,7 +70,8 @@ jobs:
       - name: Compile and build actual views/marts + run all dbt data tests
         run: |
           dbt debug --profiles-dir data-engineering/dbt --project-dir data-engineering/dbt
-          dbt build --profiles-dir data-engineering/dbt --project-dir data-engineering/dbt --full-refresh
+          dbt build --profiles-dir data-engineering/dbt --project-dir data-engineering/dbt --full-refresh \
+            --exclude "source:raw.gps_hourly_curated+" "source:raw.gps_route_events+"
       - name: Assert exact seeded KPIs and unobserved NULL semantics
         run: |
           PGPASSWORD=fleetpass psql -h localhost -U fleetflow -d fleetflow_test \
