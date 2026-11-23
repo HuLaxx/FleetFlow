@@ -3,17 +3,40 @@ version: 2
 sources:
   - name: raw
     schema: public
+    # Freshness SLAs, checked by `dbt source freshness` and exported as
+    # Prometheus metrics by data-engineering/observability. Reference tables
+    # (depots, vehicles, customers) change rarely, so they have no SLA.
+    freshness: null
     tables:
       - name: orders
         description: Raw order data from the transactional database
+        # New orders arrive continuously during trading hours.
+        loaded_at_field: created_at
+        freshness:
+          warn_after: {count: 6, period: hour}
+          error_after: {count: 24, period: hour}
       - name: drivers
         description: Raw driver data
+        # Driver status changes at least once per shift.
+        loaded_at_field: updated_at
+        freshness:
+          warn_after: {count: 24, period: hour}
+          error_after: {count: 72, period: hour}
       - name: vehicles
         description: Raw vehicle data
       - name: routes
         description: Raw route data
+        # Routes are planned daily and progress through statuses during the day.
+        loaded_at_field: updated_at
+        freshness:
+          warn_after: {count: 24, period: hour}
+          error_after: {count: 48, period: hour}
       - name: route_stops
         description: Raw route stop data
+        loaded_at_field: updated_at
+        freshness:
+          warn_after: {count: 24, period: hour}
+          error_after: {count: 48, period: hour}
       - name: depots
         description: Raw depot/warehouse data
       - name: customers

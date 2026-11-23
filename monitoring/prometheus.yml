@@ -4,6 +4,10 @@ global:
   external_labels:
     monitor: 'fleetflow-monitor'
 
+# Pipeline/freshness alert rules (unit-tested with `promtool test rules`).
+rule_files:
+  - alerts/*.yml
+
 # Alertmanager configuration (optional)
 alerting:
   alertmanagers:
@@ -31,7 +35,8 @@ scrape_configs:
     static_configs:
       - targets: ['localhost:9090']
 
-  # Node exporter (system metrics)
+  # Node exporter (system metrics + pipeline/freshness *.prom files via the
+  # textfile collector; see data-engineering/observability)
   - job_name: 'node-exporter'
     static_configs:
       - targets: ['node-exporter:9100']

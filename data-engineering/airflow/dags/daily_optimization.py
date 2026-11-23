@@ -18,6 +18,13 @@ from airflow.utils.task_group import TaskGroup
 import json
 
 
+# Pipeline observability (data-engineering/observability): record each task
+# run and alert on failure. Optional - DAGs still parse if it is not installed.
+try:
+    from fleetflow_observability.airflow_callbacks import on_failure_callback, on_success_callback
+except ImportError:  # pragma: no cover - depends on the Airflow image
+    on_failure_callback = on_success_callback = None
+
 # Default arguments
 default_args = {
     'owner': 'fleetflow',
@@ -27,6 +34,8 @@ default_args = {
     'retries': 3,
     'retry_delay': timedelta(minutes=5),
     'execution_timeout': timedelta(hours=2),
+    'on_failure_callback': on_failure_callback,
+    'on_success_callback': on_success_callback,
 }
 
 
