@@ -6,6 +6,10 @@ import {
 import { SiteHeader } from '@/components/site/site-header';
 import { SiteFooter } from '@/components/site/site-footer';
 import { ReplayIntroButton } from '@/components/effects/replay-intro-button';
+import { DispatchBoard } from '@/components/home/dispatch-board';
+import { RoutingProof } from '@/components/home/routing-proof';
+import { StreamReplay } from '@/components/home/stream-replay';
+import './home.css';
 
 const shift = [
   { code: '01', title: 'Import the manifest', text: 'Bring orders, depots, delivery zones and vehicle capacity into one dispatch view.', detail: 'Understand the work' },
@@ -19,52 +23,6 @@ const systems = [
   { label: 'Operational data', value: 'PostgreSQL · PostGIS · WebSockets', icon: Database },
   { label: 'Data platform', value: 'Kafka · Spark streaming · dbt lakehouse', icon: Layers3 },
 ];
-
-function RouteIllustration() {
-  return (
-    <div className="relative min-h-[460px] overflow-hidden border border-[#3c5651] bg-[#112024] md:min-h-[570px]">
-      <svg viewBox="0 0 700 570" preserveAspectRatio="none" className="absolute inset-0 h-full w-full" aria-hidden="true">
-        <defs>
-          <pattern id="home-map-grid" width="48" height="48" patternUnits="userSpaceOnUse">
-            <path d="M 48 0 L 0 0 0 48" fill="none" stroke="#50605d" strokeWidth="1" opacity=".28"/>
-          </pattern>
-        </defs>
-        <rect x="0" y="0" width="700" height="570" fill="#112024"/>
-        <rect x="0" y="0" width="700" height="570" fill="url(#home-map-grid)"/>
-        <path d="M 0 0 L 100 0 Q 35 168 108 310 T 90 570 L 0 570 Z" fill="#143a43"/>
-        <path d="M 670 0 L 700 0 L 700 570 L 654 570 Q 600 280 670 0" fill="#143a43"/>
-        <g stroke="#3c5e59" fill="none" opacity=".6">
-          <path d="M 175 0 L 130 570 M 278 0 L 256 570 M 376 0 L 350 570 M 484 0 L 455 570 M 580 0 L 565 570" strokeWidth="5"/>
-          <path d="M 96 120 L 642 87 M 93 224 L 640 200 M 95 330 L 637 306 M 90 439 L 639 411" strokeWidth="4"/>
-        </g>
-        <g fontFamily="monospace" fontSize="10" fill="#6d9591" letterSpacing="2">
-          <text x="180" y="70">CHELSEA</text><text x="478" y="150">MIDTOWN</text><text x="151" y="512">SOHO</text><text x="432" y="495">LOWER EAST SIDE</text>
-        </g>
-        <g strokeLinecap="round" strokeLinejoin="round" fill="none" strokeWidth="4">
-          <path d="M 350 308 L 200 188 L 168 364 L 302 450 L 350 308" stroke="#95e6bc"/>
-          <path d="M 350 308 L 520 230 L 532 117 L 410 116 L 350 308" stroke="#ffc28b"/>
-          <path d="M 350 308 L 484 425 L 560 490 L 350 308" stroke="#93baff"/>
-        </g>
-        <g fill="#112024" strokeWidth="5">
-          <circle cx="200" cy="188" r="11" stroke="#95e6bc"/><circle cx="168" cy="364" r="11" stroke="#95e6bc"/><circle cx="302" cy="450" r="11" stroke="#95e6bc"/>
-          <circle cx="520" cy="230" r="11" stroke="#ffc28b"/><circle cx="532" cy="117" r="11" stroke="#ffc28b"/><circle cx="410" cy="116" r="11" stroke="#ffc28b"/>
-          <circle cx="484" cy="425" r="11" stroke="#93baff"/><circle cx="560" cy="490" r="11" stroke="#93baff"/>
-        </g>
-        <circle cx="350" cy="308" r="23" fill="#95e6bc" opacity=".14"/>
-        <rect x="338" y="296" width="24" height="24" rx="4" fill="#b3f0d2" stroke="#142b29" strokeWidth="4"/>
-      </svg>
-      <div className="absolute left-5 top-5 flex gap-3 border border-white/10 bg-[#0b191b]/90 px-4 py-3">
-        <span className="mt-1 h-2 w-2 bg-[#96e9be]"/>
-        <span className="text-[10px] font-semibold uppercase tracking-[.18em] text-[#d2e9dd]">Dispatch overview / scenario 01</span>
-      </div>
-      <div className="absolute bottom-5 left-5 right-5 flex flex-wrap justify-between gap-3 border border-white/10 bg-[#0b191b]/95 p-4 backdrop-blur-sm">
-        <div><p className="text-[10px] uppercase tracking-[.16em] text-[#91aea6]">Route groups</p><p className="mt-1 font-mono text-2xl text-[#eef7ef]">03 <span className="text-sm text-[#789b8c]">vehicles</span></p></div>
-        <div><p className="text-[10px] uppercase tracking-[.16em] text-[#91aea6]">Scenario orders</p><p className="mt-1 font-mono text-2xl text-[#eef7ef]">09 <span className="text-sm text-[#789b8c]">stops</span></p></div>
-        <div className="flex items-end"><span className="flex items-center gap-2 text-[10px] uppercase tracking-wider text-[#a5b9af]"><span className="h-2 w-2 rounded-full bg-[#96e9be]"/> Illustrative route diagram</span></div>
-      </div>
-    </div>
-  );
-}
 
 export default function HomePage() {
   return (
@@ -101,7 +59,7 @@ export default function HomePage() {
                 <div><span className="font-mono text-xl text-[#d9ede2]">03</span><p className="text-[11px] uppercase tracking-widest text-[#79948b]">Deliver</p></div>
               </div>
             </div>
-            <RouteIllustration />
+            <DispatchBoard />
           </div>
         </section>
 
@@ -135,6 +93,28 @@ export default function HomePage() {
                 </div>
               </article>
             ))}
+          </div>
+        </section>
+
+        <section className="border-y border-white/10 bg-[#0f1a1d]">
+          <div className="mx-auto max-w-[1580px] px-4 py-24 md:px-8 md:py-32">
+            <div className="mb-12 flex flex-col justify-between gap-6 md:flex-row md:items-end">
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-[.22em] text-[#96bea8]">Measured in CI, not promised</p>
+                <h2 className="mt-5 max-w-3xl text-[clamp(2.5rem,4.5vw,5.1rem)] font-semibold leading-[1.03] tracking-[-.06em]">A plan only counts if it holds.</h2>
+              </div>
+              <p className="max-w-sm text-sm leading-relaxed text-[#8da7a1]">Both results come from GitHub Actions runs on main, against real OR-Tools and a real Kafka broker. The data is synthetic and the limits are stated.</p>
+            </div>
+            <div className="grid gap-12 xl:grid-cols-[1.15fr_.85fr] xl:gap-16">
+              <div>
+                <h3 className="mb-6 text-2xl font-semibold tracking-[-.03em]">Route planning against simple baselines</h3>
+                <RoutingProof />
+              </div>
+              <div>
+                <h3 className="mb-6 text-2xl font-semibold tracking-[-.03em]">GPS stream, played at its real speed</h3>
+                <StreamReplay />
+              </div>
+            </div>
           </div>
         </section>
 
