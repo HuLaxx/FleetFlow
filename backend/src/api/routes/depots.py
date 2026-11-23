@@ -1,4 +1,5 @@
 """Read-only depot discovery for the dispatch optimization UI."""
+
 from fastapi import APIRouter, Depends
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -12,9 +13,7 @@ router = APIRouter()
 @router.get("")
 async def list_depots(db: AsyncSession = Depends(get_db)):
     """Return active depots; never invent depot IDs in the client."""
-    result = await db.execute(
-        select(Depot).where(Depot.is_active.is_(True)).order_by(Depot.name)
-    )
+    result = await db.execute(select(Depot).where(Depot.is_active.is_(True)).order_by(Depot.name))
     return {
         "depots": [
             {
