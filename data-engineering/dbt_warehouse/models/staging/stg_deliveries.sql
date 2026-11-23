@@ -1,0 +1,23 @@
+select
+    event_id,
+    order_id,
+    order_number,
+    customer_id,
+    depot_id,
+    vehicle_id,
+    driver_id,
+    cast(delivery_date as date)            as delivery_date,
+    cast(window_start as timestamp)        as window_start,
+    cast(window_end as timestamp)          as window_end,
+    cast(attempted_at as timestamp)        as attempted_at,
+    cast(ingested_at as timestamp)         as ingested_at,
+    status,
+    is_delivered,
+    is_on_time,
+    cast(lateness_minutes as double)       as lateness_minutes,
+    cast(ingest_latency_minutes as double) as ingest_latency_minutes,
+    cast(weight_kg as double)              as weight_kg,
+    cast(value_gbp as double)              as value_gbp,
+    cast(priority as integer)              as priority,
+    cast(distance_km as double)            as distance_km
+from {{ source('silver', 'deliveries') }}

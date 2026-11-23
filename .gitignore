@@ -39,3 +39,9 @@ crash.log
 monitoring/textfile/*.prom
 # Observability CI / local outputs
 data-engineering/observability/out/
+# Lakehouse pipeline outputs (generated, reproducible)
+data/lakehouse/
+**/dbt_warehouse/target/
+**/dbt_warehouse/logs/
+.terraform/
+*.tfstate*

@@ -1,0 +1,20 @@
+name: fleetflow_warehouse
+version: "1.0.0"
+config-version: 2
+profile: fleetflow_warehouse
+
+model-paths: ["models"]
+test-paths: ["tests"]
+macro-paths: ["macros"]
+clean-targets: ["target", "dbt_packages"]
+
+vars:
+  # Re-process this many trailing days on incremental runs to pick up late-arriving events.
+  lookback_days: 3
+
+models:
+  fleetflow_warehouse:
+    staging:
+      +materialized: view
+    marts:
+      +materialized: table

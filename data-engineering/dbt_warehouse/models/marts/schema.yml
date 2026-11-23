@@ -1,0 +1,58 @@
+version: 2
+
+models:
+  - name: dim_depot
+    columns:
+      - name: depot_key
+        tests: [unique, not_null]
+      - name: depot_id
+        tests: [unique, not_null]
+  - name: dim_vehicle
+    columns:
+      - name: vehicle_key
+        tests: [unique, not_null]
+      - name: depot_id
+        tests:
+          - relationships: {to: ref('dim_depot'), field: depot_id}
+  - name: dim_driver
+    columns:
+      - name: driver_key
+        tests: [unique, not_null]
+      - name: rating_band
+        tests:
+          - accepted_values: {values: ['top', 'good', 'developing']}
+  - name: dim_customer
+    columns:
+      - name: customer_key
+        tests: [unique, not_null]
+  - name: dim_date
+    columns:
+      - name: date_key
+        tests: [unique, not_null]
+  - name: fct_deliveries
+    description: One row per delivery attempt.
+    columns:
+      - name: event_id
+        tests: [unique, not_null]
+      - name: status
+        tests:
+          - accepted_values: {values: ['delivered', 'failed']}
+      - name: date_key
+        tests:
+          - relationships: {to: ref('dim_date'), field: date_key}
+      - name: depot_key
+        tests:
+          - relationships: {to: ref('dim_depot'), field: depot_key}
+      - name: vehicle_key
+        tests:
+          - relationships: {to: ref('dim_vehicle'), field: vehicle_key}
+      - name: driver_key
+        tests:
+          - relationships: {to: ref('dim_driver'), field: driver_key}
+      - name: customer_key
+        tests:
+          - relationships: {to: ref('dim_customer'), field: customer_key}
+  - name: fct_daily_depot_kpis
+    columns:
+      - name: attempts
+        tests: [not_null]
