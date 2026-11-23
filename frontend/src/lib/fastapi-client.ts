@@ -3,6 +3,7 @@
  * Proxy layer to call the Python backend from tRPC
  */
 
+import { toDisplayDriver, toDisplayOrder } from './fleet-adapters';
 
 /** Wire-format projections: optional fields reflect partial API responses. */
 export type BackendOrder = {
@@ -81,6 +82,11 @@ export class FastAPIClient {
         return response.json();
     }
 
+    // Active depots for validated route optimization requests
+    async listDepots(): Promise<{ depots: { id: string; name: string; address: string; latitude: number; longitude: number }[] }> {
+        return this.request('/depots');
+    }
+
     // Drivers
     async listDrivers(params?: { status?: string; depot_id?: string }) {
         const queryParams = new URLSearchParams();
@@ -88,7 +94,8 @@ export class FastAPIClient {
         if (params?.depot_id) queryParams.append('depot_id', params.depot_id);
 
         const query = queryParams.toString();
-        return this.request<{ drivers: BackendDriver[] }>(`/drivers${query ? `?${query}` : ''}`);
+        const response = await this.request<{ drivers?: Parameters<typeof toDisplayDriver>[0][]; total?: number }>(`/drivers${query ? `?${query}` : ''}`);
+        return { ...response, drivers: (response.drivers || []).map(toDisplayDriver) };
     }
 
     async getDriver(id: string) {
@@ -115,7 +122,8 @@ export class FastAPIClient {
         if (params?.limit) queryParams.append('limit', params.limit.toString());
 
         const query = queryParams.toString();
-        return this.request<{ orders: BackendOrder[] }>(`/orders${query ? `?${query}` : ''}`);
+        const response = await this.request<{ orders?: Parameters<typeof toDisplayOrder>[0][]; total?: number }>(`/orders${query ? `?${query}` : ''}`);
+        return { ...response, orders: (response.orders || []).map(toDisplayOrder) };
     }
 
     async getOrder(id: string) {
@@ -132,7 +140,7 @@ export class FastAPIClient {
     async cancelOrder(id: string, reason?: string) {
         return this.request<BackendMutationResponse>(`/orders/${id}/cancel`, {
             method: 'POST',
-            body: JSON.stringify({ reason }),
+            body: JSON.stringify({ reason: reason?.trim() || 'Cancelled by dispatcher' }),
         });
     }
 
@@ -193,10 +201,10 @@ export class FastAPIClient {
     // Stats
     async getStats() {
         return Promise.all([
-            this.request<BackendStats>('/orders/stats'),
-            this.request<BackendStats>('/drivers/stats'),
-            this.request<BackendStats>('/routes/stats'),
-            this.request<BackendStats>('/vehicles/stats'),
+            this.request<BackendStats>('/orders/stats/summary'),
+            this.request<BackendStats>('/drivers/stats/summary'),
+            this.request<BackendStats>('/routes/stats/summary'),
+            this.request<BackendStats>('/vehicles/stats/summary'),
         ]).then(([orders, drivers, routes, vehicles]) => ({
             orders,
             drivers,

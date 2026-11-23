@@ -4,6 +4,7 @@ Refined for rigorous, unbiased evaluation using TimeSeriesSplit.
 """
 
 import argparse
+import copy
 import hashlib
 import json
 import os
@@ -22,6 +23,7 @@ import mlflow
 
 from ml.forecasting.model import DemandForecaster
 from ml.forecasting.features import FeatureEngineer
+from ml.forecasting.validation import scale_fold, forecast_metrics, serializable_scaler
 from ml.data.generate_synthetic import generate_synthetic_orders
 
 logger = structlog.get_logger()
@@ -74,6 +76,7 @@ def train_model_fold(
     optimizer = optim.Adam(model.parameters(), lr=params['lr'], weight_decay=params['weight_decay'])
     
     best_val_loss = float('inf')
+    best_state = copy.deepcopy(model.state_dict())
     patience_counter = 0
     patience_limit = 10 # Strict early stopping
     
@@ -83,7 +86,7 @@ def train_model_fold(
         for X_batch, y_batch in train_loader:
             optimizer.zero_grad()
             output = model(X_batch)
-            loss = criterion(output.squeeze(), y_batch)
+            loss = criterion(output.squeeze(-1), y_batch)
             loss.backward()
             optimizer.step()
             train_loss += loss.item()
@@ -94,7 +97,7 @@ def train_model_fold(
         with torch.no_grad():
             for X_batch, y_batch in val_loader:
                 output = model(X_batch)
-                loss = criterion(output.squeeze(), y_batch)
+                loss = criterion(output.squeeze(-1), y_batch)
                 val_loss += loss.item()
         
         avg_train_loss = train_loss / len(train_loader)
@@ -109,6 +112,7 @@ def train_model_fold(
         # Early Stopping check
         if avg_val_loss < best_val_loss:
             best_val_loss = avg_val_loss
+            best_state = copy.deepcopy(model.state_dict())
             patience_counter = 0
             # Save refined model (overwrite best)
             # In cross-validation, usually we retrain on full data or ensemble.
@@ -118,6 +122,8 @@ def train_model_fold(
             if patience_counter >= patience_limit:
                 break
                 
+    # Restore the best epoch rather than returning the final epoch.
+    model.load_state_dict(best_state)
     return best_val_loss, model
 
 def train_pipeline(
@@ -157,7 +163,8 @@ def train_pipeline(
     # 2. Feature Engineering
     fe = FeatureEngineer()
     df_features = fe.create_features(df)
-    X, y = fe.prepare_data(df_features, sequence_length=24)
+    # Split raw chronological sequences before fitting ANY preprocessing.
+    X, y = fe.prepare_raw_sequences(df_features, sequence_length=24)
     
     # 3. Time Series Cross-Validation
     tscv = TimeSeriesSplit(n_splits=5)
@@ -185,20 +192,48 @@ def train_pipeline(
         mlflow.set_tag("data_hash", data_hash)
         
         fold_scores = []
+        fold_evaluations = []
         
         for i, (train_index, val_index) in enumerate(tscv.split(X)):
             logger.info(f"Starting Fold {i+1}/5...")
             
-            X_train, X_val = X[train_index], X[val_index]
-            y_train, y_val = y[train_index], y[val_index]
-            
+            X_train_raw, X_val_raw = X[train_index], X[val_index]
+            y_train_raw, y_val_raw = y[train_index], y[val_index]
+            X_train, y_train, X_val, y_val, feature_scaler, target_scaler = scale_fold(
+                X_train_raw, y_train_raw, X_val_raw, y_val_raw
+            )
+
             val_loss, model = train_model_fold(
                 X_train, y_train, X_val, y_val,
                 input_size, params, i+1
             )
             
             fold_scores.append(val_loss)
-            logger.info(f"Fold {i+1} Best Val Loss: {val_loss:.4f}")
+            model.eval()
+            with torch.no_grad():
+                scaled_predictions = model(
+                    torch.as_tensor(X_val, dtype=torch.float32)
+                ).squeeze(-1).cpu().numpy()
+            predictions_orders = target_scaler.inverse_transform(
+                scaled_predictions.reshape(-1, 1)
+            ).reshape(-1)
+            target_index = fe.feature_columns.index("order_count")
+            naive_orders = X_val_raw[:, -1, target_index]
+            quality = forecast_metrics(y_val_raw, predictions_orders, naive_orders)
+            fold_evaluations.append(quality)
+            fold_mlflow_metrics = {
+                f"fold_{i+1}_model_mae_orders": quality["model_mae_orders"],
+                f"fold_{i+1}_naive_mae_orders": quality["naive_mae_orders"],
+                f"fold_{i+1}_model_rmse_orders": quality["model_rmse_orders"],
+            }
+            if quality["skill_vs_naive"] is not None:
+                fold_mlflow_metrics[f"fold_{i+1}_skill_vs_naive"] = quality["skill_vs_naive"]
+            mlflow.log_metrics(fold_mlflow_metrics)
+            logger.info(
+                "Fold evaluated against naive baseline",
+                fold=i + 1,
+                **quality
+            )
             
             # Save the model from the last split (trained on most recent data)
             if i == 4:
@@ -207,12 +242,39 @@ def train_pipeline(
                 artifact_path = artifact_dir / f"best_model_seed{seed}.pth"
                 torch.save(model.state_dict(), artifact_path)
                 mlflow.log_artifact(str(artifact_path))
-                logger.info("Saved refined model checkpoint", path=str(artifact_path))
+                # Persist feature order/scaler parameters with the weights.
+                # A checkpoint cannot be interpreted correctly without them.
+                preprocessor_path = artifact_dir / f"preprocessing_seed{seed}.json"
+                preprocessor_path.write_text(json.dumps({
+                    "input_features": fe.feature_columns,
+                    "target": "order_count",
+                    "sequence_length": 24,
+                    "feature_scaler": serializable_scaler(feature_scaler),
+                    "target_scaler": serializable_scaler(target_scaler),
+                    "model": {
+                        "input_size": input_size,
+                        "hidden_size": hidden_size,
+                        "num_layers": num_layers,
+                        "output_size": 1,
+                        "dropout": dropout,
+                    },
+                    "source": "synthetic" if not data_path else "provided dataset",
+                    "data_hash": data_hash,
+                }, indent=2), encoding="utf-8")
+                mlflow.log_artifact(str(preprocessor_path))
+                logger.info("Saved fold-best model and preprocessing",
+                            path=str(artifact_path))
 
         avg_cv_score = np.mean(fold_scores)
         std_cv_score = np.std(fold_scores)
         
         mlflow.log_metric("avg_cv_val_loss", avg_cv_score)
+        mlflow.log_metric("avg_cv_mae_orders", float(np.mean([
+            result["model_mae_orders"] for result in fold_evaluations
+        ])))
+        mlflow.log_metric("avg_naive_mae_orders", float(np.mean([
+            result["naive_mae_orders"] for result in fold_evaluations
+        ])))
         mlflow.log_metric("std_cv_val_loss", std_cv_score)
         mlflow.log_metric("training_time_sec", time.time() - start_ts)
         
@@ -228,6 +290,15 @@ def train_pipeline(
             "data_hash": data_hash,
             "params": params,
             "fold_scores": [float(score) for score in fold_scores],
+            "fold_evaluations": fold_evaluations,
+            "avg_cv_mae_orders": float(np.mean([
+                result["model_mae_orders"] for result in fold_evaluations
+            ])),
+            "avg_naive_mae_orders": float(np.mean([
+                result["naive_mae_orders"] for result in fold_evaluations
+            ])),
+            "scaling_protocol": "fit fold scalers on training samples only",
+            "validation_protocol": "chronological TimeSeriesSplit; last-value baseline",
             "avg_cv_val_loss": float(avg_cv_score),
             "std_cv_val_loss": float(std_cv_score),
             "training_time_sec": float(time.time() - start_ts),

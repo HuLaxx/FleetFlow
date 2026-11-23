@@ -1,0 +1,60 @@
+name: FleetFlow frontend quality
+
+on:
+  push:
+    branches:
+      - main
+      - 'redesign/**'
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  typecheck-and-e2e:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+      - name: Install exact frontend dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Type-check the frontend
+        run: pnpm exec tsc --noEmit
+      - name: Install Chromium and OS dependencies
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Run deterministic scenario and browser tests
+        # gps-full-stack.spec.ts needs a real API, Kafka and PostGIS fixture; it runs
+        # with those services in gps-full-stack.yml and p1-unified-gps-dbt.yml.
+        run: pnpm exec playwright test --grep-invert "Kafka -> PostGIS"
+      - name: Upload Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fleetflow-playwright-report
+          path: frontend/playwright-report/
+          retention-days: 7
+
+  ml-evaluation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install lightweight forecasting evaluation dependencies
+        run: python -m pip install numpy pandas scikit-learn pytest
+      - name: Run regression tests for leakage-safe time series evaluation
+        run: python -m pytest ml/tests/test_forecasting_validation.py -q

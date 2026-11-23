@@ -148,7 +148,7 @@ export function OrdersPanel() {
                                     <div className="flex items-center gap-1">
                                         <Clock className="w-3 h-3" />
                                         <span>
-                                            {order.time_window_start ? new Date(order.time_window_start).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) : 'N/A'}
+                                            {order.time_window || 'Not scheduled'}
                                         </span>
                                     </div>
                                 </div>

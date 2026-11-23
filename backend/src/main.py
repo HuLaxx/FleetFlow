@@ -16,6 +16,7 @@ from fastapi import Depends, FastAPI, Header, HTTPException
 
 from src.api.routes import (
     auth,
+    depots,
     drivers,
     experiments,
     monitoring,
@@ -147,6 +148,7 @@ app.include_router(drivers.router, prefix="/api/v1/drivers", tags=["Drivers"])
 app.include_router(routes.router, prefix="/api/v1/routes", tags=["Routes"])
 app.include_router(vehicles.router, prefix="/api/v1/vehicles", tags=["Vehicles"])
 app.include_router(optimization.router, prefix="/api/v1/optimization", tags=["Optimization"])
+app.include_router(depots.router, prefix="/api/v1/depots", tags=["Depots"])
 app.include_router(experiments.router, prefix="/api/v1", tags=["A/B Testing"])
 app.include_router(rag_router, tags=["RAG"])
 
