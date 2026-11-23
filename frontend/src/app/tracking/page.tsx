@@ -56,15 +56,15 @@ export default function TrackingPage() {
   }
   const connected = connection === "connected";
   return (
-    <div className="flex min-h-screen flex-col bg-stone-950 text-stone-100">
+    <div className="ff-v2 flex min-h-screen flex-col text-stone-100">
       <SiteHeader />
-      <main className="mx-auto w-full max-w-7xl flex-1 space-y-6 px-4 pb-16 pt-28 sm:px-6">
+      <main className="mx-auto w-full max-w-7xl flex-1 space-y-6 px-4 pb-16 pt-36 sm:px-6 md:pt-40">
         <header className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
           <div>
-            <div className="mb-2 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-emerald-400">
+            <div className="mb-4 inline-flex items-center gap-3 text-[11px] font-semibold uppercase tracking-[.24em] text-[#9dceb2]">
               <Activity size={14} /> P1 · Local integration
             </div>
-            <h1 className="text-3xl font-bold tracking-tight">GPS tracking console</h1>
+            <h1 className="text-[clamp(2.4rem,4.4vw,4rem)] font-semibold leading-[1] tracking-[-.06em] text-[#eaf2ed]">GPS tracking console</h1>
             <p className="mt-2 max-w-2xl text-sm text-stone-400">
               Actual validated GPS events only. Positions originate from Kafka and persisted PostGIS,
               not the seeded map in the public <Link href="/demo" className="text-emerald-400 underline">demo</Link>.

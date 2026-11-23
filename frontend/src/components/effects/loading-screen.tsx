@@ -5,11 +5,11 @@ import { usePathname, useRouter } from 'next/navigation';
 import { ArrowUpRight, Truck } from 'lucide-react';
 
 // Brand animation only. Never represent network/model progress with fabricated values.
-// The normal first paint is a brief, nonblocking 1.3-second transition.
-const INTRO_DURATION_MS = 1300;
+// The normal first paint builds in, holds, then lifts like a curtain over 2.4 seconds.
+const INTRO_DURATION_MS = 2400;
 
 /**
- * Normal page loads auto-dismiss in 1.3 seconds, with a CSS first-paint
+ * Normal page loads auto-dismiss in 2.4 seconds, with a CSS first-paint
  * fallback when hydration is delayed. /intro remains a persistent preview
  * for reviewing the artwork, not the normal site-loading experience.
  */
@@ -29,6 +29,7 @@ export function LoadingScreen() {
 
   const dismiss = useCallback(() => {
     clearCountdown();
+    document.documentElement.dataset.ffIntroDone = 'true';
     setVisible(false);
   }, [clearCountdown]);
 
@@ -106,7 +107,7 @@ export function LoadingScreen() {
         }}
         aria-hidden="true"
       />
-      <div className="relative flex min-h-svh w-full flex-1 flex-col items-center justify-center px-5 py-12 text-center">
+      <div className="ff-loader-stage relative flex min-h-svh w-full flex-1 flex-col items-center justify-center px-5 py-12 text-center">
         <div className="mb-8 flex items-center gap-2.5 text-[10px] font-semibold uppercase tracking-[.35em] text-[#85bc9e] sm:text-xs">
           <span className="ff-loader-live h-2 w-2 rounded-full bg-[#abf3cb]" aria-hidden="true" />
           FleetFlow / Dispatch systems
@@ -226,12 +227,40 @@ export function LoadingScreen() {
       <style jsx global>{`
         /* CSS-first paint dismiss keeps the real site responsive even if JS is slow. */
         .ff-loader-auto {
-          animation: ff-loader-out 1.3s ease-in-out both;
+          animation: ff-loader-out 2.4s cubic-bezier(0.76, 0, 0.24, 1) both;
+          will-change: transform;
         }
         @keyframes ff-loader-out {
-          0%, 76% { opacity: 1; visibility: visible; }
-          99% { opacity: 0.01; visibility: visible; }
-          100% { opacity: 0; visibility: hidden; pointer-events: none; }
+          0%, 70% { transform: translateY(0); visibility: visible; }
+          99% { transform: translateY(-100%); visibility: visible; }
+          100% { transform: translateY(-100%); visibility: hidden; pointer-events: none; }
+        }
+        /* Mint edge on the curtain as it lifts. */
+        .ff-loader-auto::after {
+          content: '';
+          position: absolute;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          height: 1px;
+          background: linear-gradient(90deg, transparent, rgba(171, 243, 203, 0.75), transparent);
+          transform: scaleX(0);
+          animation: ff-loader-edge 1.4s cubic-bezier(0.22, 1, 0.36, 1) 0.2s forwards;
+        }
+        @keyframes ff-loader-edge { to { transform: scaleX(1); } }
+        /* Build the composition in, one element after another. */
+        .ff-loader-auto .ff-loader-stage > * {
+          animation: ff-loader-in 0.75s cubic-bezier(0.22, 1, 0.36, 1) both;
+        }
+        .ff-loader-auto .ff-loader-stage > :nth-child(1) { animation-delay: 0.05s; }
+        .ff-loader-auto .ff-loader-stage > :nth-child(2) { animation-delay: 0.15s; }
+        .ff-loader-auto .ff-loader-stage > :nth-child(3) { animation-delay: 0.32s; }
+        .ff-loader-auto .ff-loader-stage > :nth-child(4) { animation-delay: 0.44s; }
+        .ff-loader-auto .ff-loader-stage > :nth-child(5) { animation-delay: 0.56s; }
+        .ff-loader-auto .ff-loader-stage > :nth-child(n + 6) { animation-delay: 0.66s; }
+        @keyframes ff-loader-in {
+          from { opacity: 0; transform: translateY(14px); filter: blur(6px); }
+          to { opacity: 1; transform: none; filter: none; }
         }
         .ff-loader-path {
           stroke-dasharray: 100;
@@ -284,6 +313,8 @@ export function LoadingScreen() {
         @keyframes ff-live { 0%, 100% { opacity: .35; } 50% { opacity: 1; } }
         @media (prefers-reduced-motion: reduce) {
           .ff-loader-auto { animation-timing-function: steps(1, end); }
+          .ff-loader-auto::after,
+          .ff-loader-auto .ff-loader-stage > * { animation: none !important; }
           .ff-loader .ff-loader-path,
           .ff-loader .ff-loader-spinner,
           .ff-loader .ff-loader-progress,

@@ -1,15 +1,15 @@
 import { test, expect } from '@playwright/test';
 
-test('normal intro auto-dismisses in 1.3 seconds and has no skip button', async ({ page }) => {
+test('normal intro builds in and lifts away in 2.4 seconds with no skip button', async ({ page }) => {
   await page.goto('/', { waitUntil: 'domcontentloaded' });
   const intro = page.getByRole('dialog', { name: 'FleetFlow opening screen' });
   await expect(page.getByRole('button', { name: /skip intro/i })).toHaveCount(0);
 
-  // The visible overlay has a 1.3s CSS fallback even if hydration is delayed.
+  // The visible overlay has a 2.4s CSS curtain even if hydration is delayed.
   const autoIntro = page.locator('.ff-loader-auto');
   if (await autoIntro.count()) {
     const duration = await autoIntro.evaluate(el => getComputedStyle(el).animationDuration);
-    expect(duration).toBe('1.3s');
+    expect(duration).toBe('2.4s');
   }
   await expect(intro).toHaveCount(0, { timeout: 4500 });
   await expect(page.getByRole('heading', { name: /a better way to move everything/i })).toBeVisible();
