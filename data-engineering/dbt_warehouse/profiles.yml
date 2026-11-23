@@ -7,7 +7,10 @@ fleetflow_warehouse:
     duckdb:
       type: duckdb
       path: "{{ env_var('DUCKDB_PATH', '../../data/lakehouse/warehouse.duckdb') }}"
-      threads: 4
+      # Single-threaded: one embedded DuckDB file shared by several dbt threads
+      # crashed CI once with "PyEval_SaveThread ... GIL is released". The models
+      # build in about 4 s single-threaded, so there is no parallelism to gain.
+      threads: 1
     snowflake:
       type: snowflake
       account: "{{ env_var('SNOWFLAKE_ACCOUNT', '') }}"
