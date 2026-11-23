@@ -19,7 +19,6 @@ export function LoadingScreen() {
   const showcase = pathname === '/intro';
   const [visible, setVisible] = useState(true);
   const timerRef = useRef<number | null>(null);
-  const skipAfterShowcaseRef = useRef(false);
 
   const clearCountdown = useCallback(() => {
     if (timerRef.current !== null) {
@@ -35,21 +34,18 @@ export function LoadingScreen() {
 
   const continueToSite = useCallback(() => {
     dismiss();
-    skipAfterShowcaseRef.current = true;
     router.replace('/');
   }, [dismiss, router]);
 
   // The root layout persists between Next.js client-side navigations.
   // Reopen only for the explicit preview route, not on every navigation.
-  useEffect(() => {
-    if (showcase) {
-      clearCountdown();
-      setVisible(true);
-    } else if (skipAfterShowcaseRef.current) {
-      skipAfterShowcaseRef.current = false;
-      setVisible(false);
-    }
-  }, [showcase, clearCountdown]);
+  // State is adjusted during render (not in an effect) to avoid a cascading render;
+  // the countdown effect below clears any pending timer while the preview is open.
+  const [previousShowcase, setPreviousShowcase] = useState(showcase);
+  if (showcase !== previousShowcase) {
+    setPreviousShowcase(showcase);
+    if (showcase) setVisible(true);
+  }
 
   useEffect(() => {
     if (!visible || showcase) {

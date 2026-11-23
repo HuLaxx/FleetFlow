@@ -35,7 +35,9 @@ jobs:
       - name: Install Chromium and OS dependencies
         run: pnpm exec playwright install --with-deps chromium
       - name: Run deterministic scenario and browser tests
-        run: pnpm test:e2e
+        # gps-full-stack.spec.ts needs a real API, Kafka and PostGIS fixture; it runs
+        # with those services in gps-full-stack.yml and p1-unified-gps-dbt.yml.
+        run: pnpm exec playwright test --grep-invert "Kafka -> PostGIS"
       - name: Upload Playwright report on failure
         if: failure()
         uses: actions/upload-artifact@v4
