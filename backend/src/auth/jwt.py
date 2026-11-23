@@ -18,7 +18,9 @@ load_dotenv()  # Local .env support; existing real environment variables win.
 
 def validate_jwt_secret(key: str | None) -> str:
     """Reject missing, short and template authentication secrets in every environment."""
-    if not key or len(key) < 32 or key.startswith(("CHANGE_ME", "your-secret-key")):
+    # Case-insensitive: the committed k8s template uses "CHANGEME_..." without an underscore.
+    template_prefixes = ("change_me", "changeme", "change-me", "your-secret-key")
+    if not key or len(key) < 32 or key.lower().startswith(template_prefixes):
         raise RuntimeError(
             "JWT_SECRET_KEY must be set to a generated secret of at least 32 characters"
         )

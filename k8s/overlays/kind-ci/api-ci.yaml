@@ -1,0 +1,20 @@
+# Run two replicas of the locally loaded image; give the read-only root
+# filesystem a writable /tmp.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fleetflow-api
+  namespace: fleetflow
+spec:
+  replicas: 2
+  template:
+    spec:
+      containers:
+        - name: api
+          imagePullPolicy: IfNotPresent
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}
