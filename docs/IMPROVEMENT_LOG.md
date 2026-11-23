@@ -44,9 +44,28 @@ duplicating them.
 - Local (Python 3.13, sandbox without network; no dbt/PostGIS/Docker available):
   `pytest` 86 passed, 1 skipped (PostgreSQL store test needs a DSN); ruff and
   black clean.
-- CI: _pending - filled in after the workflow runs._
+- CI, workflow `Pipeline observability`, run 45093416417 on commit `9e1efe0`
+  (GitHub-hosted ubuntu-latest, Python 3.11; all data **synthetic**):
+  - `unit`: 87 passed, 0 failed, 0 skipped (including the PostgreSQL 16 run-store
+    test); line+branch coverage of `fleetflow_observability` 98%; ruff 0.16.9 and
+    black 26.5.1 clean; both DAG files compile.
+  - `promtool` (Prometheus v2.53.2): `check config`, `check rules` and
+    `test rules` passed (4 rule-test groups, 5 rules).
+  - `e2e`: real `dbt source freshness` (dbt-core 1.8.8, dbt-postgres 1.8.2,
+    PostGIS 15-3.3). Stale scenario: dbt exited 1 with orders=pass, routes=pass,
+    drivers=warn (30 h old), route_stops=error (50 h old); every verdict matched
+    the independent recomputation. After real `UPDATE`s fired the schema's
+    `updated_at` triggers, all 4 sources passed and dbt exited 0. The webhook
+    receiver got exactly 3 alerts (failed dbt run, drivers warn, route_stops error).
+    In a live node_exporter v1.8.2 + Prometheus v2.53.2 run, the stale metrics fired
+    `FleetflowPipelineRunFailed` and `FleetflowSourceFreshnessError{table="route_stops"}`,
+    left `FleetflowSourceFreshnessWarn{table="drivers"}` pending (15 m `for`), and
+    did not fire for orders. After the recovered metrics were swapped in, no
+    alerts were active.
+  - The first CI run failed only on black formatting (CI pinned black 24 while
+    local used 26). Fixed by pinning the linters to the local versions.
 
-**Status:** IMPLEMENTED BUT NOT VERIFIED (awaiting CI)
+**Status:** COMPLETED & VERIFIED
 
 **Not done / honest limits:** no real paging endpoint is configured; Airflow
 callbacks are tested with Airflow-shaped context objects, not a running

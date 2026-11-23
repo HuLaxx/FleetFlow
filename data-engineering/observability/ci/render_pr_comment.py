@@ -66,7 +66,8 @@ def main():
         if rep.exists():
             data = json.loads(rep.read_text())
             verdict = "met" if data["ok"] else "UNMET: " + "; ".join(data["failures"])
-            out += ["", f"**Prometheus {name.split('-')[1]} alerts:** {verdict}", "```", *data["alerts"], "```"]
+            alerts = data["alerts"] or ["(no active alerts)"]
+            out += ["", f"**Prometheus {name.split('-')[1]} alerts:** {verdict}", "```", *alerts, "```"]
     hooks = e2e / "webhook.jsonl"
     if hooks.exists():
         titles = [json.loads(line)["alert"]["title"] for line in hooks.read_text().splitlines() if line.strip()]
