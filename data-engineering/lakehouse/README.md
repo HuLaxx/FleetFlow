@@ -54,10 +54,26 @@ All numbers come from synthetic data and are for comparing changes, not producti
 
 Quality gate on that run: orders pass rate 99.2%, deliveries 99.0%; every injected defect class is quarantined (checked by the tests).
 
-**Spark, dbt and reconciliation numbers** are produced by CI on every pull request and posted as a PR comment, plus a `lakehouse-evidence` artifact (logs, coverage, benchmark JSON, quarantine files).
+**Measured in CI** ([PR #25](https://github.com/HuLaxx/FleetFlow/pull/25), GitHub-hosted runner, same dataset, Spark 3.5.3, dbt-duckdb 1.9):
+
+| Stage | Rows | Time | Throughput |
+| --- | ---: | ---: | ---: |
+| Generate (bronze CSV) | 305,435 | 1.7 s | ~176,000 rows/s |
+| Quality gate | 305,435 | 2.1 s | ~143,000 rows/s |
+| Spark silver, cold run | 148,506 fact rows | 10.6 s | ~14,000 rows/s |
+| Spark silver, idempotent re-run | 148,506 (no duplicates) | 2.5 s | |
+| dbt build, full / incremental re-run | 38 models + tests | 4.3 s / 2.8 s | |
+
+- Tests: 15 passed (including 4 Spark integration tests); 83% line coverage of the lakehouse package.
+- dbt: 38 of 38 nodes passed on both the full build and the incremental re-run.
+- Reconciliation: 148,506 silver rows = 148,506 gold rows; overall on-time rate 76.9%, success rate 94.0% (synthetic).
+- Terraform: `fmt` clean and `validate` passed (azurerm 3.117).
+
+Every pull request re-runs this and posts the results as a comment, plus a `lakehouse-evidence` artifact (logs, coverage, benchmark JSON, quarantine files).
 
 ## Known limits
 
 - The Airflow DAG compiles but is not executed in CI (Airflow isn't installed there).
+- The repo's older `Backend Tests` workflow was already failing on `main` before this pipeline was added; it is unrelated to the lakehouse code.
 - `databricks.yml` and the Terraform are validated syntactically only; nothing is deployed, so no cloud costs are incurred.
 - The Snowflake target uses the same SQL as DuckDB but hasn't been run against a live Snowflake account.
