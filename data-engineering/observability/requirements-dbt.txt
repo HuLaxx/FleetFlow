@@ -1,3 +1,5 @@
 # dbt for the source-freshness end-to-end job (Python 3.11).
-dbt-core==1.8.8
-dbt-postgres==1.8.2
+# 1.10+ is required: models/schema.yml nests generic-test inputs under `arguments:`,
+# matching the dbt version the other FleetFlow dbt jobs install (dbt-postgres>=1.9,<2).
+dbt-core>=1.10,<2
+dbt-postgres>=1.10,<2
