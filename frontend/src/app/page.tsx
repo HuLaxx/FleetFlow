@@ -60,8 +60,8 @@ export default function LandingPage() {
             </h1>
 
             <p className="text-xl text-stone-400 max-w-2xl mx-auto mb-10 leading-relaxed">
-              Enterprise-grade logistics engine powered by predictive ML and real-time event streaming.
-              Reduce delivery times by <span className="text-emerald-400 font-semibold">23%</span>.
+              A portfolio logistics platform: OR-Tools route optimisation, Kafka event streaming and a
+              PySpark + dbt lakehouse, <span className="text-emerald-400 font-semibold">tested end to end in CI</span>.
             </p>
 
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
@@ -96,10 +96,10 @@ export default function LandingPage() {
             className="grid grid-cols-2 md:grid-cols-4 gap-8 mt-20 border-t border-stone-900 pt-10"
           >
             {[
-              { label: 'Latency', value: '< 800ms', icon: Clock },
-              { label: 'Data Points', value: '1M+/day', icon: Database },
-              { label: 'Prediction Accuracy', value: '94%', icon: BarChart3 },
-              { label: 'Uptime', value: '99.99%', icon: Shield },
+              { label: 'Spark silver throughput', value: '~14k rows/s', icon: Database },
+              { label: 'Idempotent re-run', value: '2.5 s', icon: Clock },
+              { label: 'dbt nodes passing', value: '38 / 38', icon: BarChart3 },
+              { label: 'Lakehouse test coverage', value: '83%', icon: Shield },
             ].map((stat) => (
               <div key={stat.label} className="flex flex-col items-center">
                 <div className="w-10 h-10 rounded-full bg-stone-900/50 border border-emerald-900/30 flex items-center justify-center mb-3 text-emerald-500">
@@ -110,6 +110,9 @@ export default function LandingPage() {
               </div>
             ))}
           </motion.div>
+          <p className="mt-6 text-xs text-stone-500">
+            Measured in GitHub Actions on synthetic data (148,506 delivery rows); not production figures.
+          </p>
         </div>
       </section>
 

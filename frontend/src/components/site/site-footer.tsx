@@ -37,7 +37,7 @@ export function SiteFooter() {
                                 </span>
                             </Link>
                             <p className="text-stone-400 max-w-sm leading-relaxed text-sm">
-                                Enterprise-grade real-time delivery optimization platform.
+                                Portfolio project in route optimisation and fleet data engineering.
                                 ML-powered route optimization, demand forecasting, and fleet tracking.
                             </p>
                         </div>

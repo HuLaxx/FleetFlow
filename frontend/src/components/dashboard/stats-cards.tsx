@@ -22,8 +22,8 @@ export function StatsCards() {
         {
             name: 'Active Orders',
             value: orderStats?.total_active || 0,
-            change: '+12%',
-            trend: 'up' as const,
+            change: 'live',
+            trend: 'neutral' as const,
             ...iconColorMap.orders,
         },
         {
@@ -38,8 +38,8 @@ export function StatsCards() {
         {
             name: 'Routes Today',
             value: routeStats?.routes_in_progress || 0,
-            change: '+5%',
-            trend: 'up' as const,
+            change: 'live',
+            trend: 'neutral' as const,
             ...iconColorMap.routes,
         },
         {
@@ -47,8 +47,8 @@ export function StatsCards() {
             value: routeStats?.avg_stop_time_minutes
                 ? `${Math.round(routeStats.avg_stop_time_minutes)}m`
                 : 'N/A',
-            change: '-8%',
-            trend: 'down' as const,
+            change: 'live',
+            trend: 'neutral' as const,
             ...iconColorMap.avgDelivery,
         },
     ];

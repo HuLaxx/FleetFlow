@@ -19,7 +19,7 @@ const script = Merienda({
 
 export const metadata: Metadata = {
   title: "FleetFlow | Real-Time Delivery Optimization",
-  description: "Predictive & reactive delivery route optimization with real-time fleet management. Reduce delivery time by 23%, cut fuel costs by 18%.",
+  description: "Delivery route optimisation and fleet data engineering: OR-Tools routing, Kafka GPS events, a PySpark and dbt lakehouse and Airflow, with benchmarks reproduced in CI on synthetic data.",
   keywords: ["delivery optimization", "fleet management", "route optimization", "logistics", "last-mile delivery"],
   authors: [{ name: "FleetFlow Team" }],
   icons: {
