@@ -20,7 +20,9 @@ on:
     paths:
       - 'backend/**'
       - 'ml/**'
+      - 'frontend/**'
       - 'docs/EVIDENCE_REGISTER.md'
+      - '.github/workflows/backend-tests.yml'
 
 jobs:
   frontend-quality:
