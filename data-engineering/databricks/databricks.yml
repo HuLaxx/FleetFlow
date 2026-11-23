@@ -1,0 +1,42 @@
+# Databricks Asset Bundle: runs the same PySpark job on Databricks.
+#   databricks bundle validate -t dev
+#   databricks bundle deploy -t dev && databricks bundle run fleetflow_silver -t dev
+# Works on Databricks Free Edition (serverless jobs) and on the Azure workspace from infra/azure.
+bundle:
+  name: fleetflow-lakehouse
+
+variables:
+  lake_root:
+    description: Root folder for bronze/validated/silver data (dbfs:/Volumes/... or abfss://...)
+    default: /Volumes/workspace/fleetflow/lake
+  start_date:
+    default: "2026-01-01"
+  end_date:
+    default: "2026-01-30"
+
+resources:
+  jobs:
+    fleetflow_silver:
+      name: fleetflow-silver-${bundle.target}
+      max_concurrent_runs: 1
+      tasks:
+        - task_key: spark_silver
+          spark_python_task:
+            python_file: ../lakehouse/spark_job.py
+            parameters:
+              - --root
+              - ${var.lake_root}
+              - --start-date
+              - ${var.start_date}
+              - --end-date
+              - ${var.end_date}
+          environment_key: default
+      environments:
+        - environment_key: default
+          spec:
+            client: "1"
+
+targets:
+  dev:
+    mode: development
+    default: true

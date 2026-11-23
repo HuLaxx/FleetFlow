@@ -13,3 +13,10 @@ mlflow-artifacts/
 backend/.venv/
 **/__pycache__/
 *.pyc
+
+# Lakehouse pipeline outputs (generated, reproducible)
+data/lakehouse/
+**/dbt_warehouse/target/
+**/dbt_warehouse/logs/
+.terraform/
+*.tfstate*
