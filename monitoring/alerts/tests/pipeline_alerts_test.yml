@@ -1,0 +1,110 @@
+# Unit tests for pipeline_alerts.yml: `promtool test rules tests/pipeline_alerts_test.yml`
+# All series below are synthetic.
+rule_files:
+  - ../pipeline_alerts.yml
+
+evaluation_interval: 1m
+
+tests:
+  - name: failed run fires immediately; recovered run clears
+    interval: 1m
+    input_series:
+      - series: 'fleetflow_pipeline_last_run_success{pipeline="daily_optimization",task="solve",instance="node",job="node-exporter"}'
+        values: "1 1 0 0 1"
+      - series: 'fleetflow_pipeline_last_run_success{pipeline="hourly_forecast",task="predict",instance="node",job="node-exporter"}'
+        values: "1x4"
+    alert_rule_test:
+      - eval_time: 1m
+        alertname: FleetflowPipelineRunFailed
+        exp_alerts: []
+      - eval_time: 2m
+        alertname: FleetflowPipelineRunFailed
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              team: data-platform
+              pipeline: daily_optimization
+              task: solve
+              instance: node
+              job: node-exporter
+            exp_annotations:
+              summary: "Pipeline daily_optimization.solve failed its latest run"
+              description: "The most recent finished run of daily_optimization.solve did not succeed. Check the run store / Airflow logs."
+      - eval_time: 4m
+        alertname: FleetflowPipelineRunFailed
+        exp_alerts: []
+
+  - name: missed schedule after 2x interval plus 10m pending
+    interval: 1m
+    input_series:
+      # last success at t=0 (unix 0); hourly pipeline -> threshold 7200s
+      - series: 'fleetflow_pipeline_last_success_timestamp_seconds{pipeline="hourly_forecast",task="predict"}'
+        values: "0x200"
+      - series: 'fleetflow_pipeline_expected_interval_seconds{pipeline="hourly_forecast",task="predict"}'
+        values: "3600x200"
+    alert_rule_test:
+      - eval_time: 125m  # 7500s > 7200s for only 4m (< 10m): pending, not firing
+        alertname: FleetflowPipelineMissedSchedule
+        exp_alerts: []
+      - eval_time: 135m
+        alertname: FleetflowPipelineMissedSchedule
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              team: data-platform
+              pipeline: hourly_forecast
+              task: predict
+            exp_annotations:
+              summary: "Pipeline hourly_forecast.predict has not succeeded within 2x its schedule"
+              description: "Last success was 2h 15m 0s ago."
+
+  - name: freshness warn needs 15m, error is immediate (incl. runtime error)
+    interval: 1m
+    input_series:
+      - series: 'fleetflow_source_freshness_status_code{source="raw",table="drivers"}'
+        values: "1x30"
+      - series: 'fleetflow_source_freshness_status_code{source="raw",table="route_stops"}'
+        values: "0 2x30"
+      - series: 'fleetflow_source_freshness_status_code{source="raw",table="routes"}'
+        values: "3x30"
+      - series: 'fleetflow_source_freshness_status_code{source="raw",table="orders"}'
+        values: "0x30"
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: FleetflowSourceFreshnessWarn
+        exp_alerts: []
+      - eval_time: 16m
+        alertname: FleetflowSourceFreshnessWarn
+        exp_alerts:
+          - exp_labels: {severity: warning, team: data-platform, source: raw, table: drivers}
+            exp_annotations:
+              summary: "Source raw.drivers is past its warn_after SLA"
+              description: "dbt source freshness reports warn for raw.drivers."
+      - eval_time: 1m
+        alertname: FleetflowSourceFreshnessError
+        exp_alerts:
+          - exp_labels: {severity: critical, team: data-platform, source: raw, table: route_stops}
+            exp_annotations:
+              summary: "Source raw.route_stops is stale or its freshness check errored"
+              description: "Status code 2 (2 = past error_after, 3 = freshness query failed)."
+          - exp_labels: {severity: critical, team: data-platform, source: raw, table: routes}
+            exp_annotations:
+              summary: "Source raw.routes is stale or its freshness check errored"
+              description: "Status code 3 (2 = past error_after, 3 = freshness query failed)."
+
+  - name: freshness check stopped reporting
+    interval: 1m
+    input_series:
+      - series: 'fleetflow_source_freshness_check_timestamp_seconds'
+        values: "0x300"
+    alert_rule_test:
+      - eval_time: 170m
+        alertname: FleetflowFreshnessCheckNotRunning
+        exp_alerts: []
+      - eval_time: 200m
+        alertname: FleetflowFreshnessCheckNotRunning
+        exp_alerts:
+          - exp_labels: {severity: warning, team: data-platform}
+            exp_annotations:
+              summary: "dbt source freshness has not reported for over 3 hours"
+              description: "Freshness metrics are 3h 20m 0s old; stale-data alerts cannot fire."

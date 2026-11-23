@@ -1,0 +1,54 @@
+{
+  "_comment": "SYNTHETIC fixture in the shape of dbt 1.8 target/sources.json (schema v3). Values are hand-written for tests, not from a real run.",
+  "metadata": {
+    "dbt_schema_version": "https://schemas.getdbt.com/dbt/sources/v3.json",
+    "dbt_version": "1.8.8",
+    "generated_at": "2026-11-23T12:00:05.000000Z",
+    "invocation_id": "00000000-0000-0000-0000-000000000000",
+    "env": {}
+  },
+  "results": [
+    {
+      "unique_id": "source.fleetflow.raw.orders",
+      "max_loaded_at": "2026-11-23T11:00:00+00:00",
+      "snapshotted_at": "2026-11-23T12:00:00+00:00",
+      "max_loaded_at_time_ago_in_s": 3600.0,
+      "status": "pass",
+      "criteria": {"warn_after": {"count": 6, "period": "hour"}, "error_after": {"count": 24, "period": "hour"}, "filter": null},
+      "adapter_response": {},
+      "timing": [],
+      "thread_id": "Thread-1",
+      "execution_time": 0.02
+    },
+    {
+      "unique_id": "source.fleetflow.raw.drivers",
+      "max_loaded_at": "2026-11-22T06:00:00+00:00",
+      "snapshotted_at": "2026-11-23T12:00:00+00:00",
+      "max_loaded_at_time_ago_in_s": 108000.0,
+      "status": "warn",
+      "criteria": {"warn_after": {"count": 24, "period": "hour"}, "error_after": {"count": 72, "period": "hour"}, "filter": null},
+      "adapter_response": {},
+      "timing": [],
+      "thread_id": "Thread-2",
+      "execution_time": 0.02
+    },
+    {
+      "unique_id": "source.fleetflow.raw.route_stops",
+      "max_loaded_at": "2026-11-21T10:00:00Z",
+      "snapshotted_at": "2026-11-23T12:00:00Z",
+      "max_loaded_at_time_ago_in_s": 180000.0,
+      "status": "error",
+      "criteria": {"warn_after": {"count": 24, "period": "hour"}, "error_after": {"count": 2, "period": "day"}, "filter": null},
+      "adapter_response": {},
+      "timing": [],
+      "thread_id": "Thread-3",
+      "execution_time": 0.02
+    },
+    {
+      "unique_id": "source.fleetflow.raw.routes",
+      "error": "Database Error\n  relation \"public.routes\" does not exist",
+      "status": "runtime error"
+    }
+  ],
+  "elapsed_time": 0.41
+}

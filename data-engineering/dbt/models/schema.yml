@@ -1,15 +1,34 @@
 # Merged from both draft series on 2026-11-23: each model keeps the definition
 # from the series that changed it (no model was changed by both).
+# Freshness SLAs (orders, drivers, routes, route_stops) are checked by `dbt source freshness`
+# and exported as Prometheus metrics by data-engineering/observability.
 version: 2
 sources:
 - name: raw
   schema: public
   tables:
-  - {name: orders}
-  - {name: drivers}
+  - name: orders
+    loaded_at_field: created_at
+    freshness:
+      warn_after: {count: 6, period: hour}
+      error_after: {count: 24, period: hour}
+  - name: drivers
+    loaded_at_field: updated_at
+    freshness:
+      warn_after: {count: 24, period: hour}
+      error_after: {count: 72, period: hour}
   - {name: vehicles, description: Raw vehicle data}
-  - {name: routes}
-  - {name: route_stops, description: Raw route stop data}
+  - name: routes
+    loaded_at_field: updated_at
+    freshness:
+      warn_after: {count: 24, period: hour}
+      error_after: {count: 48, period: hour}
+  - name: route_stops
+    description: Raw route stop data
+    loaded_at_field: updated_at
+    freshness:
+      warn_after: {count: 24, period: hour}
+      error_after: {count: 48, period: hour}
   - {name: depots, description: Raw depot/warehouse data}
   - {name: customers, description: Raw customer data}
   - name: gps_hourly_curated
@@ -28,6 +47,7 @@ sources:
       tests: [not_null]
     - name: event_id
       tests: [not_null]
+  freshness: null
 models:
 - name: fct_gps_route_events
   description: Event-level native route lineage from the authenticated GPS path

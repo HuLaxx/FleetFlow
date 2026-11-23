@@ -37,6 +37,14 @@ def evaluate_historical_demand(**context):
     return {"mode": "manual_evaluation_only", "result_artifact": str(target)}
 
 
+
+# Pipeline observability (data-engineering/observability): record each task
+# run and alert on failure. Optional - DAGs still parse if it is not installed.
+try:
+    from fleetflow_observability.airflow_callbacks import on_failure_callback, on_success_callback
+except ImportError:  # pragma: no cover - depends on the Airflow image
+    on_failure_callback = on_success_callback = None
+
 with DAG(
     dag_id="hourly_demand_forecast",
     description="Manual chronological evaluation of supplied hourly observations only",
@@ -44,6 +52,10 @@ with DAG(
     schedule_interval=None,
     catchup=False,
     max_active_runs=1,
+    default_args={
+        "on_failure_callback": on_failure_callback,
+        "on_success_callback": on_success_callback,
+    },
     tags=["fleetflow", "manual", "forecast-baseline"],
 ) as dag:
     PythonOperator(task_id="evaluate_historical_demand", python_callable=evaluate_historical_demand)

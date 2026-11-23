@@ -34,3 +34,8 @@ data-engineering/dbt/logs/
 **/*.tfvars
 !**/*.tfvars.example
 crash.log
+
+# Generated pipeline metrics for node_exporter textfile collector
+monitoring/textfile/*.prom
+# Observability CI / local outputs
+data-engineering/observability/out/
