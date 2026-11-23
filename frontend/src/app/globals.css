@@ -257,6 +257,8 @@
   --color-stone-800: #2c4643;
   --color-stone-900: #121e22;
   --color-stone-950: #0c1418;
+  /* The theme's lg/xl/md radii are inline calc()s of --radius, so set it too. */
+  --radius: 2px;
   --radius-lg: 2px;
   --radius-xl: 2px;
   --radius-2xl: 3px;
