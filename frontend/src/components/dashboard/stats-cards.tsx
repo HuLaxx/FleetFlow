@@ -4,6 +4,8 @@ import { Package, Truck, Route, Clock, TrendingUp, TrendingDown } from 'lucide-r
 import { motion } from 'framer-motion';
 import { trpc } from '@/lib/trpc';
 
+type Trend = 'up' | 'down' | 'neutral';
+
 const iconColorMap = {
     orders: { color: 'from-emerald-500 to-emerald-400', icon: Package },
     drivers: { color: 'from-teal-600 to-teal-500', icon: Truck },
@@ -22,8 +24,8 @@ export function StatsCards() {
         {
             name: 'Active Orders',
             value: orderStats?.total_active || 0,
-            change: '+12%',
-            trend: 'up' as const,
+            change: 'live',
+            trend: 'neutral' as Trend,
             ...iconColorMap.orders,
         },
         {
@@ -32,14 +34,14 @@ export function StatsCards() {
             change: driverStats?.availability_percentage
                 ? `${Math.round(driverStats.availability_percentage)}%`
                 : '0%',
-            trend: 'neutral' as const,
+            trend: 'neutral' as Trend,
             ...iconColorMap.drivers,
         },
         {
             name: 'Routes Today',
             value: routeStats?.routes_in_progress || 0,
-            change: '+5%',
-            trend: 'up' as const,
+            change: 'live',
+            trend: 'neutral' as Trend,
             ...iconColorMap.routes,
         },
         {
@@ -47,8 +49,8 @@ export function StatsCards() {
             value: routeStats?.avg_stop_time_minutes
                 ? `${Math.round(routeStats.avg_stop_time_minutes)}m`
                 : 'N/A',
-            change: '-8%',
-            trend: 'down' as const,
+            change: 'live',
+            trend: 'neutral' as Trend,
             ...iconColorMap.avgDelivery,
         },
     ];
