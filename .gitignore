@@ -34,3 +34,10 @@ data-engineering/dbt/logs/
 **/*.tfvars
 !**/*.tfvars.example
 crash.log
+
+# Lakehouse pipeline outputs (generated, reproducible)
+data/lakehouse/
+**/dbt_warehouse/target/
+**/dbt_warehouse/logs/
+.terraform/
+*.tfstate*

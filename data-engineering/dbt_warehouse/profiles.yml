@@ -1,0 +1,20 @@
+# Two targets for the same models:
+#   duckdb    - local and CI; reads the Spark silver Parquet directly
+#   snowflake - production-style warehouse; credentials come from environment variables
+fleetflow_warehouse:
+  target: "{{ env_var('DBT_TARGET', 'duckdb') }}"
+  outputs:
+    duckdb:
+      type: duckdb
+      path: "{{ env_var('DUCKDB_PATH', '../../data/lakehouse/warehouse.duckdb') }}"
+      threads: 4
+    snowflake:
+      type: snowflake
+      account: "{{ env_var('SNOWFLAKE_ACCOUNT', '') }}"
+      user: "{{ env_var('SNOWFLAKE_USER', '') }}"
+      password: "{{ env_var('SNOWFLAKE_PASSWORD', '') }}"
+      role: "{{ env_var('SNOWFLAKE_ROLE', 'TRANSFORMER') }}"
+      warehouse: "{{ env_var('SNOWFLAKE_WAREHOUSE', 'TRANSFORMING') }}"
+      database: "{{ env_var('SNOWFLAKE_DATABASE', 'FLEETFLOW') }}"
+      schema: "{{ env_var('SNOWFLAKE_SCHEMA', 'ANALYTICS') }}"
+      threads: 4

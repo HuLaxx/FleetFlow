@@ -1,0 +1,19 @@
+version: 2
+
+sources:
+  - name: silver
+    description: >
+      Conformed tables written by the PySpark job (data-engineering/lakehouse/spark_job.py).
+      On DuckDB they are read straight from Parquet via external_location; on Snowflake they
+      are tables in the SILVER schema (e.g. loaded from ADLS with an external stage).
+    schema: silver
+    meta:
+      # Relative to this dbt project folder; run dbt from data-engineering/dbt_warehouse.
+      external_location: "read_parquet('../../data/lakehouse/silver/{name}/**/*.parquet', hive_partitioning = true)"
+    tables:
+      - name: depots
+      - name: vehicles
+      - name: drivers
+      - name: customers
+      - name: deliveries
+        loaded_at_field: processed_at

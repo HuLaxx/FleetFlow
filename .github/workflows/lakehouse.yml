@@ -1,0 +1,182 @@
+name: Lakehouse pipeline
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "data-engineering/lakehouse/**"
+      - "data-engineering/dbt_warehouse/**"
+      - "data-engineering/airflow/dags/lakehouse_daily.py"
+      - "infra/azure-lakehouse/**"
+      - ".github/workflows/lakehouse.yml"
+  pull_request:
+    paths:
+      - "data-engineering/lakehouse/**"
+      - "data-engineering/dbt_warehouse/**"
+      - "data-engineering/airflow/dags/lakehouse_daily.py"
+      - "infra/azure-lakehouse/**"
+      - ".github/workflows/lakehouse.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+env:
+  PYTHONPATH: data-engineering
+
+jobs:
+  pipeline:
+    name: Tests, Spark + dbt pipeline, benchmark
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Install
+        run: |
+          mkdir -p ci-logs
+          pip install "pyspark==3.5.3" "pandas==2.2.3" "numpy<2" "pytest==8.3.4" "pytest-cov==6.0.0" \
+                      "dbt-duckdb==1.9.1" "duckdb==1.1.3" 2>&1 | tail -5 | tee ci-logs/install.log
+
+      - name: Unit + Spark integration tests (with coverage)
+        run: |
+          set -o pipefail
+          python -m pytest data-engineering/lakehouse/tests -v \
+            --cov=data-engineering/lakehouse --cov-report=term --cov-report=xml:ci-logs/coverage.xml \
+            2>&1 | tee ci-logs/pytest.log
+
+      - name: Benchmark - generate, quality gate, Spark silver (30 days x 5,000 orders)
+        run: |
+          set -o pipefail
+          python -m lakehouse.benchmark --root data/lakehouse --days 30 --orders-per-day 5000 \
+            2>&1 | tee ci-logs/benchmark.log
+
+      - name: dbt build (full) then dbt build (incremental re-run)
+        working-directory: data-engineering/dbt_warehouse
+        run: |
+          set -o pipefail
+          start=$(date +%s.%N)
+          dbt build --profiles-dir . 2>&1 | tee ../../ci-logs/dbt_full.log
+          mid=$(date +%s.%N)
+          dbt build --profiles-dir . 2>&1 | tee ../../ci-logs/dbt_incremental.log
+          end=$(date +%s.%N)
+          python - <<EOF
+          import json
+          json.dump({"dbt_full_seconds": round($mid - $start, 2), "dbt_incremental_seconds": round($end - $mid, 2)},
+                    open("../../ci-logs/dbt_timing.json", "w"))
+          EOF
+
+      - name: Reconcile silver vs gold
+        run: |
+          set -o pipefail
+          python - <<'EOF' 2>&1 | tee ci-logs/reconcile.log
+          import json, duckdb
+          spark = json.load(open("data/lakehouse/spark_run_summary.json"))
+          con = duckdb.connect("data/lakehouse/warehouse.duckdb", read_only=True)
+          q = lambda s: con.execute(s).fetchone()[0]
+          gold = {
+              "fct_deliveries": q("select count(*) from fct_deliveries"),
+              "fct_deliveries_distinct_events": q("select count(distinct event_id) from fct_deliveries"),
+              "dim_date": q("select count(*) from dim_date"),
+              "dim_depot": q("select count(*) from dim_depot"),
+              "fct_daily_depot_kpis": q("select count(*) from fct_daily_depot_kpis"),
+              "overall_on_time_rate": q("select round(sum(delivered_on_time) * 1.0 / sum(delivered), 4) from fct_daily_depot_kpis"),
+              "overall_success_rate": q("select round(sum(delivered) * 1.0 / sum(attempts), 4) from fct_daily_depot_kpis"),
+          }
+          silver_rows = spark["rows"]["deliveries_total_in_silver"]
+          ok = gold["fct_deliveries"] == silver_rows == gold["fct_deliveries_distinct_events"]
+          print(json.dumps({"silver_fact_rows": silver_rows, "gold": gold, "reconciled": ok}, indent=2))
+          json.dump({"silver_fact_rows": silver_rows, "gold": gold, "reconciled": ok}, open("ci-logs/reconcile.json", "w"))
+          assert ok, "gold fact row count does not match silver"
+          EOF
+
+      - name: Build report
+        if: always()
+        run: |
+          python - <<'EOF'
+          import json, os, re, pathlib
+          L = pathlib.Path("ci-logs"); out = []
+          out.append("### Lakehouse pipeline CI")
+          t = (L / "pytest.log").read_text() if (L / "pytest.log").exists() else ""
+          m = re.findall(r"=+ (.*?(?:passed|failed|error).*?) =+", t)
+          out.append(f"**Tests:** {m[-1] if m else 'did not run'}")
+          c = re.search(r"TOTAL\s+\d+\s+\d+\s+(\d+%)", t)
+          out.append(f"**Coverage (lakehouse package):** {c.group(1) if c else 'n/a'}")
+          b = pathlib.Path("data/lakehouse/benchmark.md")
+          if b.exists():
+              out += ["", "**Benchmark** (synthetic data, GitHub-hosted runner):", "", b.read_text()]
+          if (L / "dbt_timing.json").exists():
+              d = json.loads((L / "dbt_timing.json").read_text())
+              out.append(f"| dbt build: full / incremental re-run | | {d['dbt_full_seconds']} s / {d['dbt_incremental_seconds']} s | |")
+          for name in ["dbt_full.log", "dbt_incremental.log"]:
+              if (L / name).exists():
+                  s = re.findall(r"Done\. PASS=\d+ WARN=\d+ ERROR=\d+ SKIP=\d+.*", (L / name).read_text())
+                  out.append(f"**{name[:-4]}:** {s[-1] if s else 'see log'}")
+          if (L / "reconcile.json").exists():
+              r = json.loads((L / "reconcile.json").read_text())
+              out.append(f"**Silver ↔ gold reconciliation:** {'✅' if r['reconciled'] else '❌'} "
+                         f"{r['silver_fact_rows']:,} silver rows vs {r['gold']['fct_deliveries']:,} gold rows; "
+                         f"on-time rate {r['gold']['overall_on_time_rate']}, success rate {r['gold']['overall_success_rate']}")
+          # On failure, include the tail of every log so the problem is visible in the PR.
+          if os.environ.get("JOB_STATUS") != "success":
+              for f in sorted(L.glob("*.log")):
+                  out += ["", f"<details><summary>{f.name} (last 60 lines)</summary>", "", "```",
+                          "\n".join(f.read_text().splitlines()[-60:]), "```", "</details>"]
+          pathlib.Path("ci-logs/report.md").write_text("\n".join(out))
+          open(os.environ["GITHUB_STEP_SUMMARY"], "a").write("\n".join(out))
+          EOF
+        env:
+          JOB_STATUS: ${{ job.status }}
+
+      - name: Comment on PR
+        if: always() && github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh pr comment ${{ github.event.pull_request.number }} --body-file ci-logs/report.md || true
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: lakehouse-evidence
+          path: |
+            ci-logs/
+            data/lakehouse/*.json
+            data/lakehouse/benchmark.md
+            data/lakehouse/quarantine/
+
+  terraform:
+    name: Terraform fmt + validate (Azure)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: infra/azure-lakehouse
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.9.8"
+      - name: Check, init and validate (no backend, no apply, no cloud credentials)
+        run: |
+          set -o pipefail
+          {
+            terraform fmt -check -recursive -diff && echo "fmt: ok" || echo "fmt: NEEDS FORMATTING (diff above)"
+            terraform init -backend=false -input=false
+            terraform validate
+          } 2>&1 | tee tf.log
+      - name: Comment on PR
+        if: always() && github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          { echo "### Terraform (infra/azure-lakehouse): ${{ job.status }}"; echo '```'; tail -40 tf.log 2>/dev/null; echo '```'; } > tf.md
+          gh pr comment ${{ github.event.pull_request.number }} --body-file tf.md || true
