@@ -10,7 +10,7 @@ from __future__ import annotations
 import asyncio
 import os
 import subprocess
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from airflow.decorators import dag, task
@@ -20,7 +20,7 @@ from airflow.decorators import dag, task
     dag_id="fleetflow_gps_analytics_replay",
     description="Explicit local GPS Parquet replay, reconciliation and dbt",
     schedule=None,
-    start_date=datetime(2026, 1, 1, tzinfo=UTC),
+    start_date=datetime(2026, 1, 1, tzinfo=timezone.utc),  # noqa: UP017 - Airflow 2.8.2 image runs Python 3.8
     catchup=False,
     max_active_runs=1,
     default_args={"owner": "fleetflow", "retries": 1,
