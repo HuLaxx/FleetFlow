@@ -45,3 +45,7 @@ data/lakehouse/
 **/dbt_warehouse/logs/
 .terraform/
 *.tfstate*
+
+# Spark Structured Streaming local output and benchmark
+data/streaming/
+stream_bench.json
