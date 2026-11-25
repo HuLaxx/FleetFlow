@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 import { TRPCProvider } from '@/lib/trpc';
 import { LoadingScreen } from '@/components/effects/loading-screen';
+import { ProjectGuide } from '@/components/project-guide/project-guide';
 
 export const metadata: Metadata = {
   title: 'FleetFlow | Dispatch planning and fleet operations',
@@ -26,6 +27,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       <body className="font-sans antialiased bg-[#0c1418] text-zinc-100" suppressHydrationWarning>
         <LoadingScreen />
         <TRPCProvider>{children}</TRPCProvider>
+        <ProjectGuide />
       </body>
     </html>
   );
